@@ -42,7 +42,14 @@ export const PLACEHOLDERS: [string, string][] = [
   ['bank_account_name', 'Bank account name'],
   ['collateral', 'Collateral items'],
   ['supervisor', 'Loan supervisor'],
-  ['schedule', 'Payment schedule table'],
+  ['schedule', 'Ready-made payment schedule table'],
+  ['schedule_no', 'Per payment row: number (put in a table row that repeats)'],
+  ['schedule_date', 'Per payment row: due date'],
+  ['schedule_principal', 'Per payment row: principal'],
+  ['schedule_interest', 'Per payment row: interest'],
+  ['schedule_total', 'Per payment row: amount to pay'],
+  ['schedule_total_words', 'Per payment row: amount to pay, in words'],
+  ['schedule_balance', 'Per payment row: principal left after it'],
 ]
 
 /** Starting text for a new template: paste it into a blank Google Doc and edit freely. */
@@ -151,6 +158,36 @@ const EN = {
   none: 'None',
 }
 
+function formatters(lang: ContractLang, cur: 'KHR' | 'USD') {
+  const km = lang === 'km'
+  return {
+    money: (n: number) => (km ? khMoney(n, cur) : fmt(n, cur)),
+    words: (n: number) => (km ? khMoneyWords(n, cur) : ''),
+    date: (iso: string) => (km ? khDate(iso) : fmtD(iso)),
+    num: (v: string | number) => (km ? khDigits(v) : String(v)),
+  }
+}
+
+/**
+ * One set of values per installment, for a table row in the template that repeats for every payment.
+ * The row uses {{schedule_no}}, {{schedule_date}}, {{schedule_principal}}, {{schedule_interest}},
+ * {{schedule_total}}, {{schedule_total_words}} and {{schedule_balance}}.
+ */
+export function scheduleRowValues(c: ContractInput, lang: ContractLang = 'km'): Values[] {
+  const { money, words, date, num } = formatters(lang, c.terms.currency)
+  const rows = loanTotals(c.terms).rows
+  let left = c.terms.amount
+  return rows.map((r) => {
+    left -= r.principal
+    const v: Record<string, string> = {
+      schedule_no: num(r.i), schedule_date: date(r.due), schedule_principal: money(r.principal),
+      schedule_interest: money(r.interest), schedule_total: money(r.total), schedule_total_words: words(r.total),
+      schedule_balance: money(Math.max(left, 0)),
+    }
+    return Object.fromEntries(Object.entries(v).map(([k, text]) => [k, { text }]))
+  })
+}
+
 /**
  * Every placeholder's value, written in the template's language. Khmer contracts get
  * Khmer digits, dates, currency names, wording and amounts in words.
@@ -161,10 +198,7 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
   const t = c.terms
   const tot = loanTotals(t)
   const cur = t.currency
-  const money = (n: number) => (km ? khMoney(n, cur) : fmt(n, cur))
-  const words = (n: number) => (km ? khMoneyWords(n, cur) : '')
-  const date = (iso: string) => (km ? khDate(iso) : fmtD(iso))
-  const num = (v: string | number) => (km ? khDigits(v) : String(v))
+  const { money, words, date, num } = formatters(lang, cur)
   const bank = c.payMethod === 'bank' ? c.bank : null
   const method = bank ? `${W.method.bank}, ${bank.bank} ${bank.account_no}` : c.payMethod === 'other' && c.payRemarks ? c.payRemarks : W.method[c.payMethod] ?? c.payMethod
   const cell = 'border:1px solid #888;padding:4px 8px;'
@@ -214,6 +248,26 @@ export function fillTemplate(html: string, values: Record<string, { text: string
     const v = values[key]
     return v ? (v.html ? v.text : esc(v.text)) : all
   })
+}
+
+/**
+ * A table row that contains {{schedule_…}} placeholders is the row template for the payment
+ * schedule: it is repeated once per installment, each copy filled with that payment's values.
+ */
+export function fillScheduleRows(html: string, rows: Values[]) {
+  if (!/\{\{[^}]*schedule_/i.test(html)) return html
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const isTemplate = (tr: Element) => /\{\{\s*schedule_[a-z_]+\s*\}\}/i.test(tr.textContent ?? '')
+  const trs = [...doc.querySelectorAll('tr')].filter(isTemplate)
+  for (const tr of trs) {
+    for (const values of rows) {
+      const copy = tr.cloneNode(true) as Element
+      copy.innerHTML = fillTemplate(copy.innerHTML, values)
+      tr.before(copy)
+    }
+    tr.remove()
+  }
+  return '<!doctype html>' + doc.documentElement.outerHTML
 }
 
 /** Adds a Khmer font after the template's own fonts so Khmer text falls back to it. */

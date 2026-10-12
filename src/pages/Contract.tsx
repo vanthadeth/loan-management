@@ -8,7 +8,7 @@ import { useAuth } from '../app/auth'
 import { dn, useBanks, useTeam } from '../data/core'
 import { useContractTemplates, useTemplateHtml } from '../data/contract'
 import { errMsg, useLoanFiles, useLoans } from '../data/loans'
-import { cleanDocument, contractValues, fillTemplate } from '../lib/contract'
+import { cleanDocument, contractValues, fillScheduleRows, fillTemplate, scheduleRowValues, type ContractInput } from '../lib/contract'
 import { loanCode } from '../lib/format'
 
 const PAGE_PX = 816 // Google Docs' default page width (8.5 in at 96 dpi); the preview is scaled to fit narrow screens
@@ -37,13 +37,14 @@ export function Contract() {
   const doc = useMemo(() => {
     if (!v || !v.borrower || !tpl.html || !files.data || !chosen) return null
     const bank = banks.data?.find((b) => b.id === v.loan.bank_account_id)
-    const values = contractValues({
+    const input: ContractInput = {
       loanId, terms: v.terms, frequency: v.loan.frequency, payMethod: v.loan.pay_method,
       bank: bank ?? null, payRemarks: v.loan.pay_remarks,
       borrower: v.borrower, collaterals: files.data.collaterals.map((c) => c.description),
       supervisor: dn(team.data?.find((p) => p.id === v.loan.supervisor_id)),
-    }, chosen.lang)
-    return cleanDocument(fillTemplate(tpl.html, values), chosen.lang)
+    }
+    const withRows = fillScheduleRows(tpl.html, scheduleRowValues(input, chosen.lang))
+    return cleanDocument(fillTemplate(withRows, contractValues(input, chosen.lang)), chosen.lang)
   }, [v, tpl.html, chosen, files.data, banks.data, team.data, loanId])
 
   useEffect(() => {

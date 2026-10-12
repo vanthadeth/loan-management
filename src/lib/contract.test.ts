@@ -1,5 +1,6 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest'
-import { contractValues, fillTemplate, type ContractInput } from './contract'
+import { contractValues, fillScheduleRows, fillTemplate, scheduleRowValues, type ContractInput } from './contract'
 import type { LoanTerms } from './calc'
 
 const terms: LoanTerms = {
@@ -45,5 +46,19 @@ describe('contract values', () => {
   })
   it('fills placeholders split across formatting spans', () => {
     expect(fillTemplate('Bank: {{<span>bank_</span><span>name}}', contractValues(input()))).toBe('Bank: ABA Bank')
+  })
+
+  it('repeats a table row once per payment', () => {
+    const html = '<table><tr><td>No</td><td>Date</td></tr><tr><td>{{schedule_no}}</td><td>{{schedule_<span>date}}</span></td><td>{{schedule_total}}</td></tr></table>'
+    const out = fillScheduleRows(html, scheduleRowValues(input({}, { occurrences: 3 })))
+    const rows = new DOMParser().parseFromString(out, 'text/html').querySelectorAll('tr')
+    expect(rows).toHaveLength(4) // header + 3 payments
+    expect(rows[1].textContent).toContain('១')
+    expect(rows[1].textContent).toContain('ថ្ងៃទី១២ ខែវិច្ឆិកា ឆ្នាំ២០២៦')
+    expect(rows[3].textContent).toContain('១,០៦០,០០០ រៀល')
+  })
+  it('leaves templates without row placeholders alone', () => {
+    const html = '<p>{{schedule}}</p>'
+    expect(fillScheduleRows(html, scheduleRowValues(input()))).toBe(html)
   })
 })
