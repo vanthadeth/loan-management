@@ -8,7 +8,7 @@ export type ContractLang = 'km' | 'en'
 export const PLACEHOLDERS: [string, string][] = [
   ['contract_no', 'Loan code, e.g. L-021'],
   ['contract_date', 'Date the contract is printed'],
-  ['borrower_name', 'Borrower name (Khmer when recorded, otherwise English letters)'],
+  ['borrower_name', 'Borrower name (Khmer in a Khmer template; Latin letters in an English one, with the other as fallback)'],
   ['borrower_name_km', 'Borrower name in Khmer (empty if not recorded)'],
   ['borrower_id_no', 'ID card number'],
   ['borrower_gender', 'Borrower gender (Male / Female, ប្រុស / ស្រី)'],
@@ -331,7 +331,7 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
   const v: Record<string, string> = {
     contract_no: loanCode(c.loanId),
     contract_date: date(todayIso()),
-    borrower_name: km && khName ? khName : c.borrower.name, borrower_name_km: khName, borrower_name_latin: c.borrower.name,
+    borrower_name: km ? khName || c.borrower.name : c.borrower.name || khName, borrower_name_km: khName, borrower_name_latin: c.borrower.name,
     borrower_gender: c.borrower.gender === 'M' ? (km ? 'ប្រុស' : 'Male') : c.borrower.gender === 'F' ? (km ? 'ស្រី' : 'Female') : '',
     borrower_id_no: num(c.borrower.id_no), borrower_dob: c.borrower.dob ? date(c.borrower.dob) : '', borrower_phone: num(c.borrower.phone),
     borrower_address: c.borrower.address,

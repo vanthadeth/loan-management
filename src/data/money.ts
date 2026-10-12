@@ -19,8 +19,8 @@ export const symbol = (c: Currency) => (c === 'USD' ? '$' : '៛')
 export const maskMoney = (n: number, c: Currency, hide: boolean) => (hide ? '•••••• ' + symbol(c) : fmt(n, c))
 
 /** Borrower name in the current language, falling back to the English name. */
-export const borrowerName = (b: Borrower | undefined, lang: string) =>
-  b ? (lang === 'km' && b.name_km ? b.name_km : b.name) : '—'
+export const borrowerName = (b: Borrower | undefined, _lang?: string) =>
+  b ? b.name_km || b.name || '—' : '—'
 
 /** '1,500,000' or '12.5' -> number. */
 export const parseAmount = (s: string) => Number(s.replace(/[^\d.]/g, '')) || 0

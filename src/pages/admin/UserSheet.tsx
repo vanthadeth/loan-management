@@ -22,6 +22,7 @@ export function UserSheet({ user, onClose }: { user?: Profile; onClose: () => vo
   const isSelf = !!user && user.id === me?.id
 
   const [name, setName] = useState(user?.full_name ?? '')
+  const [latin, setLatin] = useState(user?.name_latin ?? '')
   const [display, setDisplay] = useState(user?.display_name ?? '')
   const [gender, setGender] = useState(user?.gender === 'M' ? 'Male' : 'Female')
   const [dob, setDob] = useState(user?.dob ?? '')
@@ -30,28 +31,29 @@ export function UserSheet({ user, onClose }: { user?: Profile; onClose: () => vo
   const [manual, setManual] = useState(!!user)
   const [roleId, setRoleId] = useState(user?.role_id ?? (roles.find((r) => !r.locked) ?? roles[0])?.id ?? '')
 
-  const onName = (v: string) => {
-    setName(v)
-    if (!manual) setUsername(suggestUsername(v, taken))
+  // usernames are Latin letters, so the suggestion comes from the Latin name (or the next free number)
+  const onLatin = (v: string) => {
+    setLatin(v)
+    if (!manual) setUsername(v.trim() ? suggestUsername(v, taken) : nextUsername(taken))
   }
 
   const save = async () => {
     const full = name.trim()
-    if (!full) { toast('Enter the full name'); return }
+    if (!full) { toast('Enter the name in Khmer'); return }
     if (!user) {
       const un = username.trim().toLowerCase()
       if (!USERNAME_RE.test(un)) { toast('Username: 3 to 32 letters, numbers, . _ or -'); return }
       if (taken.has(un)) { toast('That username is already taken'); return }
       if (!roleId) { toast('Choose a role'); return }
       const r = await run(() => admin.create({
-        username: un, full_name: full, display_name: display.trim(), gender: gender === 'Male' ? 'M' : 'F',
+        username: un, full_name: full, name_latin: latin.trim(), display_name: display.trim(), gender: gender === 'Male' ? 'M' : 'F',
         dob: dob || null, address: addr.trim(), role_id: roleId,
       }))
       if (r) nav(`/users/${r.value.user_id}/login`, { state: { username: r.value.username, temp_password: r.value.temp_password } })
       return
     }
     const done = await run(() => saveProfile(user.id, {
-      full_name: full, display_name: display.trim(), gender: gender === 'Male' ? 'M' : 'F',
+      full_name: full, name_latin: latin.trim(), display_name: display.trim(), gender: gender === 'Male' ? 'M' : 'F',
       dob: dob || null, address: addr.trim(), ...(isSelf ? {} : { role_id: roleId }),
     }), 'User saved')
     if (done) onClose()
@@ -60,7 +62,8 @@ export function UserSheet({ user, onClose }: { user?: Profile; onClose: () => vo
   return (
     <Sheet title={user ? 'Edit user' : 'Add user'} onClose={onClose} action={{ label: user ? 'Save' : 'Create user', onClick: save }}>
       <div className="form wz-1col">
-        <Field id="un" label="Full name" value={name} onChange={onName} />
+        <Field id="un" label="Name in Khmer" value={name} onChange={setName} />
+        <Field id="ul" label="Name in Latin letters (optional)" value={latin} onChange={onLatin} />
         <Field id="ux" label="Display name (optional)" value={display} onChange={setDisplay} />
         <Seg id="ug" label="Gender" options={['Female', 'Male']} value={gender} onChange={setGender} />
         <DateField id="ubd" label="Date of birth (optional)" value={dob} onChange={setDob} allowClear />

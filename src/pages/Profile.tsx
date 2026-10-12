@@ -29,6 +29,7 @@ function EditProfile({ me, canEditName, onClose }: { me: ProfileRow; canEditName
   const save = useSaveProfile()
   const onPhoto = usePhotoInput()
   const [name, setName] = useState(me.full_name)
+  const [latin, setLatin] = useState(me.name_latin)
   const [display, setDisplay] = useState(me.display_name)
   const [gender, setGender] = useState(me.gender === 'M' ? 'Male' : 'Female')
   const [dob, setDob] = useState(me.dob ?? '')
@@ -37,7 +38,7 @@ function EditProfile({ me, canEditName, onClose }: { me: ProfileRow; canEditName
     if (!name.trim()) { toast('Enter your full name'); return }
     const done = await run(() => save(me.id, {
       ...(canEditName ? { full_name: name.trim() } : {}),
-      display_name: display.trim(), gender: gender === 'Male' ? 'M' : 'F', dob: dob || null, address: addr.trim(),
+      name_latin: latin.trim(), display_name: display.trim(), gender: gender === 'Male' ? 'M' : 'F', dob: dob || null, address: addr.trim(),
     }), 'Profile updated')
     if (done) onClose()
   }
@@ -51,7 +52,8 @@ function EditProfile({ me, canEditName, onClose }: { me: ProfileRow; canEditName
             <label className="btn sm" style={{ cursor: 'pointer' }}>Change photo<input type="file" accept="image/*" hidden onChange={onPhoto} /></label>
           </div>
         </div>
-        <Field id="bn" label="Full name" value={name} onChange={setName} disabled={!canEditName} />
+        <Field id="bn" label="Name in Khmer" value={name} onChange={setName} disabled={!canEditName} />
+        <Field id="bl" label="Name in Latin letters (optional)" value={latin} onChange={setLatin} />
         <Field id="bx" label="Display name (optional)" value={display} onChange={setDisplay} />
         <Seg id="bg" label="Gender" options={['Female', 'Male']} value={gender} onChange={setGender} />
         <DateField id="bd" label="Date of birth (optional)" value={dob} onChange={setDob} allowClear />
@@ -91,7 +93,8 @@ export function Profile() {
         <details className="binfo">
           <summary><span>Information</span><Icon name="chev" size={16} /></summary>
           <div className="kv mob1" style={{ marginTop: 6 }}>
-            <div style={{ gridColumn: '1/-1' }}><span className="eyebrow">Full name</span>{me.full_name}</div>
+            <div style={{ gridColumn: '1/-1' }}><span className="eyebrow">Name in Khmer</span>{me.full_name}</div>
+            {me.name_latin && <div style={{ gridColumn: '1/-1' }}><span className="eyebrow">Name in Latin letters</span>{me.name_latin}</div>}
             <div>
               <span className="eyebrow">Gender</span>
               {me.gender ? <span className="gend"><Icon name={me.gender === 'F' ? 'venus' : 'mars'} size={17} />{me.gender === 'F' ? 'Female' : 'Male'}</span> : '—'}

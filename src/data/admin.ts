@@ -54,7 +54,7 @@ async function invokeAdmin<T>(body: Record<string, unknown>): Promise<T> {
 }
 
 export interface NewUser {
-  username: string; full_name: string; display_name: string; gender: 'F' | 'M'
+  username: string; full_name: string; name_latin: string; display_name: string; gender: 'F' | 'M'
   dob: string | null; address: string; role_id: string
 }
 
@@ -78,7 +78,7 @@ export function useUserAdmin() {
   }
 }
 
-export type ProfilePatch = Partial<Pick<Profile, 'full_name' | 'display_name' | 'gender' | 'dob' | 'address' | 'photo_path' | 'role_id'>>
+export type ProfilePatch = Partial<Pick<Profile, 'full_name' | 'name_latin' | 'display_name' | 'gender' | 'dob' | 'address' | 'photo_path' | 'role_id'>>
 
 /** Updates a profile row (own details, or anyone's for user managers) and refreshes the caches. */
 export function useSaveProfile() {

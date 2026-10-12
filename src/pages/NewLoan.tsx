@@ -98,7 +98,7 @@ export function NewLoan() {
     if (!book || preselect.current === null) return
     const b = book.borrowers.find((x) => x.id === Number(preselect.current) && x.status === 'active')
     preselect.current = null
-    if (b) { setBorrowerId(b.id); setQuery(b.name); setStep(1) }
+    if (b) { setBorrowerId(b.id); setQuery(bname(b)); setStep(1) }
   }, [book])
   useEffect(() => { document.getElementById('main')?.scrollTo({ top: 0 }) }, [step])
 
@@ -157,7 +157,7 @@ export function NewLoan() {
   }
   const changeQuery = (v: string) => {
     setQuery(v)
-    if (borrower && borrower.name.toLowerCase() !== v.trim().toLowerCase()) setBorrowerId(null)
+    if (borrower && bname(borrower).toLowerCase() !== v.trim().toLowerCase()) setBorrowerId(null)
   }
   const stepOcc = (d: number) => setOcc(String(Math.min(MAX_OCCURRENCES, Math.max(1, (Math.round(num(occ)) || 1) + d))))
   const setCollateral = (key: string, patch: Partial<Collateral>) => setCollaterals((cs) => cs.map((c) => (c.key === key ? { ...c, ...patch } : c)))
@@ -226,8 +226,8 @@ export function NewLoan() {
             <div id="lbres">
               <h3 className="wz-cap">{needle ? 'Results' : 'Active borrowers'}</h3>
               {matches.map((b) => (
-                <button type="button" key={b.id} className={'item' + (b.id === borrowerId ? ' sel' : '')} onClick={() => { setBorrowerId(b.id); setQuery(b.name); setStep(1) }}>
-                  <span className="avatar">{initials(b.name)}</span>
+                <button type="button" key={b.id} className={'item' + (b.id === borrowerId ? ' sel' : '')} onClick={() => { setBorrowerId(b.id); setQuery(bname(b)); setStep(1) }}>
+                  <span className="avatar">{initials(bname(b))}</span>
                   <span className="grow"><b>{bname(b, lang)}</b><span className="small muted" style={{ display: 'block' }}>{[b.phone, b.id_no].filter(Boolean).join(' · ')}</span></span>
                   <TierChip tier={b.tier} />
                 </button>
@@ -365,7 +365,7 @@ export function NewLoan() {
                 <Section title="Borrower" step={0} onEdit={setStep}>
                   <section className="wz-sec">
                     <div className="wz-bor">
-                      <span className="avatar xl">{initials(borrower.name)}</span>
+                      <span className="avatar xl">{initials(bname(borrower))}</span>
                       <div className="grow"><b style={{ fontSize: 18, display: 'block' }}>{bname(borrower, lang)}</b><TierChip tier={borrower.tier} /></div>
                     </div>
                   </section>

@@ -8,7 +8,7 @@ export interface Role { id: string; name: string; description: string; locked: b
 export interface RolePermission { role_id: string; permission: string }
 
 export interface Profile {
-  id: string; username: string; full_name: string; display_name: string; gender: 'F' | 'M' | null
+  id: string; username: string; full_name: string; name_latin: string; display_name: string; gender: 'F' | 'M' | null
   dob: string | null; address: string; photo_path: string | null; role_id: string; status: UserStatus
   must_change_password: boolean; last_seen: string | null; created_at: string
 }

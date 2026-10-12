@@ -1,5 +1,5 @@
 // Admin-only user management. Only this function holds the service role key:
-//   create          { username, full_name, display_name?, gender?, dob?, address?, role_id }
+//   create          { username, full_name (Khmer name), name_latin?, display_name?, gender?, dob?, address?, role_id }
 //                   -> { user_id, username, temp_password }
 //   reset_password  { user_id }                -> { temp_password }
 //   set_status      { user_id, status }        -> { ok: true }   (active | suspended | discharged)
@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
   const { data: caller } = await admin.auth.getUser(token)
   if (!caller.user) return json({ error: 'Not signed in' }, 401)
 
-  const { data: me } = await admin.from('profiles').select('id,status,role:roles(locked)').eq('id', caller.user.id).maybeSingle()
+  const { data: me } = await admin.from('profiles').select('id,status,role_id,role:roles(locked)').eq('id', caller.user.id).maybeSingle()
   if (!me || me.status !== 'active') return json({ error: 'Not allowed' }, 403)
   let allowed = (me.role as unknown as { locked: boolean } | null)?.locked === true
   if (!allowed) {
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     const fullName = String(body.full_name ?? '').trim()
     const roleId = String(body.role_id ?? '')
     if (!/^[a-z0-9._-]{3,32}$/.test(username)) return json({ error: 'Username must be 3–32 letters, numbers, dots, dashes or underscores' }, 400)
-    if (!fullName) return json({ error: 'Enter the full name' }, 400)
+    if (!fullName) return json({ error: 'Enter the name in Khmer' }, 400)
     const { data: role } = await admin.from('roles').select('id').eq('id', roleId).maybeSingle()
     if (!role) return json({ error: 'Choose a role' }, 400)
     const { data: taken } = await admin.from('profiles').select('id').eq('username', username).maybeSingle()
@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
     const { error } = await admin.from('profiles').insert({
       id: uid, username, full_name: fullName,
       display_name: String(body.display_name ?? '').trim(),
+      name_latin: String(body.name_latin ?? '').trim(),
       gender: body.gender === 'F' || body.gender === 'M' ? body.gender : null,
       dob: body.dob ? String(body.dob) : null,
       address: String(body.address ?? '').trim(),

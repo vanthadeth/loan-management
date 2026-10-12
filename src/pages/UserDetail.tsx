@@ -91,7 +91,8 @@ export function UserDetail() {
         <table className="ut">
           <tbody>
             {row('Username', u.username, cta('Copy username', 'copy', () => copy(u.username, 'Username')))}
-            {row('Full name', u.full_name)}
+            {row('Name in Khmer', u.full_name)}
+            {row('Name in Latin letters', u.name_latin || '—')}
             {row('Display name', u.display_name || '—')}
             {row('Gender', u.gender === 'F' ? 'Female' : u.gender === 'M' ? 'Male' : '—')}
             {row('Date of birth', fmtD(u.dob))}

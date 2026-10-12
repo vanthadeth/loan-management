@@ -60,9 +60,10 @@ export function BorrowerDetail() {
       <section className="card" style={{ position: 'relative' }}>
         {can('borrowers.edit') && <button type="button" className="editfab" aria-label="Edit borrower" title="Edit borrower" onClick={() => setDialog('edit')}><Icon name="edit" size={18} /></button>}
         <div className="row phead" style={{ paddingRight: 52 }}>
-          <span className="avatar xl"><Avatar p={{ full_name: b.name, display_name: '', photo_path: b.photo_path }} size="bare" /></span>
+          <span className="avatar xl"><Avatar p={{ full_name: b.name_km || b.name, display_name: '', photo_path: b.photo_path }} size="bare" /></span>
           <div className="grow">
             <h1>{bname(b, lang)}</h1>
+            {b.name_km && b.name && <p className="muted" style={{ margin: '2px 0 0' }}>{b.name}</p>}
             <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
               <BorrowerChip b={b} />
               {!banned && <span className={'chip ' + b.status}>{t(b.status)}</span>}

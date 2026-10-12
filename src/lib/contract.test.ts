@@ -120,4 +120,11 @@ describe('contract values', () => {
     expect(out).toContain('Balance at start')
     expect(out).not.toContain('ឧបសម្ព័ន្ធ')
   })
+
+  it('uses the Khmer name by default and the Latin name in English templates', () => {
+    const b = { name: 'Sokha Chan', name_km: 'សុខា ចាន់', gender: 'F' as const, id_no: '', dob: null, phone: '', address: '' }
+    expect(get(contractValues(input({ borrower: b }), 'km'), 'borrower_name')).toBe('សុខា ចាន់')
+    expect(get(contractValues(input({ borrower: b }), 'en'), 'borrower_name')).toBe('Sokha Chan')
+    expect(get(contractValues(input({ borrower: { ...b, name: '' } }), 'en'), 'borrower_name')).toBe('សុខា ចាន់')
+  })
 })

@@ -39,7 +39,7 @@ export function Borrowers() {
       <div className="lcard">
         {rows.map((b) => (
           <button key={b.id} type="button" className={'item' + (b.status === 'banned' ? ' is-banned' : '')} onClick={() => nav(`/borrowers/${b.id}`)}>
-            <span className="avatar">{initials(b.name)}</span>
+            <span className="avatar">{initials(bname(b))}</span>
             <span className="grow">
               <b className="ell" style={{ display: 'block' }}>{bname(b, lang)}</b>
               <span className="small muted">{[b.phone, b.address.split(',').pop()?.trim()].filter(Boolean).join(' · ')}</span>

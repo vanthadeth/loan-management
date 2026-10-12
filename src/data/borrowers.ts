@@ -3,9 +3,9 @@ import { supabase } from '../lib/supabase'
 import { must, uploadFile, useInvalidate } from './core'
 import type { Borrower, BorrowerDocument, Tier } from '../lib/types'
 
-/** The name to show: Khmer when the app is in Khmer and a Khmer name exists. */
-export const bname = (b: Pick<Borrower, 'name' | 'name_km'> | undefined, lang: string) =>
-  b ? (lang === 'km' && b.name_km ? b.name_km : b.name) : '—'
+/** The name to show: the Khmer name, or the Latin one when no Khmer name was recorded. */
+export const bname = (b: Pick<Borrower, 'name' | 'name_km'> | undefined, _lang?: string) =>
+  b ? b.name_km || b.name || '—' : '—'
 
 export function useBorrowerDocs(borrowerId: number) {
   return useQuery({

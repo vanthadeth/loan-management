@@ -47,13 +47,13 @@ export function BorrowerSheet({ borrower, onClose }: { borrower?: Borrower; onCl
   }
 
   const save = async () => {
-    const name = f.name.trim()
-    if (!name) { toast('Enter the full name'); document.getElementById('bn')?.focus(); return }
+    const khmer = f.name_km.trim()
+    if (!khmer) { toast('Enter the name in Khmer'); document.getElementById('bk')?.focus(); return }
     const lat = coord(f.lat, 90)
     const lng = coord(f.lng, 180)
     if (Number.isNaN(lat) || Number.isNaN(lng) || (lat === null) !== (lng === null)) { toast('Check the latitude and longitude'); return }
     const fields: BorrowerFields = {
-      name, name_km: f.name_km.trim(), gender: f.gender === 'M' ? 'M' : 'F', dob: f.dob || null, id_no: f.id_no.trim(),
+      name: f.name.trim(), name_km: khmer, gender: f.gender === 'M' ? 'M' : 'F', dob: f.dob || null, id_no: f.id_no.trim(),
       address: f.address.trim(), lat, lng, phone: f.phone.trim(), facebook: f.facebook.trim(), telegram: f.telegram.trim(), note: f.note.trim(),
     }
     try {
@@ -73,15 +73,15 @@ export function BorrowerSheet({ borrower, onClose }: { borrower?: Borrower; onCl
           <label>Profile photo</label>
           <div className="row">
             {preview ? <span className="avatar lg" style={{ backgroundImage: `url('${preview}')` }} />
-              : borrower ? <Avatar p={{ full_name: borrower.name, display_name: '', photo_path: borrower.photo_path }} size="lg" />
+              : borrower ? <Avatar p={{ full_name: borrower.name_km || borrower.name, display_name: '', photo_path: borrower.photo_path }} size="lg" />
               : <span className="avatar lg"><Icon name="camera" size={28} /></span>}
             <label className="btn sm" style={{ cursor: 'pointer' }}>
               Take / choose photo<input type="file" accept="image/*" capture="user" hidden onChange={(e) => { setPhoto(e.target.files?.[0] ?? null); e.target.value = '' }} />
             </label>
           </div>
         </div>
-        <Field id="bn" label="Full name" value={f.name} onChange={set('name')} cls="full" />
-        <Field id="bk" label="Name in Khmer (optional)" value={f.name_km} onChange={set('name_km')} cls="full" />
+        <Field id="bk" label="Name in Khmer" value={f.name_km} onChange={set('name_km')} cls="full" />
+        <Field id="bn" label="Name in Latin letters (optional)" value={f.name} onChange={set('name')} cls="full" />
         <Field id="bi" label="ID card no." value={f.id_no} onChange={set('id_no')} cls="full" />
         <DateField id="bd" label="Date of birth" value={f.dob} onChange={set('dob')} />
         <Seg id="bg" label="Gender" options={[{ value: 'F', label: 'Female' }, { value: 'M', label: 'Male' }]} value={f.gender} onChange={set('gender')} />
