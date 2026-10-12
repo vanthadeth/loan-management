@@ -1200,12 +1200,17 @@ input,select,textarea{font-size:16px}
 @media (prefers-reduced-motion:reduce){.btn:active,.tab:active,.hbtn:active,.icon-btn:active,.mcta:active{transform:none}}
 
 /* popups: the page behind darkens by half and blurs; the popup floats above with a deep shadow */
-#scrim{background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);z-index:29}
 .sheet-bg{background:rgba(0,0,0,.5)!important;-webkit-backdrop-filter:blur(10px)!important;backdrop-filter:blur(10px)!important}
-.field.pop-open,.cfpick.pop-open{position:relative;z-index:31}
-.menu{position:fixed!important;right:16px;top:calc(env(safe-area-inset-top,0px) + 60px);z-index:31!important}
+.menu{position:fixed!important;right:16px;top:calc(env(safe-area-inset-top,0px) + 60px);z-index:1001!important}
 @media (min-width:900px){.menu{right:24px}}
 :root{--pop:0 0 0 1px var(--hair),0 6px 14px -4px rgba(0,0,0,.28),0 28px 64px -12px rgba(0,0,0,.5)}
 :root[data-theme="dark"]{--pop:0 0 0 1px var(--hair),0 6px 14px -4px rgba(0,0,0,.5),0 28px 64px -12px rgba(0,0,0,.8)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pop:0 0 0 1px var(--hair),0 6px 14px -4px rgba(0,0,0,.5),0 28px 64px -12px rgba(0,0,0,.8)}}
 .sheet{box-shadow:0 -6px 16px -4px rgba(0,0,0,.25),0 -28px 64px -12px rgba(0,0,0,.5)!important}
+
+/* the masked layer: everything under a popup is darkened by half and blurred by 10px */
+.float-mask{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);animation:fadeIn .18s ease}
+.float{position:fixed;z-index:1001;overflow:auto;border-radius:7px;animation:popIn .18s var(--ease);transform-origin:top left}
+.float>.dd-list,.float>.cal{margin:0;box-shadow:var(--pop)!important}
+.sheet-bg{z-index:900!important}
+.toast{z-index:1100!important}

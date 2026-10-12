@@ -1,5 +1,5 @@
-import { showScrim } from '../lib/scrim'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 import { fmtD } from '../lib/format'
 import { todayIso } from '../lib/calc'
@@ -46,46 +46,72 @@ export function Seg({ id, label, options, value, onChange, cls = '' }: {
   )
 }
 
-function useOutside(open: boolean, close: () => void) {
-  const ref = useRef<HTMLDivElement>(null)
+/**
+ * A popup that always sits on top of the page: it is drawn in a layer on the body, under a mask that darkens (50%)
+ * and blurs (10px) everything else. Tapping the mask or pressing Escape closes it.
+ */
+function Floating({ anchor, onClose, align = 'left', fit = false, children }: {
+  anchor: RefObject<HTMLElement | null>; onClose: () => void; align?: 'left' | 'right'; fit?: boolean; children: ReactNode
+}) {
+  const box = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ left: number; top: number; width?: number; maxHeight: number } | null>(null)
+  useLayoutEffect(() => {
+    const place = () => {
+      const a = anchor.current?.getBoundingClientRect()
+      const h = box.current?.offsetHeight ?? 0
+      if (!a) return
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const width = fit ? a.width : Math.min(320, vw - 24)
+      const left = Math.max(12, Math.min(align === 'right' ? a.right - width : a.left, vw - width - 12))
+      const below = vh - a.bottom - 12
+      const above = a.top - 12
+      const up = h > below && above > below
+      const maxHeight = Math.max(160, up ? above : below)
+      const top = up ? Math.max(12, a.top - 4 - Math.min(h, maxHeight)) : a.bottom + 4
+      setPos({ left, top, width, maxHeight })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true) }
+  }, [anchor, align, fit])
   useEffect(() => {
-    const el = ref.current
-    if (!open || !el || el.closest('.sheet')) return
-    el.classList.add('pop-open')
-    const hide = showScrim()
-    return () => { el.classList.remove('pop-open'); hide() }
-  }, [open])
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && close()
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && close()
-    document.addEventListener('mousedown', h)
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', k)
-    return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', k) }
+    return () => document.removeEventListener('keydown', k)
   })
-  return ref
+  return createPortal(
+    <>
+      <div className="float-mask" onClick={onClose} aria-hidden="true" />
+      <div ref={box} className="float" style={pos ? { left: pos.left, top: pos.top, width: pos.width, maxHeight: pos.maxHeight } : { visibility: 'hidden' }}>{children}</div>
+    </>,
+    document.body,
+  )
 }
 
 export function Dropdown({ id, label, options, value, onChange, cls = '', placeholder }: {
   id: string; label?: string; options: Opt[]; value: string; onChange: (v: string) => void; cls?: string; placeholder?: string
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useOutside(open, () => setOpen(false))
+  const ref = useRef<HTMLButtonElement>(null)
   const cur = options.find((o) => val(o) === value)
   return (
-    <div className={'field ' + cls} ref={ref}>
+    <div className={'field ' + cls}>
       {label && <label id={id + '-l'}>{label}</label>}
-      <button type="button" className="dd-btn" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button type="button" className="dd-btn" ref={ref} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className={'ell' + (cur ? '' : ' muted')}>{cur ? lab(cur) : (placeholder ?? 'Select')}</span>
         <svg className="dd-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
       </button>
       {open && (
-        <div className="dd-list" role="listbox">
-          {options.map((o) => (
-            <button type="button" role="option" className="dd-opt" key={val(o)} aria-selected={val(o) === value}
-              onClick={() => { onChange(val(o)); setOpen(false) }}>{lab(o)}<span className="tick">✓</span></button>
-          ))}
-        </div>
+        <Floating anchor={ref} fit onClose={() => setOpen(false)}>
+          <div className="dd-list" role="listbox">
+            {options.map((o) => (
+              <button type="button" role="option" className="dd-opt" key={val(o)} aria-selected={val(o) === value}
+                onClick={() => { onChange(val(o)); setOpen(false) }}>{lab(o)}<span className="tick">✓</span></button>
+            ))}
+          </div>
+        </Floating>
       )}
     </div>
   )
@@ -131,19 +157,21 @@ export function DateField({ id, label, value, onChange, cls = '', allowClear }: 
   id: string; label?: string; value: string; onChange: (iso: string) => void; cls?: string; allowClear?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useOutside(open, () => setOpen(false))
+  const ref = useRef<HTMLButtonElement>(null)
   return (
-    <div className={'field ' + cls} ref={ref}>
+    <div className={'field ' + cls}>
       {label && <label id={id + '-l'}>{label}</label>}
-      <button type="button" className="dd-btn" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button type="button" className="dd-btn" ref={ref} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className={value ? '' : 'muted'}>{value ? fmtD(value) : 'Select date'}</span>
         <Icon name="cal" size={16} />
       </button>
       {open && (
-        <div className="cal" role="dialog" aria-label={label ?? 'Pick a date'}>
-          <Calendar value={value} onPick={(v) => { onChange(v); setOpen(false) }} />
-          {allowClear && value && <button type="button" className="btn sm" style={{ marginTop: 8 }} onClick={() => { onChange(''); setOpen(false) }}>Clear</button>}
-        </div>
+        <Floating anchor={ref} onClose={() => setOpen(false)}>
+          <div className="cal" role="dialog" aria-label={label ?? 'Pick a date'}>
+            <Calendar value={value} onPick={(v) => { onChange(v); setOpen(false) }} />
+            {allowClear && value && <button type="button" className="btn sm" style={{ marginTop: 8 }} onClick={() => { onChange(''); setOpen(false) }}>Clear</button>}
+          </div>
+        </Floating>
       )}
     </div>
   )
@@ -152,13 +180,17 @@ export function DateField({ id, label, value, onChange, cls = '', allowClear }: 
 /** Icon-only date picker used next to search bars. */
 export function DateIconPicker({ value, onChange }: { value: string; onChange: (iso: string) => void }) {
   const [open, setOpen] = useState(false)
-  const ref = useOutside(open, () => setOpen(false))
+  const ref = useRef<HTMLButtonElement>(null)
   return (
-    <div className="cfpick" ref={ref}>
-      <button type="button" className={'icon-btn' + (value ? ' on' : '')} aria-label="Pick a date" title="Pick a date" aria-expanded={open} onClick={() => setOpen(!open)}>
+    <div className="cfpick">
+      <button type="button" ref={ref} className={'icon-btn' + (value ? ' on' : '')} aria-label="Pick a date" title="Pick a date" aria-expanded={open} onClick={() => setOpen(!open)}>
         <Icon name="cal" />
       </button>
-      {open && <div className="cal" role="dialog" aria-label="Pick a date"><Calendar value={value} onPick={(v) => { onChange(v); setOpen(false) }} /></div>}
+      {open && (
+        <Floating anchor={ref} align="right" onClose={() => setOpen(false)}>
+          <div className="cal" role="dialog" aria-label="Pick a date"><Calendar value={value} onPick={(v) => { onChange(v); setOpen(false) }} /></div>
+        </Floating>
+      )}
     </div>
   )
 }
