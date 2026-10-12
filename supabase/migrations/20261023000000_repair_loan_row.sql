@@ -1,0 +1,5 @@
+-- Repair: reading loan 4 failed with "compressed pglz data is corrupt". The bad value was loans.reject_reason, a column
+-- added with a default after the row existed; the row was then voided through loans_guard (new := old).
+-- Fixed live by rewriting the column for every loan (guard trigger disabled for that one update, then re-enabled):
+--   update public.loans set reject_reason = '' where id in (3, 4, 5);
+-- All public tables were then read in full without errors.
