@@ -1,7 +1,7 @@
 import type { Currency, PayMode, RateBasis } from './calc'
 
 export type UserStatus = 'active' | 'suspended' | 'discharged'
-export type LoanStatus = 'requested' | 'verified' | 'approved' | 'rejected'
+export type LoanStatus = 'drafted' | 'requested' | 'approved' | 'rejected'
 export type Tier = 'normal' | 'silver' | 'gold'
 
 export interface Role { id: string; name: string; description: string; locked: boolean; scoped: boolean }

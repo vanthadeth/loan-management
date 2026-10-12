@@ -65,7 +65,8 @@ export function NewLoan() {
   const banks = useBanks().data ?? []
   const supervisors = useSupervisors()
   const actions = useLoanActions()
-  usePageTitle(t('newLoan'))
+  const draftId = Number(params.get('draft')) || null
+  usePageTitle(draftId ? 'Edit draft' : t('newLoan'))
 
   const [step, setStep] = useState(0)
   const [registering, setRegistering] = useState(false)
@@ -91,6 +92,23 @@ export function NewLoan() {
   const [hasCollateral, setHasCollateral] = useState(false)
   const [collaterals, setCollaterals] = useState<Collateral[]>([])
   const lateDefault = Number(useLateFeeDefault())
+
+  // editing a draft: fill the form from the saved loan once
+  const loaded = useRef(false)
+  useEffect(() => {
+    if (!book || !draftId || loaded.current) return
+    const d = book.loans.find((x) => x.id === draftId && x.status === 'drafted')
+    loaded.current = true
+    if (!d) return
+    const b = book.borrowers.find((x) => x.id === d.borrower_id)
+    setBorrowerId(d.borrower_id); setQuery(b ? bname(b) : ''); setCurrency(d.currency)
+    setAmount(group(String(d.amount))); setFee(String(d.fee_pct)); setRelease(d.release_date)
+    setRate(String(d.rate_pct)); setBasis(d.rate_basis); setOcc(String(d.occurrences))
+    setFreq(({ daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', custom: 'Custom' } as const)[d.frequency])
+    setDays(String(d.interval_days)); setMode(d.mode); setSupervisor(d.supervisor_id ?? '')
+    setLate(String(d.late_fee_pct)); setMethod(d.pay_method); setBankId(d.bank_account_id ? String(d.bank_account_id) : '')
+    setRemarks(d.pay_remarks); setStep(4)
+  }, [book, draftId])
 
   // a borrower chosen on the borrower page: skip the first step
   const preselect = useRef(params.get('borrower'))
@@ -168,11 +186,12 @@ export function NewLoan() {
     if (yes && !collaterals.length) setCollaterals([newCollateral()])
   }
 
-  const submit = async () => {
+  /** Saves the loan as a draft (kept private, can be edited) or submits it as a request. */
+  const submit = async (asDraft = false) => {
     const failed = [0, 1, 2].map(problem).find(Boolean)
     if (failed || !borrower) { toast(failed ?? 'Select a borrower first'); setDialog(null); return }
     try {
-      const { id, warning } = await actions.create({
+      const input = {
         loan: {
           borrower_id: borrower.id, supervisor_id: scoped ? (me?.id ?? null) : supervisor || null, currency, amount: terms.amount,
           fee_pct: terms.feePct, late_fee_pct: terms.lateFeePct, rate_pct: terms.ratePct, rate_basis: basis,
@@ -180,10 +199,20 @@ export function NewLoan() {
           pay_method: effMethod, bank_account_id: effMethod === 'bank' && bank ? bank.id : null, pay_remarks: effMethod === 'other' ? remarks.trim() : '',
         },
         collaterals: hasCollateral ? collaterals.map((c, i) => ({ description: c.desc.trim() || 'Collateral ' + (i + 1), files: c.files })) : [],
-      })
-      toast(warning ? `Loan requested, but the collateral was not fully saved: ${warning}` : 'Loan request submitted')
-      // with a contract template set up, go straight to the printable contract
-      nav(contractReady ? `/loans/${id}/contract` : `/loans/${id}`, { replace: true })
+      }
+      let id: number
+      let warning: string | null
+      if (draftId) {
+        ({ warning } = await actions.saveDraft(draftId, input))
+        id = draftId
+        if (!asDraft) await actions.setStatus(id, 'drafted', 'requested')
+      } else {
+        ({ id, warning } = await actions.create(input, asDraft))
+      }
+      const what = asDraft ? 'Draft saved' : 'Loan request submitted'
+      toast(warning ? `${what}, but the collateral was not fully saved: ${warning}` : what)
+      // a draft goes to its page; a request goes straight to the printable contract when a template is set up
+      nav(contractReady && !asDraft ? `/loans/${id}/contract` : `/loans/${id}`, { replace: true })
     } catch (e) {
       toast(errMsg(e))
     }
@@ -396,6 +425,7 @@ export function NewLoan() {
       </form>
       <div className="wz-bar">
         <button type="button" className="btn" onClick={() => (step === 0 ? setDialog('cancel') : setStep(step - 1))}>{step === 0 ? t('cancel') : t('back')}</button>
+        {step === STEPS.length - 1 && <button type="button" className="btn" onClick={() => { const m = [0, 1, 2].map(problem).find(Boolean); if (m) toast(m); else void submit(true) }}>Save draft</button>}
         <button type="button" className="btn primary" onClick={next}>{step === STEPS.length - 1 ? 'Submit request' : 'Next'}</button>
       </div>
 
@@ -405,7 +435,7 @@ export function NewLoan() {
         </Sheet>
       )}
       {dialog === 'submit' && borrower && (
-        <Sheet title="Submit loan request?" onClose={() => setDialog(null)} action={{ label: 'Confirm and submit', onClick: submit }}>
+        <Sheet title="Submit loan request?" onClose={() => setDialog(null)} action={{ label: 'Confirm and submit', onClick: () => submit() }}>
           <p style={{ margin: '0 0 6px' }}>Submit a loan request of <b>{fmt(terms.amount, currency)}</b> for <b>{bname(borrower, lang)}</b>? The borrower receives <b>{fmt(p.net, currency)}</b> after the service fee.</p>
         </Sheet>
       )}

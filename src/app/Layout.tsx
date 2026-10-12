@@ -33,7 +33,7 @@ function usePendingApproval() {
     enabled: can('loans.approve'),
     refetchInterval: 60_000,
     queryFn: async () => {
-      const { count } = await supabase.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'verified').is('voided_at', null)
+      const { count } = await supabase.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'requested').is('voided_at', null)
       return count ?? 0
     },
   })

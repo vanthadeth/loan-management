@@ -5,7 +5,7 @@ import { useToast } from '../../ui/Toast'
 import { dn, useTeam } from '../../data/core'
 import { errMsg, useLoanActions, useSupervisors } from '../../data/loans'
 
-/** Reassign who manages a loan. Only people who verify loans and are not limited to their own loans see this. */
+/** Reassign who manages a loan. Only people who approve loans and are not limited to their own loans see this. */
 export function SupervisorSheet({ loanId, current, onClose }: { loanId: number; current: string | null; onClose: () => void }) {
   const toast = useToast()
   const actions = useLoanActions()

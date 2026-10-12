@@ -8,8 +8,8 @@ import type { LoanStatus } from '../lib/types'
 import { LoanRow } from './loans/parts'
 
 const QUEUES: Record<string, { title: string; status: LoanStatus; hint: string }> = {
-  requested: { title: 'Requested loans', status: 'requested', hint: 'Waiting to be verified' },
-  pending: { title: 'Pending approval', status: 'verified', hint: 'Verified, waiting for approval' },
+  drafts: { title: 'Drafts', status: 'drafted', hint: 'Saved by you, not yet requested' },
+  requested: { title: 'Pending approval', status: 'requested', hint: 'Requested, waiting for approval' },
 }
 
 export function LoanQueue() {

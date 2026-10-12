@@ -17,13 +17,13 @@ import { FileView } from './loans/FileView'
 import { Bar, Ring } from './loans/parts'
 import { SupervisorSheet } from './loans/SupervisorSheet'
 
-const STEPS: LoanStatus[] = ['requested', 'verified', 'approved']
-type Dialog = 'verify' | 'approve' | 'reject' | 'supervisor' | 'void' | 'restore' | null
+const STEPS: LoanStatus[] = ['drafted', 'requested', 'approved']
+type Dialog = 'submit' | 'delete' | 'approve' | 'reject' | 'supervisor' | 'void' | 'restore' | null
 
 export function LoanDetail() {
   const loanId = Number(useParams().id)
   const { t, lang } = useI18n()
-  const { can, scoped } = useAuth()
+  const { can, scoped, me } = useAuth()
   const toast = useToast()
   const nav = useNavigate()
   const { views, voidedViews, loading, error } = useLoans()
@@ -53,7 +53,8 @@ export function LoanDetail() {
   const collaterals = files.data?.collaterals ?? []
   const attachments = files.data?.attachments ?? []
   const voided = !!loan.voided_at
-  const canAdvance = !voided && (loan.status === 'requested' && can('loans.verify')) || (loan.status === 'verified' && can('loans.approve'))
+  const mine = loan.status === 'drafted' && loan.requested_by === me?.id && can('loans.create')
+  const canApprove = !voided && loan.status === 'requested' && can('loans.approve')
   const pct = Math.round((status.paidCount / loan.occurrences) * 100)
   const lateRate = `${Number(loan.late_fee_pct)}%`
   const lateUnit = loan.frequency === 'daily' ? 'day' : loan.frequency === 'weekly' ? 'week' : loan.frequency === 'monthly' ? 'month' : `${loan.interval_days}-day period`
@@ -99,9 +100,16 @@ export function LoanDetail() {
               ))}
             </div>
           )}
-        {canAdvance && (
+        {mine && (
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="btn primary" onClick={() => setDialog(si === 0 ? 'verify' : 'approve')}>{si === 0 ? 'Verify' : 'Approve'}</button>
+            <button type="button" className="btn primary" onClick={() => setDialog('submit')}>Submit request</button>
+            <button type="button" className="btn" onClick={() => nav(`/loans/new?draft=${loan.id}`)}>Edit draft</button>
+            <button type="button" className="btn danger" onClick={() => setDialog('delete')}>Delete draft</button>
+          </div>
+        )}
+        {canApprove && (
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn primary" onClick={() => setDialog('approve')}>Approve</button>
             <button type="button" className="btn danger" onClick={() => setDialog('reject')}>Reject</button>
           </div>
         )}
@@ -109,7 +117,7 @@ export function LoanDetail() {
           <div style={{ gridColumn: '1/-1' }}>
             <span className="eyebrow">Workflow</span>
             <div className="people">
-              {([['Requested', who(loan.requested_by)], ['Verified', who(loan.verified_by)], ['Approved', who(loan.approved_by)]] as const).map(([k, p]) => (
+              {([['Created by', who(loan.requested_by)], ['Approved', who(loan.approved_by)]] as const).map(([k, p]) => (
                 <div key={k} className={'person' + (p ? '' : ' empty')}>
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-4 3-6 7-6s7 2 7 6" /></svg>
                   <span className="muted">{k}</span><b>{p ?? 'Pending'}</b>
@@ -121,7 +129,7 @@ export function LoanDetail() {
           <div><span className="eyebrow">Interest</span>{loan.rate_pct}% per {loan.rate_basis} (flat)</div>
           <div>
             <span className="eyebrow">Supervisor</span>{who(loan.supervisor_id) ?? 'Not assigned'}
-            {!scoped && can('loans.verify') && <> <button type="button" className="linkbtn" onClick={() => setDialog('supervisor')}>Change</button></>}
+            {!scoped && can('loans.approve') && <> <button type="button" className="linkbtn" onClick={() => setDialog('supervisor')}>Change</button></>}
           </div>
           <div><span className="eyebrow">Late fee</span>{lateRate} per late {lateUnit}</div>
           <div><span className="eyebrow">Borrower pays by</span>{payText}</div>
@@ -308,9 +316,17 @@ export function LoanDetail() {
         </Sheet>
       )}
 
-      {dialog === 'verify' && (
-        <Sheet title="Verify loan?" onClose={() => setDialog(null)} action={{ label: 'Confirm verify', onClick: move('verified', 'Loan verified') }}>
-          <p style={{ margin: '0 0 6px' }}>Verify <b>{loanCode(loan.id)}</b> for <b>{name}</b>? It will then wait for approval.</p>
+      {dialog === 'submit' && (
+        <Sheet title="Submit loan request?" onClose={() => setDialog(null)} action={{ label: 'Confirm and submit', onClick: move('requested', 'Loan request submitted') }}>
+          <p style={{ margin: '0 0 6px' }}>Submit <b>{loanCode(loan.id)}</b> for <b>{name}</b>? It will then wait for approval and can no longer be edited.</p>
+        </Sheet>
+      )}
+      {dialog === 'delete' && (
+        <Sheet title="Delete draft?" onClose={() => setDialog(null)} action={{
+          label: 'Delete draft', cls: 'danger',
+          onClick: async () => { try { await actions.deleteDraft(loan.id); toast('Draft deleted'); nav('/loans', { replace: true }) } catch (e) { toast(errMsg(e)) } },
+        }}>
+          <p style={{ margin: '0 0 6px' }}>Delete the draft <b>{loanCode(loan.id)}</b> for <b>{name}</b>? This cannot be undone.</p>
         </Sheet>
       )}
       {dialog === 'approve' && (

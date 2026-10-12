@@ -17,8 +17,8 @@ export function Loans() {
   const [q, setQ] = useState('')
   const needle = q.trim().toLowerCase()
   const rows = views.filter((v) => v.active && (loanCode(v.loan.id) + bname(v.borrower, lang)).toLowerCase().includes(needle))
-  const nRequested = views.filter((v) => v.loan.status === 'requested').length
-  const nPending = views.filter((v) => v.loan.status === 'verified').length
+  const nDrafts = views.filter((v) => v.loan.status === 'drafted').length
+  const nPending = views.filter((v) => v.loan.status === 'requested').length
   const nDone = views.filter((v) => v.done).length
   const needsApproval = can('loans.approve') && nPending > 0
 
@@ -26,18 +26,18 @@ export function Loans() {
     <>
       <SearchBar value={q} onChange={setQ} />
       <div className="bento lqs">
-        <button type="button" className="bt lq" onClick={() => nav('/loans/queue/requested')}>
-          <span className="bt-h"><Icon name="doc" size={18} />{t('requested')}</span>
-          <b className="bt-big num">{nRequested}</b>
-          <span className="small bt-sub">Waiting to be verified</span>
+        <button type="button" className="bt lq" onClick={() => nav('/loans/queue/drafts')}>
+          <span className="bt-h"><Icon name="doc" size={18} />{t('drafted')}</span>
+          <b className="bt-big num">{nDrafts}</b>
+          <span className="small bt-sub">Your saved drafts</span>
         </button>
-        <button type="button" className="bt lq" onClick={() => nav('/loans/queue/pending')}>
+        <button type="button" className="bt lq" onClick={() => nav('/loans/queue/requested')}>
           <span className="bt-h">
             <Icon name="checkc" size={18} />Pending approval
             {needsApproval && <i className="ndot inl" role="img" aria-label="Needs your approval" />}
           </span>
           <b className="bt-big num">{nPending}</b>
-          <span className="small bt-sub">Verified, waiting for approval</span>
+          <span className="small bt-sub">Requested, waiting for approval</span>
         </button>
       </div>
       {error && <p className="muted">{error}</p>}

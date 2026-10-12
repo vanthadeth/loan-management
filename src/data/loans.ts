@@ -59,12 +59,30 @@ export interface NewLoanInput {
   collaterals: { description: string; files: File[] }[]
 }
 
+/** Adds collateral items and their files to a loan; returns a warning text if something could not be saved. */
+async function addCollaterals(id: number, items: NewLoanInput['collaterals']) {
+  try {
+    for (const c of items) {
+      const { data: col, error: e1 } = await supabase.from('loan_collaterals').insert({ loan_id: id, description: c.description }).select('id').single()
+      if (e1) throw new Error(e1.message)
+      for (const f of c.files) {
+        const file_path = await uploadFile('loans', f)
+        const { error: e2 } = await supabase.from('loan_attachments').insert({ loan_id: id, collateral_id: col.id, file_path, file_name: f.name })
+        if (e2) throw new Error(e2.message)
+      }
+    }
+    return null
+  } catch (e) {
+    return errMsg(e)
+  }
+}
+
 export function useLoanActions() {
   const invalidate = useInvalidate()
   const refresh = () => invalidate('book', 'pending-approval', 'messages', 'loan-files')
 
   return {
-    /** Moves a loan one step (verify, approve) or rejects it. The database checks who may do what. */
+    /** Moves a loan one step (submit a draft, approve) or rejects it. The database checks who may do what. */
     async setStatus(id: number, from: LoanStatus, to: LoanStatus) {
       const { data, error } = await supabase.from('loans').update({ status: to }).eq('id', id).eq('status', from).select('id')
       if (error) throw new Error(error.message)
@@ -104,29 +122,33 @@ export function useLoanActions() {
     },
 
     /**
-     * Inserts the loan (the database forces status 'requested'), then its collateral and files.
+     * Inserts the loan as a draft or as a request, then its collateral and files.
      * If only the collateral step fails the loan still exists, so the caller gets a warning, not an error.
      */
-    async create(input: NewLoanInput): Promise<{ id: number; warning: string | null }> {
-      const { data, error } = await supabase.from('loans').insert(input.loan).select('id').single()
+    async create(input: NewLoanInput, asDraft = false): Promise<{ id: number; warning: string | null }> {
+      const { data, error } = await supabase.from('loans').insert({ ...input.loan, status: asDraft ? 'drafted' : 'requested' }).select('id').single()
       if (error) throw new Error(error.message)
       const id = data.id as number
-      let warning: string | null = null
-      try {
-        for (const c of input.collaterals) {
-          const { data: col, error: e1 } = await supabase.from('loan_collaterals').insert({ loan_id: id, description: c.description }).select('id').single()
-          if (e1) throw new Error(e1.message)
-          for (const f of c.files) {
-            const file_path = await uploadFile('loans', f)
-            const { error: e2 } = await supabase.from('loan_attachments').insert({ loan_id: id, collateral_id: col.id, file_path, file_name: f.name })
-            if (e2) throw new Error(e2.message)
-          }
-        }
-      } catch (e) {
-        warning = errMsg(e)
-      }
+      const warning = await addCollaterals(id, input.collaterals)
       await refresh()
       return { id, warning }
+    },
+
+    /** Saves changes to a draft; collateral entered now is added to what the draft already has. */
+    async saveDraft(id: number, input: NewLoanInput): Promise<{ warning: string | null }> {
+      const { data, error } = await supabase.from('loans').update(input.loan).eq('id', id).eq('status', 'drafted').select('id')
+      if (error) throw new Error(error.message)
+      if (!data?.length) throw new Error('This draft is no longer editable.')
+      const warning = await addCollaterals(id, input.collaterals)
+      await refresh()
+      return { warning }
+    },
+
+    async deleteDraft(id: number) {
+      const { data, error } = await supabase.from('loans').delete().eq('id', id).eq('status', 'drafted').select('id')
+      if (error) throw new Error(error.message)
+      if (!data?.length) throw new Error('You are not allowed to delete this draft.')
+      await refresh()
     },
   }
 }
