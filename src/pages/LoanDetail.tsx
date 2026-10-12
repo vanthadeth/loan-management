@@ -133,8 +133,8 @@ export function LoanDetail() {
           <div><span className="eyebrow">Interest</span>{loan.rate_pct}% per {loan.rate_basis} (flat)</div>
           <div style={{ gridColumn: '1/-1', display: 'flex', gap: 16 }}>
             {([
-              ['Collector', who(loan.collector_id), can('loans.approve') && !voided, 'collector'],
               ['Supervisor', who(loan.supervisor_id), !scoped && can('loans.approve') && !voided, 'supervisor'],
+              ['Collector', who(loan.collector_id), can('loans.approve') && !voided, 'collector'],
             ] as const).map(([k, p, canEdit, dlg]) => (
               <div key={k} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <div style={{ flex: 1, minWidth: 0 }}><span className="eyebrow">{k}</span><span className="ell" style={{ display: 'block' }}>{p ?? 'Not assigned'}</span></div>
