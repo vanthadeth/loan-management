@@ -1,70 +1,78 @@
-// Service worker: caches the app shell only so the app opens instantly and offline
-// shows the shell. Loan data is never cached here; Supabase requests always go to
-// the network (they are cross-origin and this worker ignores them).
-const SHELL = 'shell-v3'
-const ASSETS = 'assets-v1'
+// Service worker: keeps the app shell (page, scripts, styles, icons, fonts) on the device so Komjei opens
+// instantly and still opens offline. Loan data is never cached here: Supabase requests are cross-origin and
+// always go to the network.
+//
+// The build fills in VERSION and PRECACHE (see vite.config.ts). A new deploy installs a new worker in the
+// background; the page tells it to take over the next time the app is closed or hidden, so nobody is
+// reloaded in the middle of their work.
+const VERSION = /*__VERSION__*/'dev'
+const PRECACHE = /*__PRECACHE__*/['/']
+const SHELL = 'shell-' + VERSION
+const RUNTIME = 'runtime-' + VERSION
+const FONTS = 'fonts-v1'
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(SHELL)
-      .then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png']))
-      .then(() => self.skipWaiting()),
-  )
+  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(PRECACHE)))
 })
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== SHELL && k !== ASSETS).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== SHELL && k !== RUNTIME && k !== FONTS).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   )
 })
 
+self.addEventListener('message', (e) => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting()
+})
+
+/** Cached copy if there is one, otherwise the network (and keep what came back). */
+async function cacheFirst(req, cacheName) {
+  const hit = await caches.match(req)
+  if (hit) return hit
+  const res = await fetch(req)
+  if (res.ok || res.type === 'opaque') {
+    const copy = res.clone()
+    caches.open(cacheName).then((c) => c.put(req, copy))
+  }
+  return res
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request
+  if (req.method !== 'GET') return
   const url = new URL(req.url)
-  if (req.method !== 'GET' || url.origin !== self.location.origin) return
 
-  // Page loads: network first so a new deploy shows up, cached shell when offline.
-  if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone()
-          caches.open(SHELL).then((c) => c.put('/', copy))
-          return res
-        })
-        .catch(() => caches.match('/').then((r) => r || Response.error())),
-    )
+  // Google Fonts: the font files never change; the stylesheet is refreshed in the background.
+  if (url.hostname === 'fonts.gstatic.com') {
+    e.respondWith(cacheFirst(req, FONTS))
     return
   }
-
-  // Built files have content hashes in their names, so cache-first is safe.
-  if (url.pathname.startsWith('/assets/')) {
+  if (url.hostname === 'fonts.googleapis.com') {
     e.respondWith(
-      caches.match(req).then(
-        (hit) =>
-          hit ||
-          fetch(req).then((res) => {
-            if (res.ok) {
-              const copy = res.clone()
-              caches.open(ASSETS).then((c) => c.put(req, copy))
-            }
-            return res
-          }),
-      ),
-    )
-    return
-  }
-
-  // Icons and the manifest: cached copy first, refreshed in the background.
-  if (/\.(png|svg|webmanifest)$/.test(url.pathname)) {
-    e.respondWith(
-      caches.open(SHELL).then(async (c) => {
+      caches.open(FONTS).then(async (c) => {
         const hit = await c.match(req)
-        const net = fetch(req).then((res) => { if (res.ok) c.put(req, res.clone()); return res }).catch(() => hit)
+        const net = fetch(req).then((res) => { c.put(req, res.clone()); return res }).catch(() => hit)
         return hit || net
       }),
     )
+    return
+  }
+  if (url.origin !== self.location.origin) return
+
+  // Every page of the app is the same shell: serve it from the cache at once, the network only as a fallback.
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      caches.match('/', { cacheName: SHELL })
+        .then((hit) => hit || fetch(req))
+        .catch(() => caches.match('/')),
+    )
+    return
+  }
+
+  // Built files have content hashes in their names, so a cached copy is always right.
+  if (url.pathname.startsWith('/assets/') || /\.(png|svg|webmanifest)$/.test(url.pathname)) {
+    e.respondWith(cacheFirst(req, RUNTIME))
   }
 })

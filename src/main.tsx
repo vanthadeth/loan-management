@@ -33,5 +33,29 @@ createRoot(document.getElementById('root')!).render(
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault())
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}) })
+  addEventListener('load', () => { void registerShell() })
+}
+
+/**
+ * Registers the service worker that keeps the app shell on the device. A new version downloads in the
+ * background and takes over when the app is next hidden or closed, then the app reloads unseen.
+ */
+async function registerShell() {
+  const reg = await navigator.serviceWorker.register('/sw.js').catch(() => null)
+  if (!reg) return
+  const hadWorker = !!navigator.serviceWorker.controller
+  const activateWaiting = () => { if (document.hidden && reg.waiting) reg.waiting.postMessage('SKIP_WAITING') }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) activateWaiting()
+    else void reg.update().catch(() => {})
+  })
+  reg.addEventListener('updatefound', () => {
+    reg.installing?.addEventListener('statechange', activateWaiting)
+  })
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // the first install takes control without a reload; later updates reload while the app is out of sight
+    if (!hadWorker) return
+    if (document.hidden) location.reload()
+    else document.addEventListener('visibilitychange', () => location.reload(), { once: true })
+  })
 }
