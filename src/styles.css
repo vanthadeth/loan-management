@@ -1155,3 +1155,7 @@ main{--gb:16px}
 a.rlink,a.rlink:hover,a.rlink:focus-visible,a.rlink *{text-decoration:none}
 
 .logo-img{width:40px;height:40px;border-radius:22%;flex:none;display:block}
+
+/* No zooming: no double-tap zoom, and 16px fields so iOS does not zoom in on focus */
+html{touch-action:manipulation;-webkit-text-size-adjust:100%}
+input,select,textarea{font-size:16px}

@@ -27,6 +27,9 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
+// iOS Safari ignores user-scalable=no, so block the pinch gesture itself
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault())
+
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}) })
 }
