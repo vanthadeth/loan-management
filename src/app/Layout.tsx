@@ -8,7 +8,6 @@ import { useAuth } from './auth'
 import { applyTheme, savedTheme, useI18n, type Theme } from './i18n'
 import { markRead, messageText, useMessages } from '../data/messages'
 import { dn, useTeam } from '../data/core'
-import { useRun, useUploadPhoto } from '../data/admin'
 import { supabase } from '../lib/supabase'
 import { fmtT, loanCode } from '../lib/format'
 
@@ -51,8 +50,6 @@ export function Layout() {
   const [theme, setTheme] = useState<Theme>(savedTheme())
   const appRef = useRef<HTMLDivElement>(null)
   const [barsHidden, setBarsHidden] = useState(false)
-  const run = useRun()
-  const uploadPhoto = useUploadPhoto()
   const pending = usePendingApproval()
   const msgs = useMessages()
   const team = useTeam()
@@ -167,14 +164,6 @@ export function Layout() {
                   <span style={{ display: 'block', marginTop: 4 }}><span className={'chip ' + (role?.locked ? 'approved' : 'verified')}>{role?.name}</span></span></span>
                 <Icon name="chev" size={16} />
               </button>
-              <label className="mi" role="menuitem" style={{ cursor: 'pointer' }}>
-                <span className="grow"><Icon name="camera" size={18} /><span>Change profile picture</span></span>
-                <input type="file" accept="image/*" hidden onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  e.target.value = ''
-                  if (f) { setMenu(null); void run(() => uploadPhoto(f), 'Profile picture updated') }
-                }} />
-              </label>
               <div className="mdiv" />
               <div className="mi static"><span className="grow"><Icon name="globe" size={18} /><span>Language</span></span>
                 <div className="seg"><button aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN</button><button aria-pressed={lang === 'km'} onClick={() => setLang('km')}>ខ្មែរ</button></div></div>
