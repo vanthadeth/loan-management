@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom'
 import { lockScroll } from '../lib/lock'
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../ui/Icon'
 import { NAV_ICONS } from '../ui/navIcons'
@@ -195,9 +195,3 @@ export function Layout() {
     </TitleCtx.Provider>
   )
 }
-
-export function Page({ title, children }: { title?: string; children: ReactNode }) {
-  usePageTitle(title ?? null)
-  return <>{children}</>
-}
-export { Link }

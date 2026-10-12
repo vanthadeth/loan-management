@@ -10,7 +10,7 @@ import type { AppSettings, BankAccount, Profile, Role } from '../lib/types'
 
 /* ---------------------------------------------------------------- errors */
 
-export const errMsg = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong. Try again.')
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong. Try again.')
 
 type Result = { error: { message: string } | null; data?: unknown[] | null }
 
@@ -144,7 +144,7 @@ export interface RoleForm { name: string; description: string; scoped: boolean }
 const slug = (name: string) =>
   name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'role'
 
-export function uniqueRoleId(name: string, taken: Set<string>) {
+function uniqueRoleId(name: string, taken: Set<string>) {
   const base = slug(name)
   let id = base
   for (let n = 2; taken.has(id); n++) id = `${base}-${n}`

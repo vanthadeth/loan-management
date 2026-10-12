@@ -52,14 +52,3 @@ export function Sheet({ title, onClose, children, action }: Props) {
     document.body,
   )
 }
-
-/** Small confirm dialog: "Are you sure?" with a custom confirm label. */
-export function Confirm({ title, children, label, cls, onConfirm, onClose }: {
-  title: string; children: ReactNode; label: string; cls?: string; onConfirm: () => void | Promise<void>; onClose: () => void
-}) {
-  return (
-    <Sheet title={title} onClose={onClose} action={{ label, cls, onClick: async () => { await onConfirm(); onClose() } }}>
-      {children}
-    </Sheet>
-  )
-}

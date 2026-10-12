@@ -130,7 +130,7 @@ export function Choice(p: { id: string; label?: string; options: Opt[]; value: s
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
-export function Calendar({ value, onPick }: { value: string; onPick: (iso: string) => void }) {
+function Calendar({ value, onPick }: { value: string; onPick: (iso: string) => void }) {
   const base = value || todayIso()
   const [ym, setYm] = useState<[number, number]>([+base.slice(0, 4), +base.slice(5, 7) - 1])
   const [y, m] = ym
@@ -200,14 +200,6 @@ export function DateIconPicker({ value, onChange }: { value: string; onChange: (
   )
 }
 
-export function Chip({ kind, children }: { kind: string; children: ReactNode }) {
-  return <span className={'chip ' + kind}>{children}</span>
-}
-
 export function Fab({ label, onClick }: { label: string; onClick: () => void }) {
   return <button className="fab" aria-label={label} title={label} onClick={onClick}><Icon name="plus" size={26} /></button>
-}
-
-export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
-  return <button type="button" role="switch" aria-checked={on} aria-label={label} className="switch" onClick={() => onChange(!on)} />
 }
