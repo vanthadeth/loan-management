@@ -226,6 +226,7 @@ create index on public.payments (loan_id);
 
 create table public.fund_transactions (
   id bigint generated always as identity primary key,
+  kind text not null default 'add' check (kind in ('add', 'withdraw')),
   currency public.currency_code not null,
   amount numeric(14, 2) not null check (amount > 0),
   txn_date date not null default current_date,
