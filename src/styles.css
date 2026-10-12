@@ -1223,5 +1223,5 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 .float-mask.clear{background:transparent!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;animation:none}
 
 /* messages bell in the app title: flat, and its unread count may sit outside the button */
-.icon-btn.bell{overflow:visible;background:none;box-shadow:none;color:var(--ink)}
+.icon-btn.bell{overflow:visible!important;background:none!important;box-shadow:none!important;color:var(--ink)}
 .icon-btn.bell:hover{background:var(--surface2)}
