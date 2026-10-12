@@ -39,6 +39,13 @@ describe('contract values', () => {
     expect(get(contractValues(input()), 'contract_duration_days')).toBe('១៨២') // 12 Oct 2026 to 12 Apr 2027
     expect(get(contractValues(input({}, { frequency: 'weekly', intervalDays: 7, occurrences: 8 })), 'contract_duration_days')).toBe('៥៦')
   })
+  it('gives the release date and the first payment date', () => {
+    const v = contractValues(input())
+    expect(get(v, 'released_date')).toBe('ថ្ងៃទី១២ ខែតុលា ឆ្នាំ២០២៦')
+    expect(get(v, 'release_date')).toBe(get(v, 'released_date'))
+    expect(get(v, 'first_payment_date')).toBe('ថ្ងៃទី១២ ខែវិច្ឆិកា ឆ្នាំ២០២៦') // same day next month
+    expect(get(contractValues(input({}, { frequency: 'weekly', intervalDays: 7 }), 'en'), 'first_payment_date')).toBe('19 Oct 2026')
+  })
   it('works in English too', () => {
     const v = contractValues(input(), 'en')
     expect(get(v, 'borrower_gender')).toBe('Female')

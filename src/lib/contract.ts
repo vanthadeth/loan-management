@@ -32,6 +32,8 @@ export const PLACEHOLDERS: [string, string][] = [
   ['installment_words', 'First payment amount, in words'],
   ['repayment_mode', 'Interest and principal, or interest only'],
   ['release_date', 'Release date'],
+  ['released_date', 'Release date (same as release_date)'],
+  ['first_payment_date', 'Date of the first payment'],
   ['end_date', 'Date of the last payment'],
   ['contract_duration', 'Length of the contract with its unit: weeks if paid weekly, months if paid monthly, otherwise days'],
   ['contract_duration_days', 'Length of the contract in days (number only)'],
@@ -340,7 +342,7 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
     repayment_mode: km
       ? t.mode === 'equal' ? 'សងការប្រាក់ និងប្រាក់ដើមក្នុងគ្រប់ដង' : 'សងតែការប្រាក់ រីឯប្រាក់ដើមសងនៅដងចុងក្រោយ'
       : t.mode === 'equal' ? 'Interest and principal in every payment' : 'Interest only, principal at the end',
-    release_date: date(t.releaseDate), end_date: date(tot.endDate), late_fee_per_day: money(t.lateFeePerDay),
+    release_date: date(t.releaseDate), released_date: date(t.releaseDate), first_payment_date: date(tot.rows[0].due), end_date: date(tot.endDate), late_fee_per_day: money(t.lateFeePerDay),
     pay_method: method, bank_name: bank?.bank ?? '', bank_account_no: bank ? num(bank.account_no) : '', bank_account_name: bank?.account_name ?? '',
     contract_duration: duration, contract_duration_days: num(days), collateral: c.collaterals.length ? c.collaterals.join('; ') : W.none, supervisor: c.supervisor,
   }
