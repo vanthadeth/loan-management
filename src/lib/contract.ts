@@ -1,6 +1,6 @@
 import { fmt, fmtD, loanCode } from './format'
 import { diffDays, loanTotals, todayIso, type LoanTerms } from './calc'
-import { khDate, khDigits, khMoney, khMoneyWords } from './khmer'
+import { khDate, khDigits, khMoney, khMoneyWords, khWeekdayDate } from './khmer'
 
 export type ContractLang = 'km' | 'en'
 
@@ -42,7 +42,7 @@ export const PLACEHOLDERS: [string, string][] = [
   ['bank_account_name', 'Bank account name'],
   ['collateral', 'Collateral items'],
   ['supervisor', 'Loan supervisor'],
-  ['schedule', 'Ready-made payment schedule table'],
+  ['schedule', 'Ready-made payment schedule table (blue header, balance at start and end, notes column)'],
   ['schedule_no', 'Per payment row: number (put in a table row that repeats)'],
   ['schedule_date', 'Per payment row: due date'],
   ['schedule_principal', 'Per payment row: principal'],
@@ -50,6 +50,8 @@ export const PLACEHOLDERS: [string, string][] = [
   ['schedule_total', 'Per payment row: amount to pay'],
   ['schedule_total_words', 'Per payment row: amount to pay, in words'],
   ['schedule_balance', 'Per payment row: principal left after it'],
+  ['schedule_balance_before', 'Per payment row: principal left before it'],
+  ['schedule_weekday_date', 'Per payment row: due date with the weekday, e.g. ថ្ងៃសុក្រ 2 តុលា 2026'],
 ]
 
 /** Starting text for a new template: paste it into a blank Google Doc and edit freely. */
@@ -145,16 +147,14 @@ const KM = {
   basis: { month: 'ក្នុងមួយខែ', occurrence: 'ក្នុងមួយដង', contract: 'សម្រាប់រយៈពេលកិច្ចសន្យាទាំងមូល' } as Record<string, string>,
   freq: { daily: 'ប្រចាំថ្ងៃ', weekly: 'ប្រចាំសប្តាហ៍', monthly: 'ប្រចាំខែ' } as Record<string, string>,
   method: { cash: 'សាច់ប្រាក់', bank: 'ផ្ទេរតាមធនាគារ', other: 'ផ្សេងៗ' } as Record<string, string>,
-  head: ['ល.រ', 'ថ្ងៃកំណត់សង', 'ប្រាក់ដើម', 'ការប្រាក់', 'សរុប'],
-  total: 'សរុប',
+  head: ['ល.រ', 'ថ្ងៃត្រូវសងប្រាក់', 'ប្រាក់ជំពាក់ដើមគ្រា', 'ប្រាក់ដើមត្រូវសង', 'ការប្រាក់ត្រូវសង', 'ប្រាក់សរុបត្រូវសង', 'ប្រាក់ជំពាក់ចុងគ្រា', 'កំណត់សំគាល់'],
   none: 'គ្មាន',
 }
 const EN = {
   basis: { month: 'per month', occurrence: 'per payment', contract: 'for the whole contract' } as Record<string, string>,
   freq: { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' } as Record<string, string>,
   method: { cash: 'Cash', bank: 'Bank transfer', other: 'Other' } as Record<string, string>,
-  head: ['No.', 'Due date', 'Principal', 'Interest', 'Total'],
-  total: 'Total',
+  head: ['No.', 'Due date', 'Balance at start', 'Principal due', 'Interest due', 'Total due', 'Balance at end', 'Notes'],
   none: 'None',
 }
 
@@ -182,7 +182,8 @@ export function scheduleRowValues(c: ContractInput, lang: ContractLang = 'km'): 
     const v: Record<string, string> = {
       schedule_no: num(r.i), schedule_date: date(r.due), schedule_principal: money(r.principal),
       schedule_interest: money(r.interest), schedule_total: money(r.total), schedule_total_words: words(r.total),
-      schedule_balance: money(Math.max(left, 0)),
+      schedule_balance: money(Math.max(left, 0)), schedule_balance_before: money(left + r.principal),
+      schedule_weekday_date: lang === 'km' ? khWeekdayDate(r.due) : date(r.due),
     }
     return Object.fromEntries(Object.entries(v).map(([k, text]) => [k, { text }]))
   })
@@ -201,8 +202,19 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
   const { money, words, date, num } = formatters(lang, cur)
   const bank = c.payMethod === 'bank' ? c.bank : null
   const method = bank ? `${W.method.bank}, ${bank.bank} ${bank.account_no}` : c.payMethod === 'other' && c.payRemarks ? c.payRemarks : W.method[c.payMethod] ?? c.payMethod
-  const cell = 'border:1px solid #888;padding:4px 8px;'
-  const schedule = `<table style="border-collapse:collapse;width:100%;font-size:10pt"><thead><tr>${W.head.map((h, i) => `<th style="${cell}text-align:${i < 2 ? 'left' : 'right'}">${h}</th>`).join('')}</tr></thead><tbody>${tot.rows.map((r) => `<tr><td style="${cell}">${num(r.i)}</td><td style="${cell}">${date(r.due)}</td><td style="${cell}text-align:right">${money(r.principal)}</td><td style="${cell}text-align:right">${money(r.interest)}</td><td style="${cell}text-align:right">${money(r.total)}</td></tr>`).join('')}<tr><td style="${cell}" colspan="2"><b>${W.total}</b></td><td style="${cell}text-align:right"><b>${money(tot.rows.reduce((s, r) => s + r.principal, 0))}</b></td><td style="${cell}text-align:right"><b>${money(tot.interest)}</b></td><td style="${cell}text-align:right"><b>${money(tot.total)}</b></td></tr></tbody></table>`
+  // The ready-made schedule table: blue header, heavy black borders, plain numbers with two decimals
+  const plain = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const day = (iso: string) => (km ? khWeekdayDate(iso) : new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).replace(',', ''))
+  const box = 'border:1.5pt solid #000;padding:5pt 6pt;'
+  const th = `${box}background:#1ea1e2;color:#fff;font-weight:700;text-align:center;vertical-align:middle`
+  let left = t.amount
+  const body = tot.rows.map((r) => {
+    const before = left
+    left = Math.max(left - r.principal, 0)
+    return `<tr><td style="${box}text-align:center">${r.i}</td><td style="${box}text-align:center">${day(r.due)}</td><td style="${box}text-align:right">${plain(before)}</td><td style="${box}text-align:right">${plain(r.principal)}</td><td style="${box}text-align:right">${plain(r.interest)}</td><td style="${box}text-align:right">${plain(r.total)}</td><td style="${box}text-align:right">${plain(left)}</td><td style="${box}"></td></tr>`
+  }).join('')
+  const widths = ['5%', '17%', '14%', '12%', '12%', '13%', '14%', '13%']
+  const schedule = `<table style="border-collapse:collapse;table-layout:fixed;width:100%;font-size:10pt"><colgroup>${widths.map((w) => `<col style="width:${w}">`).join('')}</colgroup><thead><tr>${W.head.map((h) => `<th style="${th}">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`
   // length of the contract: weeks if paid weekly, months if paid monthly, otherwise counted in days
   const days = diffDays(t.releaseDate, tot.endDate)
   const duration =

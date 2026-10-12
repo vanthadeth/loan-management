@@ -11,6 +11,13 @@ export function khDate(iso: string) {
   return `ថ្ងៃទី${khDigits(d)} ខែ${MONTHS[m - 1]} ឆ្នាំ${khDigits(y)}`
 }
 
+const WEEKDAYS = ['អាទិត្យ', 'ច័ន្ទ', 'អង្គារ', 'ពុធ', 'ព្រហស្បតិ៍', 'សុក្រ', 'សៅរ៍']
+/** '2026-10-02' → 'ថ្ងៃសុក្រ 2 តុលា 2026' (weekday, Khmer month, Latin digits: the style of the schedule table) */
+export function khWeekdayDate(iso: string) {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+  return `ថ្ងៃ${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d} ${MONTHS[m - 1]} ${y}`
+}
+
 const grouped = (n: number, dec: number) =>
   n.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { khDate, khDigits, khMoney, khMoneyWords, khWords } from './khmer'
+import { khDate, khDigits, khMoney, khMoneyWords, khWeekdayDate, khWords } from './khmer'
 
 describe('khmer formatting', () => {
   it('converts digits and dates', () => {
@@ -19,5 +19,12 @@ describe('khmer formatting', () => {
     expect(khWords(1_500_000)).toBe('មួយលានប្រាំសែន')
     expect(khWords(3_000_000)).toBe('បីលាន')
     expect(khMoneyWords(500, 'USD')).toBe('ប្រាំរយដុល្លារ')
+  })
+})
+
+describe('weekday dates', () => {
+  it('writes the weekday, Khmer month and Latin digits', () => {
+    expect(khWeekdayDate('2026-10-02')).toBe('ថ្ងៃសុក្រ 2 តុលា 2026')
+    expect(khWeekdayDate('2026-10-04')).toBe('ថ្ងៃអាទិត្យ 4 តុលា 2026')
   })
 })
