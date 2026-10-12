@@ -5,7 +5,7 @@ import { PDEP } from '../lib/perms'
 import { fmtD } from '../lib/format'
 import { useAuth } from '../app/auth'
 import { useToast } from '../ui/Toast'
-import { uploadFile, useInvalidate } from './core'
+import { squarePhoto, uploadFile, useInvalidate } from './core'
 import type { AppSettings, BankAccount, Profile, Role } from '../lib/types'
 
 /* ---------------------------------------------------------------- errors */
@@ -91,14 +91,16 @@ export function useSaveProfile() {
   }
 }
 
-/** Uploads a picture and stores it as the signed-in user's profile photo. */
+/** Uploads a picture and stores it as the signed-in user's profile photo, replacing the old one. */
 export function useUploadPhoto() {
   const save = useSaveProfile()
   const { me } = useAuth()
   return async (file: File) => {
     if (!me) return
-    const path = await uploadFile('avatars', file)
+    const old = me.photo_path
+    const path = await uploadFile('avatars', await squarePhoto(file))
     await save(me.id, { photo_path: path })
+    if (old) await supabase.storage.from('files').remove([old])
   }
 }
 

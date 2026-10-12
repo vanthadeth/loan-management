@@ -9,6 +9,6 @@ export function Avatar({ p, size = '' }: { p?: Pick<Profile, 'full_name' | 'disp
   const name = p ? p.display_name || p.full_name : ''
   if (size === 'bare') return <>{url ? <img src={url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : initials(name)}</>
   return url
-    ? <span className={'avatar ' + size} style={{ backgroundImage: `url('${url}')`, color: 'transparent' }}>{initials(name)}</span>
+    ? <span className={'avatar ' + size} style={{ backgroundImage: `url('${url}')`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', color: 'transparent' }}>{initials(name)}</span>
     : <span className={'avatar ' + size}>{initials(name)}</span>
 }

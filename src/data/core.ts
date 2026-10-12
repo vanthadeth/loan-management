@@ -58,3 +58,21 @@ export async function uploadFile(folder: string, file: File) {
   if (error) throw new Error(error.message)
   return path
 }
+
+/**
+ * Shrinks a photo to a square JPEG so uploads stay small and avatars load fast.
+ * Falls back to the original file when the browser cannot decode it (e.g. HEIC).
+ */
+export async function squarePhoto(file: File, size = 512): Promise<File> {
+  try {
+    const bmp = await createImageBitmap(file)
+    const side = Math.min(bmp.width, bmp.height)
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = Math.min(size, side)
+    canvas.getContext('2d')!.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/jpeg', 0.86))
+    return blob ? new File([blob], 'photo.jpg', { type: 'image/jpeg' }) : file
+  } catch {
+    return file
+  }
+}

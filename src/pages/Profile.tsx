@@ -48,7 +48,7 @@ function EditProfile({ me, canEditName, onClose }: { me: ProfileRow; canEditName
           <label>Profile picture (optional)</label>
           <div className="row" style={{ gap: 12 }}>
             <Avatar p={me} size="lg" />
-            <label className="btn sm" style={{ cursor: 'pointer' }}>Take / choose photo<input type="file" accept="image/*" capture="user" hidden onChange={onPhoto} /></label>
+            <label className="btn sm" style={{ cursor: 'pointer' }}>Change photo<input type="file" accept="image/*" hidden onChange={onPhoto} /></label>
           </div>
         </div>
         <Field id="bn" label="Full name" value={name} onChange={setName} disabled={!canEditName} />
