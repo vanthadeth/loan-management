@@ -1214,3 +1214,7 @@ input,select,textarea{font-size:16px}
 .float>.dd-list,.float>.cal{margin:0;box-shadow:var(--pop)!important}
 .sheet-bg{z-index:900!important}
 .toast{z-index:1100!important}
+
+/* nothing behind a popup scrolls or takes taps */
+body.popup-open #main{overflow:hidden!important;touch-action:none}
+.float-mask,.sheet-bg{touch-action:none;overscroll-behavior:contain}

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useI18n } from '../app/i18n'
+import { lockScroll } from '../lib/lock'
 
 interface Props {
   title: string
@@ -24,13 +25,14 @@ export function Sheet({ title, onClose, children, action }: Props) {
     document.addEventListener('keydown', k)
     return () => document.removeEventListener('keydown', k)
   })
+  useEffect(() => lockScroll(), [])
   const run = async () => {
     if (!action || busy) return
     setBusy(true)
     try { await action.onClick() } finally { setBusy(false) }
   }
   return createPortal(
-    <div className={'sheet-bg' + (closing ? ' closing' : '')} onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <div className={'sheet-bg' + (closing ? ' closing' : '')} onClick={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) close() }}>
       <div className={'sheet' + (closing ? ' closing' : '')} role="dialog" aria-label={title}>
         <div className="row between" style={{ marginBottom: 12 }}>
           <h2>{title}</h2>

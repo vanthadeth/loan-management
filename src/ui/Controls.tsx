@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
+import { lockScroll } from '../lib/lock'
 import { fmtD } from '../lib/format'
 import { todayIso } from '../lib/calc'
 
@@ -76,15 +77,18 @@ function Floating({ anchor, onClose, align = 'left', fit = false, children }: {
     window.addEventListener('scroll', place, true)
     return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true) }
   }, [anchor, align, fit])
+  useEffect(() => lockScroll(), [])
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', k)
     return () => document.removeEventListener('keydown', k)
   })
+  // React events bubble through portals, so stop them here: a tap outside only closes the popup and never reaches the page under it
+  const swallow = (e: { stopPropagation: () => void }) => e.stopPropagation()
   return createPortal(
     <>
-      <div className="float-mask" onClick={onClose} aria-hidden="true" />
-      <div ref={box} className="float" style={pos ? { left: pos.left, top: pos.top, width: pos.width, maxHeight: pos.maxHeight } : { visibility: 'hidden' }}>{children}</div>
+      <div className="float-mask" onClick={(e) => { e.stopPropagation(); onClose() }} aria-hidden="true" />
+      <div ref={box} className="float" onClick={swallow} style={pos ? { left: pos.left, top: pos.top, width: pos.width, maxHeight: pos.maxHeight } : { visibility: 'hidden' }}>{children}</div>
     </>,
     document.body,
   )

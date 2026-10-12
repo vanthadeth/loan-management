@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { lockScroll } from '../lib/lock'
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -96,6 +97,7 @@ export function Layout() {
   }, [title])
 
   useEffect(() => { setBarsHidden(false) }, [loc.pathname])
+  useEffect(() => (menu ? lockScroll() : undefined), [menu])
   useEffect(() => {
     const close = (e: MouseEvent) => {
       if (menu && !(e.target as Element).closest('.menu, [data-menu]')) setMenu(null)
@@ -138,7 +140,7 @@ export function Layout() {
             </>
           )}
           {menu === 'msg' && createPortal(
-            <><div className="float-mask" aria-hidden="true" /><div className="menu" role="dialog" aria-label="Recent messages">
+            <><div className="float-mask" onClick={(e) => { e.stopPropagation(); setMenu(null) }} aria-hidden="true" /><div className="menu" role="dialog" aria-label="Recent messages">
               <div className="row between" style={{ padding: '8px 10px 4px' }}>
                 <b>{t('messages')}</b>
                 {unread.length ? <button className="linkbtn" onClick={async () => { await markRead(unread.map((m) => m.id)); qc.invalidateQueries({ queryKey: ['messages'] }) }}>Mark all read</button> : <span className="small muted">All read</span>}
@@ -158,7 +160,7 @@ export function Layout() {
             </div></>
           , document.body)}
           {menu === 'profile' && me && createPortal(
-            <><div className="float-mask" aria-hidden="true" /><div className="menu" role="menu" aria-label="Account menu">
+            <><div className="float-mask" onClick={(e) => { e.stopPropagation(); setMenu(null) }} onPointerDown={(e) => e.stopPropagation()} aria-hidden="true" /><div className="menu" role="menu" aria-label="Account menu">
               <button className="mi pcard" role="menuitem" onClick={() => go('/profile')}>
                 <Avatar p={me} />
                 <span className="grow"><b style={{ display: 'block' }}>{dn(me)}</b><span className="small muted">@{me.username}</span>
