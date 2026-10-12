@@ -1,7 +1,7 @@
 // Service worker: caches the app shell only so the app opens instantly and offline
 // shows the shell. Loan data is never cached here; Supabase requests always go to
 // the network (they are cross-origin and this worker ignores them).
-const SHELL = 'shell-v2'
+const SHELL = 'shell-v3'
 const ASSETS = 'assets-v1'
 
 self.addEventListener('install', (e) => {
