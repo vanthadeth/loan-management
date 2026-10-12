@@ -54,12 +54,6 @@ export function UserDetail() {
     <button className="mcta" aria-label={label} title={label} onClick={onClick}><Icon name={icon} size={17} /></button>
   )
 
-  // The temporary password is shown only once, so a user who has not signed in yet needs a fresh one.
-  const copyLogin = () => {
-    if (u.must_change_password) setDlg({ kind: 'reset' })
-    else copy(`Hello ${u.full_name},\n\nOpen the app:\n${window.location.origin}\n\nUsername: ${u.username}\nUse the password you set. If you forgot it, ask me to reset it.`, 'Login information')
-  }
-
   const reset = async () => {
     const r = await run(() => admin.resetPassword(u.id))
     if (r) setDlg({ kind: 'pw', pw: r.value })
@@ -97,7 +91,6 @@ export function UserDetail() {
         <table className="ut">
           <tbody>
             {row('Username', u.username, cta('Copy username', 'copy', () => copy(u.username, 'Username')))}
-            {row('Login information', u.must_change_password ? 'Not signed in yet' : 'App link and username', cta('Copy login information', 'copy', copyLogin))}
             {row('Full name', u.full_name)}
             {row('Display name', u.display_name || '—')}
             {row('Gender', u.gender === 'F' ? 'Female' : u.gender === 'M' ? 'Male' : '—')}
