@@ -343,8 +343,8 @@ export function LoanDetail() {
         </Sheet>
       )}
       {dialog === 'return' && (
-        <Sheet title="Return to draft?" onClose={() => setDialog(null)} action={{
-          label: 'Return to draft',
+        <Sheet title="Draft?" onClose={() => setDialog(null)} action={{
+          label: 'Draft',
           onClick: async () => { try { await actions.setStatus(loan.id, loan.status, 'drafted'); toast('Loan is a draft again'); nav('/loans', { replace: true }) } catch (e) { toast(errMsg(e)) } },
         }}>
           <p style={{ margin: '0 0 6px' }}>Move <b>{loanCode(loan.id)}</b> for <b>{name}</b> back to a draft so it can be edited? It is private to the person who created it until it is requested again.</p>
