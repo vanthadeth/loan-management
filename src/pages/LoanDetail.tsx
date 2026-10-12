@@ -56,6 +56,7 @@ export function LoanDetail() {
   const mine = loan.status === 'drafted' && loan.requested_by === me?.id && can('loans.create')
   const canApprove = !voided && loan.status === 'requested' && can('loans.approve')
   const canReturn = !voided && (loan.status === 'requested' || loan.status === 'rejected') && (can('loans.create') || can('loans.approve'))
+  const canVoid = !voided && can('loans.void')
   const canReset = !voided && loan.status === 'approved' && can('loans.approve') && payments.length === 0
   const pct = Math.round((status.paidCount / loan.occurrences) * 100)
   const lateRate = `${Number(loan.late_fee_pct)}%`
@@ -102,15 +103,20 @@ export function LoanDetail() {
               ))}
             </div>
           )}
-        {mine && (
+        {(mine || canReturn || canReset || canVoid) && (
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="btn primary" onClick={() => setDialog('submit')}>Submit request</button>
-            <button type="button" className="btn" onClick={() => nav(`/loans/new?draft=${loan.id}`)}>Edit draft</button>
-            <button type="button" className="btn danger" onClick={() => setDialog('delete')}>Delete draft</button>
+            {mine && (
+              <>
+                <button type="button" className="btn primary" onClick={() => setDialog('submit')}>Submit request</button>
+                <button type="button" className="btn" onClick={() => nav(`/loans/new?draft=${loan.id}`)}>Edit draft</button>
+                <button type="button" className="btn danger" onClick={() => setDialog('delete')}>Delete draft</button>
+              </>
+            )}
+            {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Return to draft</button>}
+            {canReset && <button type="button" className="btn" onClick={() => setDialog('reset')}>Reset approval</button>}
+            {canVoid && <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('void') }}>Void</button>}
           </div>
         )}
-        {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Return to draft</button>}
-        {canReset && <button type="button" className="btn" onClick={() => setDialog('reset')}>Reset approval</button>}
         <div className="kv one" style={{ marginTop: 14 }}>
           <div style={{ gridColumn: '1/-1' }}>
             <span className="eyebrow">Workflow</span>
@@ -309,9 +315,6 @@ export function LoanDetail() {
             <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('reject') }}>Deny</button>
           </div>
         </>
-      )}
-      {!voided && can('loans.void') && (
-        <button type="button" className="btn danger blockbtn" onClick={() => { setReason(''); setDialog('void') }}>Void loan</button>
       )}
 
       {dialog === 'void' && (
