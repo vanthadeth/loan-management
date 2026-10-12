@@ -1,3 +1,4 @@
+import { showScrim } from '../lib/scrim'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from './Icon'
 import { fmtD } from '../lib/format'
@@ -47,6 +48,13 @@ export function Seg({ id, label, options, value, onChange, cls = '' }: {
 
 function useOutside(open: boolean, close: () => void) {
   const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!open || !el || el.closest('.sheet')) return
+    el.classList.add('pop-open')
+    const hide = showScrim()
+    return () => { el.classList.remove('pop-open'); hide() }
+  }, [open])
   useEffect(() => {
     if (!open) return
     const h = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && close()

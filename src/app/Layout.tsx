@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom'
+import { showScrim } from '../lib/scrim'
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -95,6 +97,7 @@ export function Layout() {
   }, [title])
 
   useEffect(() => { setBarsHidden(false) }, [loc.pathname])
+  useEffect(() => (menu ? showScrim() : undefined), [menu])
   useEffect(() => {
     const close = (e: MouseEvent) => {
       if (menu && !(e.target as Element).closest('.menu, [data-menu]')) setMenu(null)
@@ -136,7 +139,7 @@ export function Layout() {
               </button>
             </>
           )}
-          {menu === 'msg' && (
+          {menu === 'msg' && createPortal(
             <div className="menu" role="dialog" aria-label="Recent messages">
               <div className="row between" style={{ padding: '8px 10px 4px' }}>
                 <b>{t('messages')}</b>
@@ -155,8 +158,8 @@ export function Layout() {
               <div className="mdiv" style={{ margin: '6px 0' }} />
               <button className="btn primary" style={{ width: '100%', marginTop: 0 }} onClick={() => go('/messages')}>Open Messages</button>
             </div>
-          )}
-          {menu === 'profile' && me && (
+          , document.body)}
+          {menu === 'profile' && me && createPortal(
             <div className="menu" role="menu" aria-label="Account menu">
               <button className="mi pcard" role="menuitem" onClick={() => go('/profile')}>
                 <Avatar p={me} />
@@ -175,7 +178,7 @@ export function Layout() {
               <div className="mdiv" />
               <button className="mi danger" role="menuitem" onClick={() => signOut()}><span className="grow"><Icon name="out" size={18} /><span>Sign out</span></span></button>
             </div>
-          )}
+          , document.body)}
         </header>
         <nav className="nav" id="nav">
           {items.map(([k, outline, filled]) => (
