@@ -18,7 +18,7 @@ import { Bar, Ring } from './loans/parts'
 import { SupervisorSheet } from './loans/SupervisorSheet'
 
 const STEPS: LoanStatus[] = ['drafted', 'requested', 'approved']
-type Dialog = 'submit' | 'delete' | 'approve' | 'reject' | 'supervisor' | 'void' | 'restore' | null
+type Dialog = 'submit' | 'delete' | 'return' | 'reset' | 'approve' | 'reject' | 'supervisor' | 'void' | 'restore' | null
 
 export function LoanDetail() {
   const loanId = Number(useParams().id)
@@ -55,6 +55,8 @@ export function LoanDetail() {
   const voided = !!loan.voided_at
   const mine = loan.status === 'drafted' && loan.requested_by === me?.id && can('loans.create')
   const canApprove = !voided && loan.status === 'requested' && can('loans.approve')
+  const canReturn = !voided && (loan.status === 'requested' || loan.status === 'rejected') && (can('loans.create') || can('loans.approve'))
+  const canReset = !voided && loan.status === 'approved' && can('loans.approve') && payments.length === 0
   const pct = Math.round((status.paidCount / loan.occurrences) * 100)
   const lateRate = `${Number(loan.late_fee_pct)}%`
   const lateUnit = loan.frequency === 'daily' ? 'day' : loan.frequency === 'weekly' ? 'week' : loan.frequency === 'monthly' ? 'month' : `${loan.interval_days}-day period`
@@ -89,7 +91,7 @@ export function LoanDetail() {
           <b className="num" style={{ fontSize: 20, fontFamily: 'var(--display)' }}>{fmt(loan.amount, cur)}</b>
         </div>
         {loan.status === 'rejected'
-          ? <div style={{ margin: '14px 0' }}><span className="chip overdue">Rejected</span></div>
+          ? <div style={{ margin: '14px 0' }}><span className="chip overdue">Denied</span></div>
           : (
             <div className="stepper" style={{ margin: '14px 0' }}>
               {STEPS.map((k, i) => (
@@ -110,9 +112,12 @@ export function LoanDetail() {
         {canApprove && (
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <button type="button" className="btn primary" onClick={() => setDialog('approve')}>Approve</button>
-            <button type="button" className="btn danger" onClick={() => setDialog('reject')}>Reject</button>
+            <button type="button" className="btn danger" onClick={() => setDialog('reject')}>Deny</button>
+            {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Return to draft</button>}
           </div>
         )}
+        {!canApprove && canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Return to draft</button>}
+        {canReset && <button type="button" className="btn" onClick={() => setDialog('reset')}>Reset approval</button>}
         <div className="kv one" style={{ marginTop: 14 }}>
           <div style={{ gridColumn: '1/-1' }}>
             <span className="eyebrow">Workflow</span>
@@ -321,6 +326,19 @@ export function LoanDetail() {
           <p style={{ margin: '0 0 6px' }}>Submit <b>{loanCode(loan.id)}</b> for <b>{name}</b>? It will then wait for approval and can no longer be edited.</p>
         </Sheet>
       )}
+      {dialog === 'return' && (
+        <Sheet title="Return to draft?" onClose={() => setDialog(null)} action={{
+          label: 'Return to draft',
+          onClick: async () => { try { await actions.setStatus(loan.id, loan.status, 'drafted'); toast('Loan is a draft again'); nav('/loans', { replace: true }) } catch (e) { toast(errMsg(e)) } },
+        }}>
+          <p style={{ margin: '0 0 6px' }}>Move <b>{loanCode(loan.id)}</b> for <b>{name}</b> back to a draft so it can be edited? It is private to the person who created it until it is requested again.</p>
+        </Sheet>
+      )}
+      {dialog === 'reset' && (
+        <Sheet title="Reset approval?" onClose={() => setDialog(null)} action={{ label: 'Reset approval', onClick: move('requested', 'Approval reset. The loan is requested again') }}>
+          <p style={{ margin: '0 0 6px' }}>Take back the approval of <b>{loanCode(loan.id)}</b> for <b>{name}</b>? It goes back to requested and has to be approved again. This is only possible before any payment is recorded.</p>
+        </Sheet>
+      )}
       {dialog === 'delete' && (
         <Sheet title="Delete draft?" onClose={() => setDialog(null)} action={{
           label: 'Delete draft', cls: 'danger',
@@ -335,8 +353,8 @@ export function LoanDetail() {
         </Sheet>
       )}
       {dialog === 'reject' && (
-        <Sheet title="Reject loan?" onClose={() => setDialog(null)} action={{ label: 'Confirm reject', cls: 'danger', onClick: move('rejected', 'Loan rejected') }}>
-          <p style={{ margin: '0 0 6px' }}>Reject <b>{loanCode(loan.id)}</b> for <b>{name}</b>? This cannot be undone.</p>
+        <Sheet title="Deny loan?" onClose={() => setDialog(null)} action={{ label: 'Confirm deny', cls: 'danger', onClick: move('rejected', 'Loan denied') }}>
+          <p style={{ margin: '0 0 6px' }}>Deny <b>{loanCode(loan.id)}</b> for <b>{name}</b>? It can be returned to a draft and edited afterwards.</p>
         </Sheet>
       )}
       {dialog === 'supervisor' && <SupervisorSheet loanId={loan.id} current={loan.supervisor_id} onClose={() => setDialog(null)} />}

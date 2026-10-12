@@ -50,7 +50,7 @@ export function LoanRow({ v, doneLabel }: { v: LoanView; doneLabel?: string }) {
   const { loan, status, done, borrower } = v
   const approved = loan.status === 'approved'
   const late = approved && !done && status.rows.some((r) => r.state === 'overdue')
-  const label = done ? (doneLabel ?? 'Completed') : loan.status === 'rejected' ? 'Rejected' : t(loan.status)
+  const label = done ? (doneLabel ?? 'Completed') : loan.status === 'rejected' ? 'Denied' : t(loan.status)
   const kind = done ? 'approved' : loan.status === 'rejected' ? 'overdue' : loan.status
   return (
     <button type="button" className="item" onClick={() => nav(`/loans/${loan.id}`)}>

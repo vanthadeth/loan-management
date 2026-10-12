@@ -9,3 +9,7 @@ delete from public.roles where id = 'verifier' and not exists (select 1 from pub
 -- (applied live, in this order) private.can_see_loan hides other people's drafts, policies loans_select / loans_update /
 -- loans_delete were reworked for drafts, and private.loans_guard now allows drafted -> requested (loans.create),
 -- requested -> approved and requested -> rejected (loans.approve); only drafts can be edited.
+
+-- (applied live) more loans_guard transitions: requested -> drafted and rejected(denied) -> drafted
+-- (loans.create or loans.approve), approved -> requested "reset approval" (loans.approve, blocked once a
+-- payment exists; clears approved_by/approved_at).

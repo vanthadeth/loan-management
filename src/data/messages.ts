@@ -40,7 +40,7 @@ export const messageText = (m: MessageRow, code: string) => {
     case 'requested': return `New loan request ${code}${who}.`
     case 'verified': return `Verified ${code}${who}. Needs approval before release.`
     case 'approved': return `Approved ${code}${who}. Set the release date when the borrower is ready.`
-    case 'rejected': return `Rejected ${code}${who}.`
+    case 'rejected': return `Denied ${code}${who}.`
     case 'payment': return `Payment recorded on ${code}${who}.`
     default: return `${m.kind} ${code}`
   }
