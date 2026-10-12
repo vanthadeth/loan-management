@@ -11,6 +11,7 @@ import { errMsg, useLoanFiles, useLoans } from '../data/loans'
 import { allScheduleRows, allValues, cleanDocument, fillScheduleRows, fillScheduleTable, fillTemplate, type ContractInput, type ContractLang } from '../lib/contract'
 import { loanCode } from '../lib/format'
 import { readPageSetup, type PageSetup } from '../lib/pagesetup'
+import { saveBlob, wordDocument } from '../lib/word'
 
 const BUILT_IN = '0'
 const DEFAULT_PAGE_PX = 816 // Google Docs' default (Letter) page width, used until the document's own setup is read
@@ -101,6 +102,15 @@ export function Contract() {
   }
   const doc = useMemo(() => (input && tpl.html && chosen ? fill(tpl.html, chosen.lang, !sched) : null), [input, tpl.html, chosen, sched]) // eslint-disable-line react-hooks/exhaustive-deps
   const sdoc = useMemo(() => (input && stpl.html && sched ? fill(stpl.html, sched.lang, false) : null), [input, stpl.html, sched]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Saves one filled document as a Word (.doc) file with the Google Doc's page setup. */
+  const downloadWord = (which: 'contract' | 'schedule') => {
+    const f = which === 'contract' ? frame.current : sframe.current
+    const html = which === 'contract' ? doc : sdoc
+    const d = f?.contentDocument
+    if (!d || !html) return
+    saveBlob(wordDocument(html, readPageSetup(d)), `${loanCode(loanId)}-${which}.doc`, 'application/msword')
+  }
 
   const download = async () => {
     const frames = [frame.current, sched ? sframe.current : null].filter((f): f is HTMLIFrameElement => !!f)
@@ -204,6 +214,8 @@ export function Contract() {
       )}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button className="btn primary" disabled={busy || !doc} onClick={download}><Icon name="download" size={17} />{busy ? 'Making PDF…' : 'Download PDF'}</button>
+        <button className="btn" disabled={!doc} onClick={() => downloadWord('contract')}><Icon name="doc" size={17} />Contract (.doc)</button>
+        {sdoc && <button className="btn" onClick={() => downloadWord('schedule')}><Icon name="doc" size={17} />Schedule (.doc)</button>}
         <button className="btn" disabled={!doc} onClick={() => frame.current?.contentWindow?.print()}>Print contract</button>
         {sdoc && <button className="btn" onClick={() => sframe.current?.contentWindow?.print()}>Print schedule</button>}
         <Link className="btn" style={{ textDecoration: 'none', color: 'inherit' }} to={`/loans/${loanId}`}>Back to loan</Link>
