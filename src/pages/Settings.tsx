@@ -90,7 +90,7 @@ export function Settings() {
     <div className="bento">
       <div className="bsec">
         <div className="bh">Preferences</div>
-        <div className="bpair">
+        <div className="bpair" style={{ gridAutoRows: 'auto' }}>
           <section className="bt">
             <span className="bt-h">Language</span>
             <div className="seg bseg" role="group" aria-label="Language">
@@ -108,13 +108,13 @@ export function Settings() {
               ))}
             </div>
           </section>
-          <section className="bt">
+          <section className="bt" style={{ gridColumn: '1/-1', height: 'auto' }}>
             <span className="bt-h">Haptic feedback</span>
+            <span className="small bt-sub">A short vibration on taps. Android only.</span>
             <div className="seg bseg" role="group" aria-label="Haptic feedback">
               <button aria-pressed={buzz} onClick={() => { setBuzz(true); setHaptics(true) }}>On</button>
               <button aria-pressed={!buzz} onClick={() => { setBuzz(false); setHaptics(false) }}>Off</button>
             </div>
-            <span className="small bt-sub">A short vibration on taps. Android only.</span>
           </section>
         </div>
       </div>
