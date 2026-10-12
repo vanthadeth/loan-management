@@ -8,14 +8,21 @@ const csvValue = (c: Cell) => {
 }
 const quote = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
 
-/** Opens as a spreadsheet in Excel: UTF-8 with a byte order mark so Khmer names and the riel sign survive. */
-export function downloadCsv(name: string, table: Table, cur: Currency, from: string, to: string) {
+/** The table as CSV text that opens as a spreadsheet in Excel: UTF-8 with a byte order mark so Khmer names and the riel sign survive. */
+export function csvText(table: Table) {
   const lines = [table.cols, ...table.rows, ...(table.rows.length ? [table.foot] : [])]
-  const text = '﻿' + lines.map((r) => r.map((c) => quote(csvValue(c))).join(',')).join('\r\n')
+  return '﻿' + lines.map((r) => r.map((c) => quote(csvValue(c))).join(',')).join('\r\n')
+}
+
+/** File name of a downloaded report. */
+export const reportFileName = (name: string, cur: Currency, from: string, to: string) => `${name} ${cur} ${from} to ${to}.csv`
+
+export function downloadCsv(name: string, table: Table, cur: Currency, from: string, to: string) {
+  const text = csvText(table)
   const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }))
   const a = document.createElement('a')
   a.href = url
-  a.download = `${name} ${cur} ${from} to ${to}.csv`
+  a.download = reportFileName(name, cur, from, to)
   document.body.append(a)
   a.click()
   a.remove()

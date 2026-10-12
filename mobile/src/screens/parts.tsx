@@ -170,8 +170,8 @@ export function Tile({ icon, label, value, sub, onPress, tint, dot, style, child
         {dot && <View accessibilityLabel="Needs your attention" style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.late }} />}
       </Row>
       {value !== undefined && <T b num size={34} style={{ letterSpacing: -0.6, lineHeight: 40, marginTop: 4 }}>{value}</T>}
-      {sub && <T v="small" muted>{sub}</T>}
       {children}
+      {sub && <T v="small" muted>{sub}</T>}
     </>
   )
   const s: StyleProp<ViewStyle> = [{ backgroundColor: bg, borderRadius: 11, padding: 18, gap: 10, minWidth: 0, borderWidth: 0.5, borderColor: c.hair }, style]
