@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { must, uploadFile, useInvalidate } from './core'
-import type { Borrower, BorrowerDocument, Tier } from '../lib/types'
+import type { Borrower, BorrowerDocument, Tier, Upload } from '../lib/types'
 
 /** The name to show: the Khmer name, or the Latin one when no Khmer name was recorded. */
 export const bname = (b: Pick<Borrower, 'name' | 'name_km'> | undefined, _lang?: string) =>
@@ -30,19 +30,19 @@ export function useBorrowerActions() {
   }
 
   return {
-    async create(fields: BorrowerFields, photo: File | null) {
+    async create(fields: BorrowerFields, photo: Upload | null) {
       const photo_path = photo ? await uploadFile('borrowers', photo) : null
       const { data, error } = await supabase.from('borrowers').insert({ ...fields, photo_path }).select('id').single()
       if (error) throw new Error(error.message)
       await invalidate('book')
       return data.id as number
     },
-    async save(id: number, fields: BorrowerFields, photo: File | null) {
+    async save(id: number, fields: BorrowerFields, photo: Upload | null) {
       await update(id, photo ? { ...fields, photo_path: await uploadFile('borrowers', photo) } : fields)
     },
     setTier: (id: number, tier: Tier) => update(id, { tier }),
     setStatus: (id: number, status: Borrower['status']) => update(id, { status }),
-    async addDocument(borrowerId: number, title: string, note: string, file: File | null) {
+    async addDocument(borrowerId: number, title: string, note: string, file: Upload | null) {
       const file_path = file ? await uploadFile('borrowers', file) : null
       const { error } = await supabase.from('borrower_documents').insert({ borrower_id: borrowerId, title, note, file_path })
       if (error) throw new Error(error.message)

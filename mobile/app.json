@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "Komjei",
+    "slug": "komjei",
+    "scheme": "komjei",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#E9EEF8",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.komjei",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Take photos of borrowers, collateral and payment receipts.",
+        "NSPhotoLibraryUsageDescription": "Attach photos of borrowers, collateral and payment receipts.",
+        "NSLocationWhenInUseUsageDescription": "Save where a borrower lives."
+      }
+    },
+    "android": {
+      "package": "app.komjei",
+      "adaptiveIcon": {
+        "backgroundColor": "#4F6FE8",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "CAMERA",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-font",
+      "expo-sharing",
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120,
+          "backgroundColor": "#E9EEF8",
+          "dark": {
+            "backgroundColor": "#0E1426"
+          }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attach photos of borrowers, collateral and payment receipts.",
+          "cameraPermission": "Take photos of borrowers, collateral and payment receipts."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Save where a borrower lives."
+        }
+      ]
+    ]
+  }
+}
