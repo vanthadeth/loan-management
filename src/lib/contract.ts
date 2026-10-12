@@ -44,6 +44,8 @@ export const PLACEHOLDERS: [string, string][] = [
   ['bank_account_name', 'Bank account name'],
   ['collateral', 'Collateral items'],
   ['supervisor', 'Loan supervisor (the name they go by)'],
+  ['collector', 'Loan collector (the name they go by)'],
+  ['collector_name', 'Loan collector full name (Khmer name; Latin name in an English template)'],
   ['supervisor_name', 'Loan supervisor full name (Khmer name; Latin name in an English template)'],
   ['schedule', 'Payment schedule as an ANNEX: starts a new page with a heading, then the table (put it at the end of the contract, in its own paragraph)'],
   ['schedule_table', 'Only the payment schedule table, without the annex page and heading'],
@@ -166,6 +168,8 @@ export interface ContractInput {
   supervisor: string
   /** the supervisor's full names: Khmer, and Latin letters if recorded */
   supervisorName: { km: string; latin: string }
+  collector: string
+  collectorName: { km: string; latin: string }
 }
 
 type Values = Record<string, { text: string; html?: boolean }>
@@ -351,6 +355,8 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
     release_date: date(t.releaseDate), released_date: date(t.releaseDate), first_payment_date: date(tot.rows[0].due), end_date: date(tot.endDate), late_fee_percent: `${num(t.lateFeePct)}%`,
     pay_method: method, bank_name: bank?.bank ?? '', bank_account_no: bank ? num(bank.account_no) : '', bank_account_name: bank?.account_name ?? '',
     contract_duration: duration, contract_duration_days: num(days), collateral: c.collaterals.length ? c.collaterals.join('; ') : W.none, supervisor: c.supervisor,
+    collector: c.collector,
+    collector_name: km ? c.collectorName.km || c.collectorName.latin : c.collectorName.latin || c.collectorName.km,
     supervisor_name: km ? c.supervisorName.km || c.supervisorName.latin : c.supervisorName.latin || c.supervisorName.km,
   }
   const out: Values = {}

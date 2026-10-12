@@ -11,7 +11,7 @@ import { useBook, useLateFeeDefault } from '../data/book'
 import { bname } from '../data/borrowers'
 import { dn, useBanks, useSettings } from '../data/core'
 import { useContractTemplates } from '../data/contract'
-import { errMsg, useLoanActions, useSupervisors } from '../data/loans'
+import { errMsg, useCollectors, useLoanActions, useSupervisors } from '../data/loans'
 import { addDays, previewLoan, todayIso, type Currency, type LoanTerms, type PayMode, type RateBasis } from '../lib/calc'
 import { fmt, fmtD, initials } from '../lib/format'
 import type { BankAccount, Loan } from '../lib/types'
@@ -64,6 +64,7 @@ export function NewLoan() {
   const { data: settings } = useSettings()
   const banks = useBanks().data ?? []
   const supervisors = useSupervisors()
+  const collectors = useCollectors()
   const actions = useLoanActions()
   const draftId = Number(params.get('draft')) || null
   usePageTitle(draftId ? 'Edit draft' : t('newLoan'))
@@ -85,6 +86,7 @@ export function NewLoan() {
   const [days, setDays] = useState('30')
   const [mode, setMode] = useState<PayMode>('equal')
   const [supervisor, setSupervisor] = useState('')
+  const [collector, setCollector] = useState('')
   const [late, setLate] = useState<string | null>(null)
   const [method, setMethod] = useState<Method | null>(null)
   const [bankId, setBankId] = useState('')
@@ -105,7 +107,7 @@ export function NewLoan() {
     setAmount(group(String(d.amount))); setFee(String(d.fee_pct)); setRelease(d.release_date)
     setRate(String(d.rate_pct)); setBasis(d.rate_basis); setOcc(String(d.occurrences))
     setFreq(({ daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', custom: 'Custom' } as const)[d.frequency])
-    setDays(String(d.interval_days)); setMode(d.mode); setSupervisor(d.supervisor_id ?? '')
+    setDays(String(d.interval_days)); setMode(d.mode); setSupervisor(d.supervisor_id ?? ''); setCollector(d.collector_id ?? '')
     setLate(String(d.late_fee_pct)); setMethod(d.pay_method); setBankId(d.bank_account_id ? String(d.bank_account_id) : '')
     setRemarks(d.pay_remarks); setStep(4)
   }, [book, draftId])
@@ -143,6 +145,7 @@ export function NewLoan() {
   const first = p.rows[0]
   const installment = equal ? first.total : first.interest
   const feeLabel = `Service fee (${terms.feePct}%, deducted)`
+  const collectorName = collector ? dn(collectors.find((s) => s.id === collector)) : 'Not assigned'
   const supervisorName = scoped ? dn(me) : supervisor ? dn(supervisors.find((s) => s.id === supervisor)) : 'Not assigned'
   const needle = query.trim().toLowerCase()
   const matches = (book?.borrowers ?? []).filter((b) => b.status === 'active' && (!needle || (b.name + b.name_km + b.phone + b.id_no).toLowerCase().includes(needle)))
@@ -193,7 +196,7 @@ export function NewLoan() {
     try {
       const input = {
         loan: {
-          borrower_id: borrower.id, supervisor_id: scoped ? (me?.id ?? null) : supervisor || null, currency, amount: terms.amount,
+          borrower_id: borrower.id, supervisor_id: scoped ? (me?.id ?? null) : supervisor || null, collector_id: collector || null, currency, amount: terms.amount,
           fee_pct: terms.feePct, late_fee_pct: terms.lateFeePct, rate_pct: terms.ratePct, rate_basis: basis,
           frequency: freq.toLowerCase() as Loan['frequency'], interval_days: intervalDays, occurrences: n, mode, release_date: terms.releaseDate,
           pay_method: effMethod, bank_account_id: effMethod === 'bank' && bank ? bank.id : null, pay_remarks: effMethod === 'other' ? remarks.trim() : '',
@@ -321,6 +324,7 @@ export function NewLoan() {
               {scoped
                 ? <div className="field"><label>Supervisor</label><p style={{ margin: 0 }}><b>{dn(me)}</b> <span className="muted small">(you)</span></p></div>
                 : <Dropdown id="lsv" label="Supervisor" options={[{ value: '', label: 'Not assigned' }, ...supervisors.map((s) => ({ value: s.id, label: dn(s) }))]} value={supervisor} onChange={setSupervisor} />}
+              <Dropdown id="lcl" label="Collector" options={[{ value: '', label: 'Not assigned' }, ...collectors.map((s) => ({ value: s.id, label: dn(s) }))]} value={collector} onChange={setCollector} />
               <div className="field">
                 <label htmlFor="llf">Late fee (%)</label>
                 <div className="wz-amt"><input id="llf" inputMode="decimal" value={lateText} onChange={(e) => setLate(e.target.value)} autoComplete="off" /><span id="llfs">%</span></div>
@@ -412,6 +416,7 @@ export function NewLoan() {
                   <Tile k="Service fee" v={terms.feePct + '%'} />
                   <Tile k="Late fee" v={lateLabel} />
                   <Tile k="Supervisor" v={supervisorName} />
+                  <Tile k="Collector" v={collectorName} />
                 </div>
               </Section>
               <Section title="Payment and collateral" step={3} onEdit={setStep}>

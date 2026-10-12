@@ -42,6 +42,12 @@ export function useLoanFiles(loanId: number) {
   })
 }
 
+/** Active people in the Loan supervisor or Collector role: the choices for "collector". */
+export function useCollectors() {
+  const team = useTeam()
+  return (team.data ?? []).filter((p) => p.status === 'active' && (p.role_id === 'supervisor' || p.role_id === 'collector'))
+}
+
 /** Active people whose role is limited to their own loans: the choices for "supervisor". */
 export function useSupervisors() {
   const team = useTeam()
@@ -51,7 +57,7 @@ export function useSupervisors() {
 }
 
 export type NewLoanFields = Pick<Loan,
-  'borrower_id' | 'supervisor_id' | 'currency' | 'amount' | 'fee_pct' | 'late_fee_pct' | 'rate_pct' | 'rate_basis'
+  'borrower_id' | 'supervisor_id' | 'collector_id' | 'currency' | 'amount' | 'fee_pct' | 'late_fee_pct' | 'rate_pct' | 'rate_basis'
   | 'frequency' | 'interval_days' | 'occurrences' | 'mode' | 'release_date' | 'pay_method' | 'bank_account_id' | 'pay_remarks'>
 
 export interface NewLoanInput {
@@ -87,6 +93,13 @@ export function useLoanActions() {
       const { data, error } = await supabase.from('loans').update({ status: to }).eq('id', id).eq('status', from).select('id')
       if (error) throw new Error(error.message)
       if (!data?.length) throw new Error('This loan was just changed, or you are not allowed to do this. Reload and try again.')
+      await refresh()
+    },
+
+    async setCollector(id: number, collectorId: string | null) {
+      const { data, error } = await supabase.from('loans').update({ collector_id: collectorId }).eq('id', id).select('id')
+      if (error) throw new Error(error.message)
+      if (!data?.length) throw new Error('You are not allowed to change the collector of this loan.')
       await refresh()
     },
 

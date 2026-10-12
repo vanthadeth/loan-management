@@ -18,7 +18,7 @@ import { Bar, Ring } from './loans/parts'
 import { SupervisorSheet } from './loans/SupervisorSheet'
 
 const STEPS: LoanStatus[] = ['drafted', 'requested', 'approved']
-type Dialog = 'submit' | 'delete' | 'return' | 'reset' | 'approve' | 'reject' | 'supervisor' | 'void' | 'restore' | null
+type Dialog = 'submit' | 'delete' | 'return' | 'reset' | 'approve' | 'reject' | 'supervisor' | 'collector' | 'void' | 'restore' | null
 
 export function LoanDetail() {
   const loanId = Number(useParams().id)
@@ -132,6 +132,10 @@ export function LoanDetail() {
           </div>
           <div><span className="eyebrow">Repayment</span>{loan.frequency === 'custom' ? `Every ${loan.interval_days} days` : loan.frequency} × {loan.occurrences} · {loan.mode === 'equal' ? 'interest + principal ÷ n' : 'interest only, principal at end'}</div>
           <div><span className="eyebrow">Interest</span>{loan.rate_pct}% per {loan.rate_basis} (flat)</div>
+          <div>
+            <span className="eyebrow">Collector</span>{who(loan.collector_id) ?? 'Not assigned'}
+            {can('loans.approve') && !voided && <> <button type="button" className="linkbtn" onClick={() => setDialog('collector')}>Change</button></>}
+          </div>
           <div>
             <span className="eyebrow">Supervisor</span>{who(loan.supervisor_id) ?? 'Not assigned'}
             {!scoped && can('loans.approve') && <> <button type="button" className="linkbtn" onClick={() => setDialog('supervisor')}>Change</button></>}
@@ -357,6 +361,7 @@ export function LoanDetail() {
           <p style={{ margin: '0 0 6px' }}>Deny <b>{loanCode(loan.id)}</b> for <b>{name}</b>? It can be returned to a draft and edited afterwards.</p>
         </Sheet>
       )}
+      {dialog === 'collector' && <SupervisorSheet kind="collector" loanId={loan.id} current={loan.collector_id} onClose={() => setDialog(null)} />}
       {dialog === 'supervisor' && <SupervisorSheet loanId={loan.id} current={loan.supervisor_id} onClose={() => setDialog(null)} />}
     </>
   )

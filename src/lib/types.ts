@@ -22,7 +22,7 @@ export interface BorrowerDocument { id: number; borrower_id: number; title: stri
 export interface BankAccount { id: number; bank: string; account_name: string; account_no: string }
 
 export interface Loan {
-  id: number; borrower_id: number; supervisor_id: string | null; currency: Currency; amount: number; fee_pct: number
+  id: number; borrower_id: number; supervisor_id: string | null; collector_id: string | null; currency: Currency; amount: number; fee_pct: number
   late_fee_pct: number; rate_pct: number; rate_basis: RateBasis; frequency: 'daily' | 'weekly' | 'monthly' | 'custom'
   interval_days: number; occurrences: number; mode: PayMode; release_date: string; status: LoanStatus
   pay_method: 'cash' | 'bank' | 'other'; bank_account_id: number | null; pay_remarks: string
