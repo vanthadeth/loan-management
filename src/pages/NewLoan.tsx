@@ -15,6 +15,7 @@ import { addDays, previewLoan, todayIso, type Currency, type LoanTerms, type Pay
 import { fmt, fmtD, initials } from '../lib/format'
 import type { BankAccount, Loan } from '../lib/types'
 import { TierChip } from './borrowers/parts'
+import { BorrowerSheet } from './borrowers/BorrowerSheet'
 
 type Freq = 'Daily' | 'Weekly' | 'Monthly' | 'Custom'
 type Method = Loan['pay_method']
@@ -66,6 +67,7 @@ export function NewLoan() {
   usePageTitle(t('newLoan'))
 
   const [step, setStep] = useState(0)
+  const [registering, setRegistering] = useState(false)
   const [dialog, setDialog] = useState<null | 'cancel' | 'submit'>(null)
   const [borrowerId, setBorrowerId] = useState<number | null>(null)
   const [query, setQuery] = useState('')
@@ -227,7 +229,14 @@ export function NewLoan() {
                   <TierChip tier={b.tier} />
                 </button>
               ))}
-              {!matches.length && <p className="muted">{book ? 'No active borrower found.' : 'Loading…'}</p>}
+              {!matches.length && (book ? (
+                <div className="lcard" style={{ padding: 20, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                  <span className="hb-ic"><Icon name="userp" size={22} /></span>
+                  <b>{needle ? 'No borrower matches your search' : 'No borrowers yet'}</b>
+                  <span className="small muted">{can('borrowers.edit') ? 'Register the borrower first, then pick them here.' : 'Ask someone with permission to register the borrower first.'}</span>
+                  {can('borrowers.edit') && <button type="button" className="btn primary" onClick={() => setRegistering(true)}><Icon name="plus" size={17} />Register borrower</button>}
+                </div>
+              ) : <p className="muted">Loading…</p>)}
             </div>
           </div>
         )}
@@ -396,6 +405,7 @@ export function NewLoan() {
           <p style={{ margin: '0 0 6px' }}>Submit a loan request of <b>{fmt(terms.amount, currency)}</b> for <b>{bname(borrower, lang)}</b>? The borrower receives <b>{fmt(p.net, currency)}</b> after the service fee.</p>
         </Sheet>
       )}
+      {registering && <BorrowerSheet onClose={() => setRegistering(false)} />}
     </div>
   )
 }
