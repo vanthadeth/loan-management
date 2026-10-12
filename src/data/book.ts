@@ -28,14 +28,15 @@ export function useBook() {
         supabase.from('payments').select('*').order('paid_on').order('id'),
         supabase.from('fund_transactions').select('*').order('txn_date', { ascending: false }),
       ])
-      const num = <T extends Record<string, unknown>>(rows: T[], keys: string[]) =>
-        rows.map((r) => { const o: Record<string, unknown> = { ...r }; keys.forEach((k) => { if (o[k] != null) o[k] = Number(o[k]) }); return o as T })
+      // numeric columns can arrive as strings; normalise them
+      const num = <T extends object>(rows: T[], keys: (keyof T)[]): T[] =>
+        rows.map((r) => { const o = { ...r }; keys.forEach((k) => { if (o[k] != null) o[k] = Number(o[k]) as T[keyof T] }); return o })
       return {
         // numeric columns arrive as strings or numbers depending on precision; normalise
-        loans: num(must(l) as unknown as Loan[], ['amount', 'fee_pct', 'late_fee_per_day', 'rate_pct']),
+        loans: num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_per_day', 'rate_pct']),
         borrowers: must(b) as Borrower[],
-        payments: num(must(p) as unknown as Payment[], ['amount', 'late_fee']),
-        funds: num(must(f) as unknown as FundTransaction[], ['amount']),
+        payments: num(must(p) as Payment[], ['amount', 'late_fee']),
+        funds: num(must(f) as FundTransaction[], ['amount']),
       }
     },
   })
