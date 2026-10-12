@@ -1133,3 +1133,20 @@ main{--gb:16px}
   html.print-report .rt thead{display:table-header-group}
   html.print-report .rt tr{break-inside:avoid}
 }
+
+/* ---------- Mobile: fixed title bar and bottom nav that hide while scrolling down ---------- */
+@media (max-width:899px){
+  .app{position:relative;display:block;height:100%}
+  .top{position:fixed;top:0;left:0;right:0;z-index:20;padding-top:calc(12px + env(safe-area-inset-top,0px));padding-bottom:10px;
+    background:var(--glass);-webkit-backdrop-filter:saturate(1.5) blur(16px);backdrop-filter:saturate(1.5) blur(16px);
+    border-bottom:1px solid var(--hair);transition:transform .26s var(--ease)}
+  .nav{position:fixed;left:0;right:0;bottom:0;z-index:20;transition:transform .26s var(--ease)}
+  main{position:absolute;inset:0;padding-top:calc(var(--top-h,70px) + 12px);padding-bottom:calc(var(--nav-h,64px) + 16px);scroll-padding-top:var(--top-h,70px)}
+  .app.bars-hidden .top{transform:translateY(-100%)}
+  .app.bars-hidden .nav{transform:translateY(100%)}
+  .fab{transition:bottom .26s var(--ease),transform .12s var(--ease)}
+  .app.bars-hidden .fab{bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+}
+@media (prefers-reduced-motion:reduce){.top,.nav,.fab{transition:none!important}}
+
+#root{height:100%}

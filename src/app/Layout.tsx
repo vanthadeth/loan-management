@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../ui/Icon'
@@ -48,12 +48,44 @@ export function Layout() {
   const [title, setTitle] = useState<string | null>(null)
   const [menu, setMenu] = useState<null | 'msg' | 'profile'>(null)
   const [theme, setTheme] = useState<Theme>(savedTheme())
+  const appRef = useRef<HTMLDivElement>(null)
+  const [barsHidden, setBarsHidden] = useState(false)
   const pending = usePendingApproval()
   const msgs = useMessages()
   const team = useTeam()
   const unread = (msgs.data ?? []).filter((m) => !m.read)
 
   useEffect(() => { setMenu(null) }, [loc.pathname])
+
+  // Mobile bars: keep content clear of the fixed top bar / nav, and hide them while scrolling down.
+  useEffect(() => {
+    const app = appRef.current
+    const main = app?.querySelector('main')
+    const top = app?.querySelector<HTMLElement>('.top')
+    const navEl = app?.querySelector<HTMLElement>('.nav')
+    if (!app || !main || !top || !navEl) return
+    const measure = () => {
+      app.style.setProperty('--top-h', top.offsetHeight + 'px')
+      app.style.setProperty('--nav-h', navEl.offsetHeight + 'px')
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(top)
+    ro.observe(navEl)
+    let last = main.scrollTop
+    const onScroll = () => {
+      const y = main.scrollTop
+      const d = y - last
+      if (y <= 12) setBarsHidden(false)
+      else if (d > 8) { setBarsHidden(true); setMenu(null) }
+      else if (d < -8) setBarsHidden(false)
+      if (Math.abs(d) > 8 || y <= 12) last = y
+    }
+    main.addEventListener('scroll', onScroll, { passive: true })
+    return () => { ro.disconnect(); main.removeEventListener('scroll', onScroll) }
+  }, [title])
+
+  useEffect(() => { setBarsHidden(false) }, [loc.pathname])
   useEffect(() => {
     const close = (e: MouseEvent) => {
       if (menu && !(e.target as Element).closest('.menu, [data-menu]')) setMenu(null)
@@ -75,7 +107,7 @@ export function Layout() {
 
   return (
     <TitleCtx.Provider value={setTitle}>
-      <div className="app">
+      <div className={'app' + (barsHidden ? ' bars-hidden' : '')} ref={appRef}>
         <header className={'top' + (sub ? ' centered' : '')} id="top">
           {sub ? (
             <>
