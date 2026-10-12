@@ -1,4 +1,4 @@
-# Family Loan Ledger
+# Komjei
 
 Loan management PWA for a family business: borrowers, loan contracts (service fee, flat interest,
 per-contract late fee, supervisors), payments, funds, reports. React + Vite + TypeScript, Supabase backend.

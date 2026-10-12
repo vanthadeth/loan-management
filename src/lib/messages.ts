@@ -1,7 +1,7 @@
 // UI strings. Khmer is a machine draft to be reviewed by the family.
 export const messages = {
  "en": {
-  "appname": "Family Loan Ledger",
+  "appname": "Komjei",
   "shOn": "On loan",
   "shTbc": "To be collected",
   "shAfter": "After collection",
@@ -76,7 +76,7 @@ export const messages = {
   "example": "Example data. Nothing is saved."
  },
  "km": {
-  "appname": "សៀវភៅកម្ចីគ្រួសារ",
+  "appname": "Komjei",
   "shOn": "កំពុងខ្ចី",
   "shTbc": "ត្រូវប្រមូល",
   "shAfter": "ក្រោយប្រមូល",
