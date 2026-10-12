@@ -1185,3 +1185,8 @@ input,select,textarea{font-size:16px}
 .cft-d{display:flex;align-items:center;gap:10px;min-width:0}
 .cft-d .grow{display:flex;flex-direction:column;min-width:0}
 .cft .num.na,.cft b.na{color:var(--muted);font-weight:400}
+
+/* first column stays put while the amounts scroll sideways */
+.cft th:first-child,.cft td:first-child{position:sticky;left:0;z-index:1;background:var(--surface);min-width:210px;box-shadow:1px 0 0 var(--hair)}
+.cft thead th:first-child{z-index:2}
+.cft-g th:first-child,.cft-g td{background:var(--surface2)}

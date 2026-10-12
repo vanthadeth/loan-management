@@ -71,7 +71,7 @@ export function Cashflow() {
               </thead>
               {groups.map((G) => (
                 <tbody key={G.g}>
-                  <tr className="cft-g"><th colSpan={3} scope="colgroup">{G.g}</th></tr>
+                  <tr className="cft-g"><th scope="row">{G.g}</th><td colSpan={2} /></tr>
                   {G.r.map((e) => (
                     <tr key={e.id}>
                       <td>
