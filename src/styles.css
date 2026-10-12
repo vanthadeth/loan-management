@@ -1218,3 +1218,6 @@ input,select,textarea{font-size:16px}
 /* nothing behind a popup scrolls or takes taps */
 body.popup-open #main{overflow:hidden!important;touch-action:none}
 .float-mask,.sheet-bg{touch-action:none;overscroll-behavior:contain}
+
+/* selects and date pickers: no visible mask, only a transparent layer that catches outside taps */
+.float-mask.clear{background:transparent!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;animation:none}

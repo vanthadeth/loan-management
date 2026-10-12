@@ -48,8 +48,9 @@ export function Seg({ id, label, options, value, onChange, cls = '' }: {
 }
 
 /**
- * A popup that always sits on top of the page: it is drawn in a layer on the body, under a mask that darkens (50%)
- * and blurs (10px) everything else. Tapping the mask or pressing Escape closes it.
+ * A select or date popup that always sits on top of the page: it is drawn in a layer on the body, under an invisible
+ * layer that catches outside taps (they only close the popup and never reach the page). The darkening mask is for
+ * menus, sheets and dialogs, not for these.
  */
 function Floating({ anchor, onClose, align = 'left', fit = false, children }: {
   anchor: RefObject<HTMLElement | null>; onClose: () => void; align?: 'left' | 'right'; fit?: boolean; children: ReactNode
@@ -87,7 +88,7 @@ function Floating({ anchor, onClose, align = 'left', fit = false, children }: {
   const swallow = (e: { stopPropagation: () => void }) => e.stopPropagation()
   return createPortal(
     <>
-      <div className="float-mask" onClick={(e) => { e.stopPropagation(); onClose() }} aria-hidden="true" />
+      <div className="float-mask clear" onClick={(e) => { e.stopPropagation(); onClose() }} aria-hidden="true" />
       <div ref={box} className="float" onClick={swallow} style={pos ? { left: pos.left, top: pos.top, width: pos.width, maxHeight: pos.maxHeight } : { visibility: 'hidden' }}>{children}</div>
     </>,
     document.body,
