@@ -132,13 +132,20 @@ export function LoanDetail() {
           </div>
           <div><span className="eyebrow">Repayment</span>{loan.frequency === 'custom' ? `Every ${loan.interval_days} days` : loan.frequency} × {loan.occurrences} · {loan.mode === 'equal' ? 'interest + principal ÷ n' : 'interest only, principal at end'}</div>
           <div><span className="eyebrow">Interest</span>{loan.rate_pct}% per {loan.rate_basis} (flat)</div>
-          <div>
-            <span className="eyebrow">Collector</span>{who(loan.collector_id) ?? 'Not assigned'}
-            {can('loans.approve') && !voided && <> <button type="button" className="linkbtn" onClick={() => setDialog('collector')}>Change</button></>}
-          </div>
-          <div>
-            <span className="eyebrow">Supervisor</span>{who(loan.supervisor_id) ?? 'Not assigned'}
-            {!scoped && can('loans.approve') && <> <button type="button" className="linkbtn" onClick={() => setDialog('supervisor')}>Change</button></>}
+          <div style={{ gridColumn: '1/-1', display: 'flex', gap: 16 }}>
+            {([
+              ['Collector', who(loan.collector_id), can('loans.approve') && !voided, 'collector'],
+              ['Supervisor', who(loan.supervisor_id), !scoped && can('loans.approve') && !voided, 'supervisor'],
+            ] as const).map(([k, p, canEdit, dlg]) => (
+              <div key={k} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ flex: 1, minWidth: 0 }}><span className="eyebrow">{k}</span><span className="ell" style={{ display: 'block' }}>{p ?? 'Not assigned'}</span></div>
+                {canEdit && (
+                  <button type="button" className="mcta" style={{ background: 'none', border: 0, cursor: 'pointer' }} aria-label={`Change ${k.toLowerCase()}`} title={`Change ${k.toLowerCase()}`} onClick={() => setDialog(dlg)}>
+                    <Icon name="edit" size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
           <div><span className="eyebrow">Late fee</span>{lateRate} per late {lateUnit}</div>
           <div><span className="eyebrow">Borrower pays by</span>{payText}</div>
