@@ -250,10 +250,10 @@ export function SearchBar({ value, onChange, right }: { value: string; onChange:
       <TextInput
         value={value} onChangeText={onChange} placeholder={t('search')} placeholderTextColor={c.muted} accessibilityLabel="Search"
         autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing"
-        style={{ flex: 1, minHeight: 44, borderRadius: 99, paddingHorizontal: 18, backgroundColor: c.surface, color: c.ink, fontFamily: font.regular, fontSize: 15, borderWidth: StyleSheet.hairlineWidth, borderColor: c.hair }}
+        style={{ flex: 1, minWidth: 0, minHeight: 44, borderRadius: 99, paddingHorizontal: 18, backgroundColor: c.surface, color: c.ink, fontFamily: font.regular, fontSize: 15, borderWidth: StyleSheet.hairlineWidth, borderColor: c.hair }}
       />
-      {right}
       <IconBtn name="search" label="Search" bg={c.accent} color={c.accentInk} />
+      {right}
     </Row>
   )
 }

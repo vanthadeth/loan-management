@@ -260,3 +260,19 @@ export function Loading() {
   const c = useColors()
   return <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.accent} /></View>
 }
+
+/** A card with a heading that opens and closes (".card.sec" details on the web). */
+export function Collapse({ title, children, open: initial = false, right }: { title: string; children: ReactNode; open?: boolean; right?: ReactNode }) {
+  const c = useColors()
+  const [open, setOpen] = useState(initial)
+  return (
+    <View style={{ backgroundColor: c.surface, borderRadius: 9, padding: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: c.hair, gap: 10 }}>
+      <Tap onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityState={{ expanded: open }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <T v="h2" size={17} style={{ flex: 1 }}>{title}</T>
+        <View style={{ transform: [{ rotate: open ? '-90deg' : '90deg' }] }}><Icon name="chev" size={16} color={c.muted} /></View>
+      </Tap>
+      {open && right}
+      {open && children}
+    </View>
+  )
+}

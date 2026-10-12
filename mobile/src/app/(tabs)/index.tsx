@@ -1,6 +1,3 @@
-import { Screen } from '../../ui/Screen'
-import { T } from '../../ui/Text'
+import { Dashboard } from '../../screens/Dashboard'
 
-export default function Placeholder() {
-  return <Screen><T muted>Coming soon</T></Screen>
-}
+export default Dashboard
