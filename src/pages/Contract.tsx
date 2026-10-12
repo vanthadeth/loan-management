@@ -10,36 +10,39 @@ import { useContractTemplates, useTemplateHtml } from '../data/contract'
 import { errMsg, useLoanFiles, useLoans } from '../data/loans'
 import { cleanDocument, contractValues, fillScheduleRows, fillScheduleTable, fillTemplate, scheduleRowValues, type ContractInput, type ContractLang } from '../lib/contract'
 import { loanCode } from '../lib/format'
+import { readPageSetup, type PageSetup } from '../lib/pagesetup'
 
-const PAGE_PX = 816 // Google Docs' default page width (8.5 in at 96 dpi); the preview is scaled to fit narrow screens
-const PAGE_H = Math.round((PAGE_PX * 297) / 210) // an A4 sheet at that width
-const ANNEX_TOP = 60
 const BUILT_IN = '0'
+const DEFAULT_PAGE_PX = 816 // Google Docs' default (Letter) page width, used until the document's own setup is read
 
-/** Pushes each built-in annex down to the top of the next sheet, so it starts on its own page in the PDF too. */
-function alignAnnex(d: Document) {
-  d.querySelectorAll<HTMLElement>('.komjei-annex').forEach((el) => {
-    el.style.marginTop = ''
-    const off = (el.getBoundingClientRect().top + d.documentElement.scrollTop) % PAGE_H
-    el.style.marginTop = PAGE_H - off + ANNEX_TOP + 'px'
-  })
+/** The document's page setup, applied to printing: its page size and margins on every page. */
+function applyPrintSetup(d: Document, p: PageSetup) {
+  d.getElementById('komjei-page')?.remove()
+  const st = d.createElement('style')
+  st.id = 'komjei-page'
+  st.textContent = `@page{size:${p.wPx}px ${p.hPx}px;margin:${p.top}px ${p.right}px ${p.bottom}px ${p.left}px}@media print{body{padding:0!important;max-width:none!important}}`
+  d.head.append(st)
 }
 
-/** One filled Google Doc, shown in a sandboxed frame scaled to the available width. */
+/** One filled Google Doc, shown in a sandboxed frame at its own page width, scaled to fit the screen. */
 function DocFrame({ doc, frameRef, label }: { doc: string; frameRef: RefObject<HTMLIFrameElement | null>; label: string }) {
   const box = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
   const [height, setHeight] = useState(1100)
+  const [page, setPage] = useState<PageSetup | null>(null)
+  const width = page?.wPx ?? DEFAULT_PAGE_PX
   useEffect(() => {
-    const fit = () => box.current && setScale(Math.min(1, (box.current.clientWidth - 16) / PAGE_PX))
+    const fit = () => box.current && setScale(Math.min(1, (box.current.clientWidth - 16) / width))
     fit()
     addEventListener('resize', fit)
     return () => removeEventListener('resize', fit)
-  }, [doc])
+  }, [doc, width])
   const measure = useCallback(() => {
     const d = frameRef.current?.contentDocument
     if (!d) return
-    alignAnnex(d)
+    const p = readPageSetup(d)
+    applyPrintSetup(d, p)
+    setPage(p)
     setHeight(Math.max(d.documentElement.scrollHeight, 400))
   }, [frameRef])
   return (
@@ -48,9 +51,10 @@ function DocFrame({ doc, frameRef, label }: { doc: string; frameRef: RefObject<H
         <iframe
           ref={frameRef} title={label} srcDoc={doc} onLoad={measure}
           sandbox="allow-same-origin allow-modals"
-          style={{ width: PAGE_PX, height, border: 0, background: '#fff', transform: `scale(${scale})`, transformOrigin: 'top left' }}
+          style={{ width: Math.max(width, 1000), height, border: 0, background: '#fff', transform: `scale(${scale})`, transformOrigin: 'top left' }}
         />
       </div>
+      {page && <p className="small muted" style={{ margin: '6px 4px 0' }}>Page: {page.name}, {Math.round(page.wMm)} × {Math.round(page.hMm)} mm</p>}
     </div>
   )
 }
@@ -104,29 +108,60 @@ export function Contract() {
     setBusy(true)
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
-      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
-      let first = true
+      let pdf: InstanceType<typeof jsPDF> | null = null
       for (const f of frames) {
         const d = f.contentDocument
         if (!d) continue
         await d.fonts.ready // the Khmer font must be loaded before the page is drawn
-        alignAnnex(d) // fonts change the line heights, so place a built-in annex again
-        const height = Math.ceil(d.body.scrollHeight)
-        // drawn inside its own frame, so the template's styles apply
-        const canvas = await html2canvas(d.body, { scale: height > 7000 ? 1.5 : 2, useCORS: true, backgroundColor: '#fff', width: PAGE_PX, windowWidth: PAGE_PX })
-        const sheet = Math.floor((canvas.width * 297) / 210)
-        for (let y = 0; y < canvas.height; y += sheet) {
-          const h = Math.min(sheet, canvas.height - y)
-          const part = document.createElement('canvas')
-          part.width = canvas.width
-          part.height = h
-          part.getContext('2d')!.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h)
-          if (!first) pdf.addPage()
-          first = false
-          pdf.addImage(part.toDataURL('image/jpeg', 0.96), 'JPEG', 0, 0, 210, (h / canvas.width) * 210)
+        const page = readPageSetup(d)
+        // Margins are put back on every sheet below, so draw the content without top and bottom padding.
+        const body = d.body
+        const saved = { top: body.style.paddingTop, bottom: body.style.paddingBottom, margin: body.style.margin }
+        body.style.paddingTop = body.style.paddingBottom = '0'
+        body.style.margin = '0' // so positions measured here are the same ones the picture is drawn at
+        try {
+          await new Promise((r) => requestAnimationFrame(r)) // let the layout settle before measuring
+          // the picture starts at the top of the document, so measure from there (not from the body, whose
+          // box can sit lower when the first paragraph's margin collapses through it)
+          const origin = d.documentElement.getBoundingClientRect().top
+          const total = Math.ceil(body.getBoundingClientRect().bottom - origin)
+          // good places to start a new sheet: just below a paragraph, row or heading, and at an annex
+          const ends = [...body.querySelectorAll('p, tr, li, h1, h2, h3, h4, h5, h6, table, div')].map((el) => el.getBoundingClientRect().bottom - origin)
+          const forced = [...body.querySelectorAll('.komjei-annex')].map((el) => el.getBoundingClientRect().top - origin)
+          const scale = total > 7000 ? 1.5 : 2
+          const canvas = await html2canvas(body, { scale, useCORS: true, backgroundColor: '#fff', width: page.wPx, windowWidth: page.wPx })
+          const room = page.hPx - page.top - page.bottom // content height on one sheet
+          const orient = page.wMm > page.hMm ? 'landscape' : 'portrait'
+          const size: [number, number] = [Math.min(page.wMm, page.hMm), Math.max(page.wMm, page.hMm)]
+          let y = 0
+          while (y < total - 1) {
+            let end = Math.min(y + room, total)
+            const cut = forced.find((t) => t > y + 1 && t < end)
+            if (cut !== undefined) end = cut
+            else if (end < total) {
+              const fits = ends.filter((e) => e > y + room * 0.4 && e <= end)
+              if (fits.length) end = Math.max(...fits)
+            }
+            const sy = Math.round(y * scale)
+            const sh = Math.max(1, Math.min(Math.round((end - y) * scale), canvas.height - sy))
+            const part = document.createElement('canvas')
+            part.width = canvas.width
+            part.height = sh
+            part.getContext('2d')!.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh)
+            if (!pdf) pdf = new jsPDF({ unit: 'mm', format: size, orientation: orient })
+            else pdf.addPage(size, orient)
+            const mmPerCanvasPx = page.wMm / canvas.width
+            pdf.addImage(part.toDataURL('image/jpeg', 0.96), 'JPEG', 0, page.top * (25.4 / 96), page.wMm, sh * mmPerCanvasPx)
+            // the next sheet starts a hair lower, so glyph tails of the last line are not drawn twice
+            y = end + (end < total ? 3 : 0)
+          }
+        } finally {
+          body.style.paddingTop = saved.top
+          body.style.paddingBottom = saved.bottom
+          body.style.margin = saved.margin
         }
       }
-      pdf.save(`${loanCode(loanId)}-contract.pdf`)
+      pdf?.save(`${loanCode(loanId)}-contract.pdf`)
     } catch (e) {
       toast(errMsg(e))
     } finally {

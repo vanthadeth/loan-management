@@ -408,9 +408,7 @@ export function cleanDocument(filled: string, lang: ContractLang = 'km') {
   const style = doc.createElement('style')
   style.textContent =
     "@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;700&display=swap');" +
-    'html,body{background:#fff!important}' +
-    // the PDF page margins come from the document's own padding, as in Google Docs
-    '@page{size:A4;margin:0}'
+    'html,body{background:#fff!important}'
   doc.head.append(style)
   return '<!doctype html>' + doc.documentElement.outerHTML
 }
