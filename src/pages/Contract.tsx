@@ -8,7 +8,7 @@ import { useAuth } from '../app/auth'
 import { dn, useBanks, useTeam } from '../data/core'
 import { useContractTemplates, useTemplateHtml } from '../data/contract'
 import { errMsg, useLoanFiles, useLoans } from '../data/loans'
-import { cleanDocument, contractValues, fillScheduleRows, fillTemplate, scheduleRowValues, type ContractInput } from '../lib/contract'
+import { cleanDocument, contractValues, fillScheduleRows, fillScheduleTable, fillTemplate, scheduleRowValues, type ContractInput } from '../lib/contract'
 import { loanCode } from '../lib/format'
 
 const PAGE_PX = 816 // Google Docs' default page width (8.5 in at 96 dpi); the preview is scaled to fit narrow screens
@@ -43,7 +43,7 @@ export function Contract() {
       borrower: v.borrower, collaterals: files.data.collaterals.map((c) => c.description),
       supervisor: dn(team.data?.find((p) => p.id === v.loan.supervisor_id)),
     }
-    const withRows = fillScheduleRows(tpl.html, scheduleRowValues(input, chosen.lang))
+    const withRows = fillScheduleTable(fillScheduleRows(tpl.html, scheduleRowValues(input, chosen.lang)), input, chosen.lang)
     return cleanDocument(fillTemplate(withRows, contractValues(input, chosen.lang)), chosen.lang)
   }, [v, tpl.html, chosen, files.data, banks.data, team.data, loanId])
 

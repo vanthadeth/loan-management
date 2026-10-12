@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest'
-import { contractValues, fillScheduleRows, fillTemplate, scheduleRowValues, type ContractInput } from './contract'
+import { contractValues, fillScheduleRows, fillScheduleTable, fillTemplate, scheduleRowValues, type ContractInput } from './contract'
 import type { LoanTerms } from './calc'
 
 const terms: LoanTerms = {
@@ -60,5 +60,23 @@ describe('contract values', () => {
   it('leaves templates without row placeholders alone', () => {
     const html = '<p>{{schedule}}</p>'
     expect(fillScheduleRows(html, scheduleRowValues(input()))).toBe(html)
+  })
+
+  it('puts the schedule table in the placeholder paragraph\'s own text style', () => {
+    const html = '<html><body><p class="c2"><span class="c9" style="font-size:14pt">{{sched<span>ule}}</span></span></p><p>after</p></body></html>'
+    const out = fillScheduleTable(html, input({}, { occurrences: 2 }), 'km')
+    const doc = new DOMParser().parseFromString(out, 'text/html')
+    expect(doc.querySelectorAll('table')).toHaveLength(1)
+    expect(doc.querySelectorAll('tbody tr')).toHaveLength(2)
+    const cellSpan = doc.querySelector('tbody td span')!
+    expect(cellSpan.getAttribute('class')).toBe('c9')
+    expect(cellSpan.getAttribute('style')).toContain('font-size:14pt')
+    expect(doc.querySelector('thead th span')!.getAttribute('style')).toContain('color:#fff')
+    expect(doc.body.textContent).not.toContain('{{')
+    expect(out).toContain('0.5pt solid #9a9a9a')
+  })
+  it('leaves {{schedule}} alone when it sits inside other text', () => {
+    const html = '<p>See {{schedule}} below</p>'
+    expect(fillScheduleTable(html, input(), 'km')).toBe(html)
   })
 })

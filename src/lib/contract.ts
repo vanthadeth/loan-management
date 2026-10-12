@@ -158,6 +158,77 @@ const EN = {
   none: 'None',
 }
 
+/** Attributes of the template's own text (its class and inline style), copied onto the table cells. */
+interface TextStyle { cls: string; style: string; size?: number }
+
+/**
+ * The ready-made payment schedule table: blue header, hairline grey borders, plain numbers with two
+ * decimals. Cell text is wrapped in a span carrying the template's text style, so the table takes
+ * the document's own font and size.
+ */
+function scheduleTable(c: ContractInput, lang: ContractLang, text?: TextStyle): string {
+  const km = lang === 'km'
+  const W = km ? KM : EN
+  const t = c.terms
+  const rows = loanTotals(t).rows
+  const plain = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const day = (iso: string) => (km ? khWeekdayDate(iso) : new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).replace(',', ''))
+  const attr = (extra = '') => {
+    const style = [text?.style, extra].filter(Boolean).join(';')
+    return `${text?.cls ? ` class="${text.cls}"` : ''}${style ? ` style="${style}"` : ''}`
+  }
+  // the template's font family and style are kept; the size is capped so seven-digit amounts fit the columns
+  const size = `font-size:${Math.min(text?.size ?? 9.5, 9.5)}pt`
+  const cell = (tag: 'td' | 'th', inner: string, css: string, extra = '') => `<${tag} style="${BOX}${css}"><span${attr(`${size};${extra}`.replace(/;$/, ''))}>${inner}</span></${tag}>`
+  let left = t.amount
+  const body = rows.map((r) => {
+    const before = left
+    left = Math.max(left - r.principal, 0)
+    return `<tr>${cell('td', String(r.i), 'text-align:center')}${cell('td', day(r.due), 'text-align:center')}${[before, r.principal, r.interest, r.total, left].map((n) => cell('td', plain(n), 'text-align:right;white-space:nowrap')).join('')}${cell('td', '&nbsp;', '')}</tr>`
+  }).join('')
+  const widths = ['5%', '17%', '14%', '12%', '12%', '13%', '14%', '13%']
+  const head = W.head.map((h) => cell('th', h, 'background:#1ea1e2;text-align:center;vertical-align:middle', 'color:#fff;font-weight:700')).join('')
+  return `<table style="border-collapse:collapse;width:100%"><colgroup>${widths.map((w) => `<col style="width:${w}">`).join('')}</colgroup><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
+}
+const BOX = 'border:0.5pt solid #9a9a9a;padding:4pt 5pt;'
+
+/** Font size in pt from the text's inline style or its class rule in the template's CSS, if it has one. */
+function fontSizePt(doc: Document, t: TextStyle) {
+  const read = (css: string) => /font-size\s*:\s*([\d.]+)pt/i.exec(css)?.[1]
+  let size = read(t.style)
+  if (!size) {
+    const css = [...doc.querySelectorAll('style')].map((st) => st.textContent ?? '').join('\n')
+    for (const cls of t.cls.split(/\s+/).filter(Boolean)) {
+      const rule = new RegExp(`\\.${cls}\\s*\\{([^}]*)\\}`).exec(css)
+      size = size ?? (rule ? read(rule[1]) : undefined)
+    }
+  }
+  return size ? Number(size) : undefined
+}
+
+/**
+ * Replaces a paragraph that holds only {{schedule}} with the schedule table, styled like the
+ * placeholder's own text so it matches the document's font and size.
+ */
+export function fillScheduleTable(html: string, c: ContractInput, lang: ContractLang) {
+  if (!/sch/i.test(html)) return html
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const only = (el: Element) => (el.textContent ?? '').replace(/\s+/g, '').toLowerCase() === '{{schedule}}'
+  const blocks = [...doc.querySelectorAll('p, div, li')].filter((el) => only(el) && !el.querySelector('p, div, li'))
+  if (!blocks.length) return html
+  for (const block of blocks) {
+    // the innermost span or element that carries the text's class / style
+    let src: Element = block
+    while (src.firstElementChild && only(src.firstElementChild)) src = src.firstElementChild
+    const text: TextStyle = { cls: src.getAttribute('class') ?? '', style: (src.getAttribute('style') ?? '').replace(/;\s*$/, '') }
+    text.size = fontSizePt(doc, text)
+    const holder = doc.createElement('div')
+    holder.innerHTML = scheduleTable(c, lang, text)
+    block.replaceWith(holder.firstElementChild!)
+  }
+  return '<!doctype html>' + doc.documentElement.outerHTML
+}
+
 function formatters(lang: ContractLang, cur: 'KHR' | 'USD') {
   const km = lang === 'km'
   return {
@@ -202,19 +273,7 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
   const { money, words, date, num } = formatters(lang, cur)
   const bank = c.payMethod === 'bank' ? c.bank : null
   const method = bank ? `${W.method.bank}, ${bank.bank} ${bank.account_no}` : c.payMethod === 'other' && c.payRemarks ? c.payRemarks : W.method[c.payMethod] ?? c.payMethod
-  // The ready-made schedule table: blue header, heavy black borders, plain numbers with two decimals
-  const plain = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const day = (iso: string) => (km ? khWeekdayDate(iso) : new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).replace(',', ''))
-  const box = 'border:1.5pt solid #000;padding:5pt 6pt;'
-  const th = `${box}background:#1ea1e2;color:#fff;font-weight:700;text-align:center;vertical-align:middle`
-  let left = t.amount
-  const body = tot.rows.map((r) => {
-    const before = left
-    left = Math.max(left - r.principal, 0)
-    return `<tr><td style="${box}text-align:center">${r.i}</td><td style="${box}text-align:center">${day(r.due)}</td><td style="${box}text-align:right">${plain(before)}</td><td style="${box}text-align:right">${plain(r.principal)}</td><td style="${box}text-align:right">${plain(r.interest)}</td><td style="${box}text-align:right">${plain(r.total)}</td><td style="${box}text-align:right">${plain(left)}</td><td style="${box}"></td></tr>`
-  }).join('')
-  const widths = ['5%', '17%', '14%', '12%', '12%', '13%', '14%', '13%']
-  const schedule = `<table style="border-collapse:collapse;table-layout:fixed;width:100%;font-size:10pt"><colgroup>${widths.map((w) => `<col style="width:${w}">`).join('')}</colgroup><thead><tr>${W.head.map((h) => `<th style="${th}">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`
+  const schedule = scheduleTable(c, lang)
   // length of the contract: weeks if paid weekly, months if paid monthly, otherwise counted in days
   const days = diffDays(t.releaseDate, tot.endDate)
   const duration =
