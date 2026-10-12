@@ -97,7 +97,7 @@ export function UserDetail() {
         <table className="ut">
           <tbody>
             {row('Username', u.username, cta('Copy username', 'copy', () => copy(u.username, 'Username')))}
-            {row('Login information', u.must_change_password ? 'Not signed in yet' : 'App link and username', canAct && cta('Copy login information', 'copy', copyLogin))}
+            {row('Login information', u.must_change_password ? 'Not signed in yet' : 'App link and username', cta('Copy login information', 'copy', copyLogin))}
             {row('Full name', u.full_name)}
             {row('Display name', u.display_name || '—')}
             {row('Gender', u.gender === 'F' ? 'Female' : u.gender === 'M' ? 'Male' : '—')}
