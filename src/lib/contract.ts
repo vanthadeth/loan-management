@@ -1,5 +1,5 @@
 import { fmt, fmtD, loanCode } from './format'
-import { loanTotals, todayIso, type LoanTerms } from './calc'
+import { diffDays, loanTotals, todayIso, type LoanTerms } from './calc'
 import { khDate, khDigits, khMoney, khMoneyWords } from './khmer'
 
 export type ContractLang = 'km' | 'en'
@@ -11,6 +11,7 @@ export const PLACEHOLDERS: [string, string][] = [
   ['borrower_name', 'Borrower name (Khmer when recorded, otherwise English letters)'],
   ['borrower_name_km', 'Borrower name in Khmer (empty if not recorded)'],
   ['borrower_id_no', 'ID card number'],
+  ['borrower_gender', 'Borrower gender (Male / Female, ប្រុស / ស្រី)'],
   ['borrower_dob', 'Borrower date of birth'],
   ['borrower_phone', 'Borrower phone'],
   ['borrower_address', 'Borrower address'],
@@ -28,11 +29,17 @@ export const PLACEHOLDERS: [string, string][] = [
   ['occurrences', 'Number of payments'],
   ['frequency', 'How often, e.g. Monthly'],
   ['installment', 'First payment amount'],
+  ['installment_words', 'First payment amount, in words'],
   ['repayment_mode', 'Interest and principal, or interest only'],
   ['release_date', 'Release date'],
   ['end_date', 'Date of the last payment'],
+  ['contract_duration', 'Length of the contract with its unit: weeks if paid weekly, months if paid monthly, otherwise days'],
+  ['contract_duration_days', 'Length of the contract in days (number only)'],
   ['late_fee_per_day', 'Late fee per day late'],
   ['pay_method', 'How the borrower pays'],
+  ['bank_name', 'Bank the borrower pays into (empty if not by bank)'],
+  ['bank_account_no', 'Bank account number'],
+  ['bank_account_name', 'Bank account name'],
   ['collateral', 'Collateral items'],
   ['supervisor', 'Loan supervisor'],
   ['schedule', 'Payment schedule table'],
@@ -45,7 +52,8 @@ export const STARTER_KM = `កិច្ចសន្យាខ្ចីប្រ�
 ១. ភាគី
 ភាគីអ្នកឱ្យខ្ចី: ______________________________
 ភាគីអ្នកខ្ចី: {{borrower_name}}
-លេខអត្តសញ្ញាណប័ណ្ណ: {{borrower_id_no}}    ថ្ងៃខែឆ្នាំកំណើត: {{borrower_dob}}
+ភេទ: {{borrower_gender}}    ថ្ងៃខែឆ្នាំកំណើត: {{borrower_dob}}
+លេខអត្តសញ្ញាណប័ណ្ណ: {{borrower_id_no}}
 ទូរស័ព្ទ: {{borrower_phone}}
 អាសយដ្ឋាន: {{borrower_address}}
 
@@ -53,7 +61,7 @@ export const STARTER_KM = `កិច្ចសន្យាខ្ចីប្រ�
 អ្នកឱ្យខ្ចីបានឱ្យអ្នកខ្ចីខ្ចីប្រាក់ចំនួន {{amount}} ({{amount_words}}) នៅ{{release_date}}។ ថ្លៃសេវា {{service_fee_percent}} ({{service_fee}}) ត្រូវបានកាត់ទុកមុននៅពេលផ្តល់ប្រាក់ ដូច្នេះអ្នកខ្ចីទទួលបានប្រាក់ចំនួន {{net_amount}} ({{net_amount_words}})។
 
 ៣. ការប្រាក់ និងការសងប្រាក់
-ការប្រាក់គឺ {{interest_rate}} (ការប្រាក់សរុប {{total_interest}})។ អ្នកខ្ចីត្រូវសងសរុប {{total_to_pay}} ({{total_to_pay_words}}) ចំនួន {{occurrences}} ដង {{frequency}} ដោយដងដំបូងចំនួន {{installment}}។ ទម្រង់នៃការសង: {{repayment_mode}}។ ការសងចុងក្រោយត្រូវធ្វើនៅ{{end_date}}។
+ការប្រាក់គឺ {{interest_rate}} (ការប្រាក់សរុប {{total_interest}})។ អ្នកខ្ចីត្រូវសងសរុប {{total_to_pay}} ({{total_to_pay_words}}) ចំនួន {{occurrences}} ដង {{frequency}} ដោយដងនីមួយៗចំនួន {{installment}} ({{installment_words}})។ រយៈពេលនៃកិច្ចសន្យាគឺ {{contract_duration}} ({{contract_duration_days}} ថ្ងៃ)។ ទម្រង់នៃការសង: {{repayment_mode}}។ ការសងចុងក្រោយត្រូវធ្វើនៅ{{end_date}}។
 
 {{schedule}}
 
@@ -65,6 +73,7 @@ export const STARTER_KM = `កិច្ចសន្យាខ្ចីប្រ�
 
 ៦. វិធីបង់ប្រាក់
 អ្នកខ្ចីសងប្រាក់តាមរយៈ: {{pay_method}}។
+ធនាគារ: {{bank_name}}    លេខគណនី: {{bank_account_no}}    ឈ្មោះគណនី: {{bank_account_name}}
 
 ធ្វើនៅ{{contract_date}}
 
@@ -79,7 +88,8 @@ Contract no. {{contract_no}}    Date: {{contract_date}}
 1. Parties
 Lender: ______________________________
 Borrower: {{borrower_name}} ({{borrower_name_km}})
-ID card no.: {{borrower_id_no}}    Date of birth: {{borrower_dob}}
+Gender: {{borrower_gender}}    Date of birth: {{borrower_dob}}
+ID card no.: {{borrower_id_no}}
 Phone: {{borrower_phone}}
 Address: {{borrower_address}}
 
@@ -87,7 +97,7 @@ Address: {{borrower_address}}
 The Lender lends the Borrower {{amount}} on {{release_date}}. A service fee of {{service_fee_percent}} ({{service_fee}}) is deducted when the loan is released, so the Borrower receives {{net_amount}}.
 
 3. Interest and repayment
-Interest is {{interest_rate}} (total interest {{total_interest}}). The Borrower repays {{total_to_pay}} in {{occurrences}} payments, {{frequency}}, starting with {{installment}}. Repayment: {{repayment_mode}}. The last payment is due on {{end_date}}.
+Interest is {{interest_rate}} (total interest {{total_interest}}). The Borrower repays {{total_to_pay}} in {{occurrences}} payments, {{frequency}}, starting with {{installment}}. The contract lasts {{contract_duration}} ({{contract_duration_days}} days). Repayment: {{repayment_mode}}. The last payment is due on {{end_date}}.
 
 {{schedule}}
 
@@ -99,6 +109,7 @@ For every day a payment is late the Borrower pays a late fee of {{late_fee_per_d
 
 6. Payment
 The Borrower pays by: {{pay_method}}.
+Bank: {{bank_name}}    Account no.: {{bank_account_no}}    Account name: {{bank_account_name}}
 
 Signed on {{contract_date}}
 
@@ -114,9 +125,9 @@ export interface ContractInput {
   terms: LoanTerms
   frequency: string
   payMethod: string
-  bankText: string
+  bank: { bank: string; account_no: string; account_name: string } | null
   payRemarks: string
-  borrower: { name: string; name_km: string; id_no: string; dob: string | null; phone: string; address: string }
+  borrower: { name: string; name_km: string; gender: 'F' | 'M' | null; id_no: string; dob: string | null; phone: string; address: string }
   collaterals: string[]
   supervisor: string
 }
@@ -154,15 +165,22 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
   const words = (n: number) => (km ? khMoneyWords(n, cur) : '')
   const date = (iso: string) => (km ? khDate(iso) : fmtD(iso))
   const num = (v: string | number) => (km ? khDigits(v) : String(v))
-  const bankName = c.bankText
-  const method = c.payMethod === 'bank' && bankName ? `${W.method.bank}, ${bankName}` : c.payMethod === 'other' && c.payRemarks ? c.payRemarks : W.method[c.payMethod] ?? c.payMethod
+  const bank = c.payMethod === 'bank' ? c.bank : null
+  const method = bank ? `${W.method.bank}, ${bank.bank} ${bank.account_no}` : c.payMethod === 'other' && c.payRemarks ? c.payRemarks : W.method[c.payMethod] ?? c.payMethod
   const cell = 'border:1px solid #888;padding:4px 8px;'
   const schedule = `<table style="border-collapse:collapse;width:100%;font-size:10pt"><thead><tr>${W.head.map((h, i) => `<th style="${cell}text-align:${i < 2 ? 'left' : 'right'}">${h}</th>`).join('')}</tr></thead><tbody>${tot.rows.map((r) => `<tr><td style="${cell}">${num(r.i)}</td><td style="${cell}">${date(r.due)}</td><td style="${cell}text-align:right">${money(r.principal)}</td><td style="${cell}text-align:right">${money(r.interest)}</td><td style="${cell}text-align:right">${money(r.total)}</td></tr>`).join('')}<tr><td style="${cell}" colspan="2"><b>${W.total}</b></td><td style="${cell}text-align:right"><b>${money(tot.rows.reduce((s, r) => s + r.principal, 0))}</b></td><td style="${cell}text-align:right"><b>${money(tot.interest)}</b></td><td style="${cell}text-align:right"><b>${money(tot.total)}</b></td></tr></tbody></table>`
+  // length of the contract: weeks if paid weekly, months if paid monthly, otherwise counted in days
+  const days = diffDays(t.releaseDate, tot.endDate)
+  const duration =
+    c.frequency === 'weekly' ? `${num(t.occurrences)} ${km ? 'សប្តាហ៍' : t.occurrences === 1 ? 'week' : 'weeks'}`
+    : c.frequency === 'monthly' ? `${num(t.occurrences)} ${km ? 'ខែ' : t.occurrences === 1 ? 'month' : 'months'}`
+    : `${num(days)} ${km ? 'ថ្ងៃ' : days === 1 ? 'day' : 'days'}`
   const khName = c.borrower.name_km.trim()
   const v: Record<string, string> = {
     contract_no: loanCode(c.loanId),
     contract_date: date(todayIso()),
     borrower_name: km && khName ? khName : c.borrower.name, borrower_name_km: khName, borrower_name_latin: c.borrower.name,
+    borrower_gender: c.borrower.gender === 'M' ? (km ? 'ប្រុស' : 'Male') : c.borrower.gender === 'F' ? (km ? 'ស្រី' : 'Female') : '',
     borrower_id_no: num(c.borrower.id_no), borrower_dob: c.borrower.dob ? date(c.borrower.dob) : '', borrower_phone: num(c.borrower.phone),
     borrower_address: c.borrower.address,
     amount: money(t.amount), amount_words: words(t.amount), service_fee_percent: `${num(t.feePct)}%`, service_fee: money(tot.fee),
@@ -171,12 +189,13 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
     total_to_pay: money(tot.total), total_to_pay_words: words(tot.total),
     occurrences: num(t.occurrences),
     frequency: c.frequency === 'custom' ? (km ? `រៀងរាល់ ${khDigits(t.intervalDays)} ថ្ងៃម្តង` : `every ${t.intervalDays} days`) : W.freq[c.frequency] ?? c.frequency,
-    installment: money(tot.rows[0].total),
+    installment: money(tot.rows[0].total), installment_words: words(tot.rows[0].total),
     repayment_mode: km
       ? t.mode === 'equal' ? 'សងការប្រាក់ និងប្រាក់ដើមក្នុងគ្រប់ដង' : 'សងតែការប្រាក់ រីឯប្រាក់ដើមសងនៅដងចុងក្រោយ'
       : t.mode === 'equal' ? 'Interest and principal in every payment' : 'Interest only, principal at the end',
     release_date: date(t.releaseDate), end_date: date(tot.endDate), late_fee_per_day: money(t.lateFeePerDay),
-    pay_method: method, collateral: c.collaterals.length ? c.collaterals.join('; ') : W.none, supervisor: c.supervisor,
+    pay_method: method, bank_name: bank?.bank ?? '', bank_account_no: bank ? num(bank.account_no) : '', bank_account_name: bank?.account_name ?? '',
+    contract_duration: duration, contract_duration_days: num(days), collateral: c.collaterals.length ? c.collaterals.join('; ') : W.none, supervisor: c.supervisor,
   }
   const out: Values = {}
   for (const k of Object.keys(v)) out[k] = { text: v[k] }

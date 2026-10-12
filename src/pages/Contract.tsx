@@ -39,7 +39,7 @@ export function Contract() {
     const bank = banks.data?.find((b) => b.id === v.loan.bank_account_id)
     const values = contractValues({
       loanId, terms: v.terms, frequency: v.loan.frequency, payMethod: v.loan.pay_method,
-      bankText: bank ? `${bank.bank} ${bank.account_no}` : '', payRemarks: v.loan.pay_remarks,
+      bank: bank ?? null, payRemarks: v.loan.pay_remarks,
       borrower: v.borrower, collaterals: files.data.collaterals.map((c) => c.description),
       supervisor: dn(team.data?.find((p) => p.id === v.loan.supervisor_id)),
     }, chosen.lang)
