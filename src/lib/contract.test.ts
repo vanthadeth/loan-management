@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest'
-import { contractValues, fillScheduleRows, fillScheduleTable, fillTemplate, scheduleRowValues, type ContractInput } from './contract'
+import { allScheduleRows, allValues, contractValues, fillScheduleRows, fillScheduleTable, fillTemplate, scheduleRowValues, type ContractInput } from './contract'
 import type { LoanTerms } from './calc'
 
 const terms: LoanTerms = {
@@ -94,5 +94,30 @@ describe('contract values', () => {
     const doc = new DOMParser().parseFromString(out, 'text/html')
     expect(doc.querySelectorAll('table')).toHaveLength(1)
     expect(doc.querySelector('.komjei-annex')).toBeNull()
+  })
+
+  it('offers every placeholder in _km and _en as well', () => {
+    const v = allValues(input(), 'en')
+    expect(get(v, 'amount')).toBe('3,000,000 ៛')
+    expect(get(v, 'amount_km')).toBe('៣,០០០,០០០ រៀល')
+    expect(get(v, 'amount_en')).toBe('3,000,000 ៛')
+    expect(get(v, 'borrower_gender_km')).toBe('ស្រី')
+    expect(get(v, 'contract_duration_en')).toBe('6 months')
+    expect(get(v, 'first_payment_date_en')).toBe('12 Nov 2026')
+  })
+  it('keeps names that already end in _km as they were', () => {
+    expect(get(allValues(input({ borrower: { name: 'Sokha', name_km: '', gender: 'F', id_no: '', dob: null, phone: '', address: '' } }), 'km'), 'borrower_name_km')).toBe('')
+  })
+  it('gives per-payment rows in both languages', () => {
+    const rows = allScheduleRows(input(), 'km')
+    expect(rows[0].schedule_date.text).toBe('12 វិច្ឆិកា 2026')
+    expect(rows[0].schedule_date_en.text).toBe('12 Nov 2026')
+    expect(rows[0].schedule_weekday_date_km.text).toBe('ថ្ងៃព្រហស្បតិ៍ 12 វិច្ឆិកា 2026')
+  })
+  it('{{schedule_en}} makes the English annex inside a Khmer template', () => {
+    const out = fillScheduleTable('<p><span>{{schedule_en}}</span></p>', input(), 'km')
+    expect(out).toContain('ANNEX')
+    expect(out).toContain('Balance at start')
+    expect(out).not.toContain('ឧបសម្ព័ន្ធ')
   })
 })

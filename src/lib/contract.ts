@@ -252,19 +252,22 @@ export function fillScheduleTable(html: string, c: ContractInput, lang: Contract
   if (!/sch/i.test(html)) return html
   const doc = new DOMParser().parseFromString(html, 'text/html')
   const key = (el: Element) => (el.textContent ?? '').replace(/\s+/g, '').toLowerCase()
-  const only = (el: Element) => key(el) === '{{schedule}}' || key(el) === '{{schedule_table}}'
+  const SCHEDULE = /^\{\{(schedule|schedule_table)(?:_(km|en))?\}\}$/
+  const only = (el: Element) => SCHEDULE.test(key(el))
   const blocks = [...doc.querySelectorAll('p, div, li')].filter((el) => only(el) && !el.querySelector('p, div, li'))
   if (!blocks.length) return html
   for (const block of blocks) {
     // in a template that is itself the schedule annex, {{schedule}} is just the table
-    const annex = annexPage && key(block) === '{{schedule}}'
+    const [, name, forced] = SCHEDULE.exec(key(block))!
+    const blockLang = (forced as ContractLang | undefined) ?? lang // {{schedule_en}} is English whatever the template's language
+    const annex = annexPage && name === 'schedule'
     // the innermost span or element that carries the text's class / style
     let src: Element = block
     while (src.firstElementChild && only(src.firstElementChild)) src = src.firstElementChild
     const text: TextStyle = { cls: src.getAttribute('class') ?? '', style: (src.getAttribute('style') ?? '').replace(/;\s*$/, '') }
     text.size = fontSizePt(doc, text)
     const holder = doc.createElement('div')
-    holder.innerHTML = annex ? annexBlock(c, lang, text) : scheduleTable(c, lang, text)
+    holder.innerHTML = annex ? annexBlock(c, blockLang, text) : scheduleTable(c, blockLang, text)
     block.replaceWith(holder.firstElementChild!)
   }
   return '<!doctype html>' + doc.documentElement.outerHTML
@@ -351,6 +354,33 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
   out.schedule = { text: schedule, html: true }
   out.schedule_table = { text: schedule, html: true }
   return out
+}
+
+/**
+ * Every placeholder in the template's own language, plus a copy of each ending in _km or _en that is
+ * always in that language: {{amount}} follows the template, {{amount_en}} is always English.
+ * A name that already ends in _km or _en keeps its own meaning (borrower_name_km).
+ */
+export function allValues(c: ContractInput, lang: ContractLang = 'km'): Values {
+  const out = contractValues(c, lang)
+  for (const l of ['km', 'en'] as const) {
+    const v = contractValues(c, l)
+    for (const k of Object.keys(v)) if (!(`${k}_${l}` in out)) out[`${k}_${l}`] = v[k]
+  }
+  return out
+}
+
+/** The per-payment row values, also with _km / _en copies. */
+export function allScheduleRows(c: ContractInput, lang: ContractLang = 'km'): Values[] {
+  const own = scheduleRowValues(c, lang)
+  const km = scheduleRowValues(c, 'km')
+  const en = scheduleRowValues(c, 'en')
+  return own.map((row, i) => {
+    const out: Values = { ...row }
+    for (const k of Object.keys(km[i])) out[`${k}_km`] = km[i][k]
+    for (const k of Object.keys(en[i])) out[`${k}_en`] = en[i][k]
+    return out
+  })
 }
 
 /**

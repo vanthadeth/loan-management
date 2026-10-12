@@ -180,7 +180,7 @@ export function Settings() {
           )}
           <details className="binfo">
             <summary><span>Placeholders you can use</span><Icon name="chev" size={16} /></summary>
-            <p className="small muted" style={{ margin: '6px 0' }}>Type these in the Google Doc, with the double braces. Tap one to copy it. "Create Khmer template" opens a blank Google Doc and copies a starter contract to paste in. In a Khmer template every value is filled in Khmer.</p>
+            <p className="small muted" style={{ margin: '6px 0' }}>Type these in the Google Doc, with the double braces. Tap one to copy it. "Create Khmer template" opens a blank Google Doc and copies a starter contract to paste in. In a Khmer template every value is filled in Khmer, in an English template in English. To force a language whatever the template, add _km or _en: {'{{amount_km}}'} is always Khmer, {'{{amount_en}}'} always English (it works on every placeholder below, including the schedule ones).</p>
             <div className="lcard">
               {PLACEHOLDERS.map(([k, d]) => (
                 <button key={k} className="item" onClick={() => void copy(`{{${k}}}`, 'Placeholder')}>

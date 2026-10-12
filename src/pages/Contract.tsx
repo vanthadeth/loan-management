@@ -8,7 +8,7 @@ import { useAuth } from '../app/auth'
 import { dn, useBanks, useTeam } from '../data/core'
 import { useContractTemplates, useTemplateHtml } from '../data/contract'
 import { errMsg, useLoanFiles, useLoans } from '../data/loans'
-import { cleanDocument, contractValues, fillScheduleRows, fillScheduleTable, fillTemplate, scheduleRowValues, type ContractInput, type ContractLang } from '../lib/contract'
+import { allScheduleRows, allValues, cleanDocument, fillScheduleRows, fillScheduleTable, fillTemplate, type ContractInput, type ContractLang } from '../lib/contract'
 import { loanCode } from '../lib/format'
 import { readPageSetup, type PageSetup } from '../lib/pagesetup'
 
@@ -96,8 +96,8 @@ export function Contract() {
   }, [v, files.data, banks.data, team.data, loanId])
 
   const fill = (html: string, lang: ContractLang, annexPage: boolean) => {
-    const rows = fillScheduleRows(html, scheduleRowValues(input!, lang))
-    return cleanDocument(fillTemplate(fillScheduleTable(rows, input!, lang, annexPage), contractValues(input!, lang)), lang)
+    const rows = fillScheduleRows(html, allScheduleRows(input!, lang))
+    return cleanDocument(fillTemplate(fillScheduleTable(rows, input!, lang, annexPage), allValues(input!, lang)), lang)
   }
   const doc = useMemo(() => (input && tpl.html && chosen ? fill(tpl.html, chosen.lang, !sched) : null), [input, tpl.html, chosen, sched]) // eslint-disable-line react-hooks/exhaustive-deps
   const sdoc = useMemo(() => (input && stpl.html && sched ? fill(stpl.html, sched.lang, false) : null), [input, stpl.html, sched]) // eslint-disable-line react-hooks/exhaustive-deps
