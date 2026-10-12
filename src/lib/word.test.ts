@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { wordDocument } from './word'
 import { inferPage } from './pagesetup'
 
-const html = '<html><head><style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;700&display=swap');.c1{color:red}body{padding:72pt;max-width:468pt}</style></head><body><p class="c1">Hello</p></body></html>'
+const html = `<html><head><style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;700&display=swap');.c1{color:red}body{padding:72pt;max-width:468pt}</style></head><body><p class="c1">Hello</p></body></html>`
 describe('word document', () => {
   it('keeps the content and styles and writes the page setup as a Word section', () => {
     const page = inferPage(816, { top: 96, right: 96, bottom: 96, left: 96 })
