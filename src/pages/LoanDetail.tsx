@@ -112,7 +112,7 @@ export function LoanDetail() {
                 <button type="button" className="btn danger" onClick={() => setDialog('delete')}>Delete draft</button>
               </>
             )}
-            {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Return to draft</button>}
+            {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Draft</button>}
             {canReset && <button type="button" className="btn" onClick={() => setDialog('reset')}>Reset approval</button>}
             {canVoid && <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('void') }}>Void</button>}
           </div>
