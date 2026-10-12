@@ -1190,3 +1190,12 @@ input,select,textarea{font-size:16px}
 .cft th:first-child,.cft td:first-child{position:sticky;left:0;z-index:1;background:var(--surface);min-width:210px;box-shadow:1px 0 0 var(--hair)}
 .cft thead th:first-child{z-index:2}
 .cft-g th:first-child,.cft-g td{background:var(--surface2)}
+
+/* touch feedback: press states, ripple hosts, soft list taps */
+.btn,.tab,.hbtn,.icon-btn,.mcta{position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent}
+.fab{overflow:hidden}
+.btn:active,.tab:active,.hbtn:active,.icon-btn:active,.mcta:active{transform:scale(.96)}
+.lcard .item:active,.item:active{background:var(--surface2)}
+.seg button:active,.nav button:active{transform:scale(.94)}
+.toast.err{animation:popIn .18s var(--ease)}
+@media (prefers-reduced-motion:reduce){.btn:active,.tab:active,.hbtn:active,.icon-btn:active,.mcta:active{transform:none}}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../app/auth'
 import { usePageTitle } from '../app/Layout'
+import { hapticsOn, setHaptics } from '../lib/feel'
 import { applyTheme, savedTheme, useI18n, type Theme } from '../app/i18n'
 import { useSettings } from '../data/core'
 import { useCopy, useRun, useSaveSettings } from '../data/admin'
@@ -74,6 +75,7 @@ export function Settings() {
   const { lang, setLang } = useI18n()
   const settings = useSettings()
   const [theme, setTheme] = useState<Theme>(savedTheme())
+  const [buzz, setBuzz] = useState(hapticsOn())
   const [editing, setEditing] = useState(false)
   const [tplSheet, setTplSheet] = useState<null | { template?: ContractTemplate }>(null)
   const [removing, setRemoving] = useState<ContractTemplate | null>(null)
@@ -105,6 +107,14 @@ export function Settings() {
                 </button>
               ))}
             </div>
+          </section>
+          <section className="bt">
+            <span className="bt-h">Haptic feedback</span>
+            <div className="seg bseg" role="group" aria-label="Haptic feedback">
+              <button aria-pressed={buzz} onClick={() => { setBuzz(true); setHaptics(true) }}>On</button>
+              <button aria-pressed={!buzz} onClick={() => { setBuzz(false); setHaptics(false) }}>Off</button>
+            </div>
+            <span className="small bt-sub">A short vibration on taps. Android only.</span>
           </section>
         </div>
       </div>

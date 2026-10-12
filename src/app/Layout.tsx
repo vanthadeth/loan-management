@@ -59,6 +59,15 @@ export function Layout() {
   const unread = (msgs.data ?? []).filter((m) => !m.read)
 
   useEffect(() => { setMenu(null) }, [loc.pathname])
+  // each page rises in, its blocks one after another
+  useEffect(() => {
+    const view = document.getElementById('view')
+    if (!view) return
+    view.classList.remove('enter')
+    Array.from(view.children).slice(0, 10).forEach((el, i) => (el as HTMLElement).style.setProperty('--i', String(i)))
+    void view.offsetWidth
+    view.classList.add('enter')
+  }, [loc.pathname])
 
   // Mobile bars: keep content clear of the fixed top bar / nav, and hide them while scrolling down.
   useEffect(() => {

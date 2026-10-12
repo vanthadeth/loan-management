@@ -1,3 +1,4 @@
+import { haptic, isProblem } from '../lib/feel'
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
 
 const Ctx = createContext<(m: string) => void>(() => {})
@@ -6,6 +7,7 @@ export const useToast = () => useContext(Ctx)
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<{ id: number; m: string; out: boolean }[]>([])
   const push = useCallback((m: string) => {
+    haptic(isProblem(m) ? 'error' : 'success')
     const id = Date.now() + Math.random()
     setItems((s) => [...s, { id, m, out: false }])
     setTimeout(() => setItems((s) => s.map((x) => (x.id === id ? { ...x, out: true } : x))), 2400)

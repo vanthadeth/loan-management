@@ -7,8 +7,10 @@ import { App } from './App'
 import { I18nProvider, applyTheme, savedTheme } from './app/i18n'
 import { AuthProvider } from './app/auth'
 import { ToastProvider } from './ui/Toast'
+import { initFeel } from './lib/feel'
 
 applyTheme(savedTheme())
+initFeel()
 const client = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1, refetchOnWindowFocus: true } } })
 
 createRoot(document.getElementById('root')!).render(
