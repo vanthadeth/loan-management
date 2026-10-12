@@ -1118,3 +1118,18 @@ main{--gb:16px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .wz-bar{box-shadow:0 -1px 0 rgba(255,255,255,.18)}}
 .wz-sec .wz-sec{margin:0}
 #lbres .item.sel{background:var(--accent-soft)}
+
+/* ===== Money: report printing (PDF export) ===== */
+.print-only{display:none}
+@media print{
+  html.print-report,html.print-report body,html.print-report #root,html.print-report .app,html.print-report main{display:block!important;height:auto!important;overflow:visible!important;position:static!important;padding:0!important;background:#fff!important;color:#000!important}
+  html.print-report .top,html.print-report .nav,html.print-report .no-print,html.print-report .sheet-bg,html.print-report .toast,html.print-report .fab{display:none!important}
+  html.print-report .print-only{display:block}
+  html.print-report .print-only h2{margin:0 0 2px;color:#000}
+  html.print-report .print-only p{margin:0 0 12px;color:#444}
+  html.print-report .rt-wrap{overflow:visible;box-shadow:none;background:none}
+  html.print-report .rt{white-space:normal;font-size:11px}
+  html.print-report .rt th,html.print-report .rt td{position:static!important;background:#fff!important;color:#000!important;border-color:#bbb!important}
+  html.print-report .rt thead{display:table-header-group}
+  html.print-report .rt tr{break-inside:avoid}
+}

@@ -1,3 +1,279 @@
+import { Fragment, useState, type ChangeEvent } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Sheet } from '../ui/Sheet'
+import { useToast } from '../ui/Toast'
+import { usePageTitle } from '../app/Layout'
+import { useAuth } from '../app/auth'
+import { useI18n } from '../app/i18n'
+import { dn, useBanks, useTeam } from '../data/core'
+import { bname } from '../data/borrowers'
+import { errMsg, useLoanActions, useLoanFiles, useLoans } from '../data/loans'
+import { loanTotals } from '../lib/calc'
+import { fmt, fmtD, loanCode } from '../lib/format'
+import type { LoanStatus } from '../lib/types'
+import { FileView } from './loans/FileView'
+import { Bar, Ring } from './loans/parts'
+import { SupervisorSheet } from './loans/SupervisorSheet'
+
+const STEPS: LoanStatus[] = ['requested', 'verified', 'approved']
+type Dialog = 'verify' | 'approve' | 'reject' | 'supervisor' | null
+
 export function LoanDetail() {
-  return <p className="muted">LoanDetail — to be built.</p>
+  const loanId = Number(useParams().id)
+  const { t, lang } = useI18n()
+  const { can, scoped } = useAuth()
+  const toast = useToast()
+  const nav = useNavigate()
+  const { views, loading, error } = useLoans()
+  const team = useTeam()
+  const banks = useBanks()
+  const files = useLoanFiles(loanId)
+  const actions = useLoanActions()
+  const [dialog, setDialog] = useState<Dialog>(null)
+  usePageTitle(Number.isFinite(loanId) ? loanCode(loanId) : 'Loan')
+
+  const v = views.find((x) => x.loan.id === loanId)
+  if (!v) return <p className="muted">{loading ? 'Loading…' : error ?? 'Loan not found.'}</p>
+
+  const { loan, status, terms, payments, borrower } = v
+  const name = bname(borrower, lang)
+  const cur = loan.currency
+  const approved = loan.status === 'approved'
+  const si = STEPS.indexOf(loan.status)
+  const who = (id: string | null) => (id ? dn((team.data ?? []).find((p) => p.id === id)) : null)
+  const { fee, net } = loanTotals(terms)
+  const collected = status.collected
+  const gain = fee + status.total - loan.amount
+  const bank = (banks.data ?? []).find((b) => b.id === loan.bank_account_id)
+  const payText = loan.pay_method === 'bank' ? 'Bank' + (bank ? ` · ${bank.bank} ${bank.account_no}` : '')
+    : loan.pay_method === 'other' ? 'Other' + (loan.pay_remarks ? ` · ${loan.pay_remarks}` : '') : 'Cash'
+  const collaterals = files.data?.collaterals ?? []
+  const attachments = files.data?.attachments ?? []
+  const canAdvance = (loan.status === 'requested' && can('loans.verify')) || (loan.status === 'verified' && can('loans.approve'))
+  const pct = Math.round((status.paidCount / loan.occurrences) * 100)
+  const lateRate = fmt(loan.late_fee_per_day, cur)
+  const end = status.done ? status.rows[status.rows.length - 1].paidOn : status.rows[status.rows.length - 1].due
+
+  const move = (to: LoanStatus, done: string) => async () => {
+    try {
+      await actions.setStatus(loan.id, loan.status, to)
+      toast(done)
+      setDialog(null)
+    } catch (e) {
+      toast(errMsg(e))
+    }
+  }
+  const attach = async (e: ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (!picked.length) return
+    try {
+      await actions.addAttachments(loan.id, picked)
+      toast(picked.length > 1 ? 'Files added' : 'File added')
+    } catch (err) {
+      toast(errMsg(err))
+    }
+  }
+
+  return (
+    <>
+      <section className="card">
+        <div className="row between" style={{ flexWrap: 'wrap' }}>
+          <div><div className="eyebrow">{loanCode(loan.id)}</div><h1>{name}</h1></div>
+          <b className="num" style={{ fontSize: 20, fontFamily: 'var(--display)' }}>{fmt(loan.amount, cur)}</b>
+        </div>
+        {loan.status === 'rejected'
+          ? <div style={{ margin: '14px 0' }}><span className="chip overdue">Rejected</span></div>
+          : (
+            <div className="stepper" style={{ margin: '14px 0' }}>
+              {STEPS.map((k, i) => (
+                <Fragment key={k}>
+                  <span className={'step ' + (i < si ? 'done' : i === si ? 'now' : '')}><b>{i < si ? '✓' : i + 1}</b>{t(k)}</span>
+                  {i < 2 && <hr />}
+                </Fragment>
+              ))}
+            </div>
+          )}
+        {canAdvance && (
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn primary" onClick={() => setDialog(si === 0 ? 'verify' : 'approve')}>{si === 0 ? 'Verify' : 'Approve'}</button>
+            <button type="button" className="btn danger" onClick={() => setDialog('reject')}>Reject</button>
+          </div>
+        )}
+        <div className="kv one" style={{ marginTop: 14 }}>
+          <div style={{ gridColumn: '1/-1' }}>
+            <span className="eyebrow">Workflow</span>
+            <div className="people">
+              {([['Requested', who(loan.requested_by)], ['Verified', who(loan.verified_by)], ['Approved', who(loan.approved_by)]] as const).map(([k, p]) => (
+                <div key={k} className={'person' + (p ? '' : ' empty')}>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-4 3-6 7-6s7 2 7 6" /></svg>
+                  <span className="muted">{k}</span><b>{p ?? 'Pending'}</b>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div><span className="eyebrow">Repayment</span>{loan.frequency === 'custom' ? `Every ${loan.interval_days} days` : loan.frequency} × {loan.occurrences} · {loan.mode === 'equal' ? 'interest + principal ÷ n' : 'interest only, principal at end'}</div>
+          <div><span className="eyebrow">Interest</span>{loan.rate_pct}% per {loan.rate_basis} (flat)</div>
+          <div>
+            <span className="eyebrow">Supervisor</span>{who(loan.supervisor_id) ?? 'Not assigned'}
+            {!scoped && can('loans.verify') && <> <button type="button" className="linkbtn" onClick={() => setDialog('supervisor')}>Change</button></>}
+          </div>
+          <div><span className="eyebrow">Late fee</span>{lateRate} per day late</div>
+          <div><span className="eyebrow">Borrower pays by</span>{payText}</div>
+          <div><span className="eyebrow">Collateral</span>{collaterals.length ? collaterals.map((c) => c.description).join(', ') : 'None'}</div>
+        </div>
+      </section>
+
+      <details className="card sec">
+        <summary><h2>Attachments</h2><span className="chev" aria-hidden="true">▾</span></summary>
+        {can('loans.create') && (
+          <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <label className="btn sm" style={{ cursor: 'pointer' }}>+ Add<input type="file" accept="image/*,application/pdf" multiple hidden onChange={attach} /></label>
+          </div>
+        )}
+        <div className="att">
+          {attachments.map((a) => {
+            const col = collaterals.find((c) => c.id === a.collateral_id)
+            return (
+              <div className="afile" key={a.id}>
+                <span className="aico">{/\.pdf$/i.test(a.file_name || a.file_path) ? '▤' : '▣'}</span>
+                <span className="grow">
+                  <b className="ell" style={{ display: 'block' }}>{col ? 'Collateral: ' + col.description : 'Attachment'}</b>
+                  <span className="small muted ell" style={{ display: 'block' }}>{a.file_name || a.file_path.split('/').pop()}</span>
+                </span>
+                <FileView path={a.file_path} />
+              </div>
+            )
+          })}
+          {!attachments.length && <p className="muted">No attachments yet.</p>}
+        </div>
+      </details>
+
+      <section className="card">
+        <div className="row between">
+          <h2>{t('progress')}</h2>
+          <span className="row" style={{ gap: 8 }}>
+            <span className="small muted num">{status.paidCount}/{loan.occurrences}</span>
+            <Ring p={pct} size={46} color="var(--paid)" stroke={6} />
+          </span>
+        </div>
+        <div style={{ margin: '10px 0 8px' }}><Bar rows={status.rows} flagLate={approved} /></div>
+        <div className="legend">
+          <span><i style={{ background: 'var(--paid)' }} />Paid</span>
+          <span><i style={{ background: 'var(--remain)' }} />Remaining</span>
+          <span><i style={{ background: 'var(--late)' }} />{t('overdue')}</span>
+        </div>
+        <div className="tblwrap" style={{ marginTop: 14 }}>
+          <table className="num"><tbody>
+            <tr><td>{t('loaned')}</td><td className="r"><b>{fmt(loan.amount, cur)}</b></td></tr>
+            <tr><td>{t('collected')}</td><td className="r in"><b>{fmt(collected, cur)}</b></td></tr>
+            <tr><td>{t('remaining')}</td><td className="r"><b>{fmt(status.remaining, cur)}</b></td></tr>
+            {approved && status.lateFeeOutstanding > 0 && <tr><td>Late fee due</td><td className="r out"><b>{fmt(status.lateFeeOutstanding, cur)}</b></td></tr>}
+          </tbody></table>
+        </div>
+        <div className="kv" style={{ marginTop: 14 }}>
+          <div><span className="eyebrow">{t('start')}</span>{fmtD(loan.release_date)}</div>
+          <div><span className="eyebrow">{t('end')}</span>{fmtD(end)}{status.done ? '' : ' (expected)'}</div>
+        </div>
+      </section>
+
+      <details className="card sec">
+        <summary><h2>{t('summary')}</h2><span className="chev" aria-hidden="true">▾</span></summary>
+        <div className="tblwrap">
+          <table className="num">
+            <thead><tr><th>{t('desc')}</th><th className="r">{t('in')}</th><th className="r">{t('out')}</th></tr></thead>
+            <tbody>
+              <tr><td>{t('loaned')}</td><td /><td className="r out">{fmt(loan.amount, cur)}</td></tr>
+              <tr><td>{t('fee')} ({loan.fee_pct}%)</td><td className="r in">{fmt(fee, cur)}</td><td /></tr>
+              <tr><td>{t('collected')}</td><td className="r in">{fmt(collected, cur)}</td><td /></tr>
+              {status.lateFeePaid > 0 && <tr><td>Late fees</td><td className="r in">{fmt(status.lateFeePaid, cur)}</td><td /></tr>}
+              <tr className="sum"><td>{t('balance')}</td><td colSpan={2} className={'r ' + (fee + collected + status.lateFeePaid - loan.amount < 0 ? 'out' : 'in')}>{fmt(fee + collected + status.lateFeePaid - loan.amount, cur)}</td></tr>
+              <tr className="gap"><td colSpan={3} /></tr>
+              <tr><td>{t('tbc')}</td><td className="r in">{fmt(status.remaining, cur)}</td><td /></tr>
+              <tr className="sum"><td>{t('ugl')}</td><td colSpan={2} className={'r ' + (gain < 0 ? 'out' : 'in')}>{gain >= 0 ? '+' : ''}{fmt(gain, cur)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="small muted" style={{ margin: '8px 0 0' }}>Service fee is deducted at release: borrower receives {fmt(net, cur)}.</p>
+      </details>
+
+      <details className="card sec" open>
+        <summary><h2>{t('schedule')}</h2><span className="chev" aria-hidden="true">▾</span></summary>
+        <div className="sched">
+          {status.rows.map((r) => {
+            const late = r.state === 'overdue'
+            const chip = r.state === 'paid' ? <span className="chip approved">Paid</span>
+              : late ? <span className="chip overdue">{r.lateDays}d late</span>
+              : r.state === 'partial' ? <span className="chip requested">Partial</span>
+              : <span className="chip requested">Pending</span>
+            return (
+              <details className={'srow' + (late ? ' late' : '')} key={r.i}>
+                <summary>
+                  <span className="grow"><b>#{r.i}</b> <span className="muted">· {fmtD(r.due)}</span></span>
+                  <b className="num">{fmt(r.total, cur)}</b>
+                  {r.state === 'paid'
+                    ? <span className="cta done" aria-label="Paid">✓</span>
+                    : approved && can('payments.record') && (
+                      <button type="button" className="cta" aria-label={`Collect installment ${r.i}`} onClick={(e) => { e.preventDefault(); nav(`/cashflow/pay?loan=${loan.id}`) }}>
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="7" width="18" height="12" rx="2" /><circle cx="12" cy="13" r="2.5" /><path d="M7 7V5h10v2" /></svg>
+                      </button>
+                    )}
+                  <span className="chev" aria-hidden="true">▾</span>
+                </summary>
+                <div className="sdetail">
+                  <div className="row between"><span className="muted small">Status</span>{chip}</div>
+                  <div className="calc num">
+                    <div><span>Principal</span><b>{fmt(r.principal, cur)}</b></div>
+                    <div><span>Interest ({loan.rate_pct}% {loan.rate_basis}, flat)</span><b>{fmt(r.interest, cur)}</b></div>
+                    {r.lateFee > 0 && <div className="tag-late"><span>Late fee ({r.lateDays}d × {lateRate})</span><b>{fmt(r.lateFee, cur)}</b></div>}
+                    <div className="t"><span>Total</span><b>{fmt(r.total + r.lateFee, cur)}</b></div>
+                  </div>
+                </div>
+              </details>
+            )
+          })}
+        </div>
+        <p className="small muted" style={{ margin: '8px 0 0' }}>Late fee: {lateRate} per day late, as agreed in this contract.</p>
+      </details>
+
+      <details className="card sec">
+        <summary><h2>{t('payments')}</h2><span className="chev" aria-hidden="true">▾</span></summary>
+        {approved && can('payments.record') && (
+          <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <button type="button" className="btn primary sm" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>+ {t('record')}</button>
+          </div>
+        )}
+        <div className="list" style={{ marginTop: 6 }}>
+          {[...payments].reverse().map((p) => (
+            <div className="item" style={{ cursor: 'default' }} key={p.id}>
+              <span className="grow">
+                <b>{fmtD(p.paid_on)}</b>
+                {(p.late_fee > 0 || p.note) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee > 0 ? `incl. ${fmt(p.late_fee, cur)} late fee` : '', p.note].filter(Boolean).join(' · ')}</span>}
+              </span>
+              {p.photo_path && <FileView path={p.photo_path} label="Photo" />}
+              <b className="num in">+{fmt(p.amount, cur)}</b>
+            </div>
+          ))}
+          {!payments.length && <p className="muted">No payments yet.</p>}
+        </div>
+      </details>
+
+      {dialog === 'verify' && (
+        <Sheet title="Verify loan?" onClose={() => setDialog(null)} action={{ label: 'Confirm verify', onClick: move('verified', 'Loan verified') }}>
+          <p style={{ margin: '0 0 6px' }}>Verify <b>{loanCode(loan.id)}</b> for <b>{name}</b>? It will then wait for approval.</p>
+        </Sheet>
+      )}
+      {dialog === 'approve' && (
+        <Sheet title="Approve loan?" onClose={() => setDialog(null)} action={{ label: 'Confirm approve', onClick: move('approved', 'Loan approved') }}>
+          <p style={{ margin: '0 0 6px' }}>Approve <b>{loanCode(loan.id)}</b> for <b>{name}</b>? <b>{fmt(net, cur)}</b> is released on <b>{fmtD(loan.release_date)}</b> after the service fee.</p>
+        </Sheet>
+      )}
+      {dialog === 'reject' && (
+        <Sheet title="Reject loan?" onClose={() => setDialog(null)} action={{ label: 'Confirm reject', cls: 'danger', onClick: move('rejected', 'Loan rejected') }}>
+          <p style={{ margin: '0 0 6px' }}>Reject <b>{loanCode(loan.id)}</b> for <b>{name}</b>? This cannot be undone.</p>
+        </Sheet>
+      )}
+      {dialog === 'supervisor' && <SupervisorSheet loanId={loan.id} current={loan.supervisor_id} onClose={() => setDialog(null)} />}
+    </>
+  )
 }

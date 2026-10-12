@@ -1,114 +1,5 @@
--- Family Loan Ledger v2: username sign-in, configurable roles and permissions,
--- loan supervisors and a per-contract late fee. Replaces the fixed-role schema
--- from the first migration (no production data existed yet).
-
--- ------------------------------------------------------------- tear down v1
-drop trigger if exists on_auth_user_created on auth.users;
-drop policy if exists files_select on storage.objects;
-drop policy if exists files_insert on storage.objects;
-drop policy if exists files_update on storage.objects;
-drop policy if exists files_delete on storage.objects;
-
-drop table if exists public.message_reads, public.messages, public.app_settings,
-  public.fund_transactions, public.payments, public.loan_attachments,
-  public.loan_collaterals, public.loans, public.bank_accounts,
-  public.borrower_documents, public.borrowers, public.profiles cascade;
-
-drop function if exists private.app_role(), private.is_staff(), private.is_admin(),
-  private.handle_new_user(), private.loans_guard(), private.payments_guard(),
-  private.log_loan_event(), private.log_payment(), private.profiles_guard();
-
-drop type if exists public.app_role, public.borrower_tier, public.borrower_status,
-  public.loan_status, public.currency_code, public.rate_basis, public.pay_mode, public.pay_method;
-
-create schema if not exists private;
-grant usage on schema private to authenticated;
-
-create type public.user_status as enum ('active', 'suspended', 'discharged');
-create type public.borrower_tier as enum ('normal', 'silver', 'gold');
-create type public.borrower_status as enum ('active', 'banned');
-create type public.loan_status as enum ('requested', 'verified', 'approved', 'rejected');
-create type public.currency_code as enum ('KHR', 'USD');
-create type public.rate_basis as enum ('month', 'occurrence', 'contract');
-create type public.pay_mode as enum ('equal', 'interest');
-create type public.pay_method as enum ('cash', 'bank', 'other');
-
--- ------------------------------------------------------------ roles and users
-create table public.roles (
-  id text primary key,
-  name text not null unique,
-  description text not null default '',
-  locked boolean not null default false,   -- locked roles (Admin) always hold every permission
-  scoped boolean not null default false,   -- scoped roles only see loans they supervise
-  created_at timestamptz not null default now()
-);
-
-create table public.role_permissions (
-  role_id text not null references public.roles (id) on delete cascade,
-  permission text not null,
-  primary key (role_id, permission)
-);
-
-create table public.profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
-  username text not null unique check (username ~ '^[a-z0-9._-]{3,32}$'),
-  full_name text not null,
-  display_name text not null default '',
-  gender text check (gender in ('F', 'M')),
-  dob date,
-  address text not null default '',
-  photo_path text,
-  role_id text not null references public.roles (id),
-  status public.user_status not null default 'active',
-  must_change_password boolean not null default true,
-  last_seen timestamptz,
-  created_at timestamptz not null default now()
-);
-
--- every permission check goes through these helpers (security definer, so RLS
--- on profiles / roles does not recurse)
-create function private.is_active() returns boolean
-  language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and status = 'active')
-$$;
-
-create function private.has_perm(p text) returns boolean
-  language sql stable security definer set search_path = public as $$
-  select exists (
-    select 1
-    from public.profiles pr
-    join public.roles r on r.id = pr.role_id
-    where pr.id = auth.uid() and pr.status = 'active'
-      and (r.locked or exists (
-        select 1 from public.role_permissions rp where rp.role_id = r.id and rp.permission = p))
-  )
-$$;
-
-create function private.is_scoped() returns boolean
-  language sql stable security definer set search_path = public as $$
-  select coalesce((select r.scoped and not r.locked
-    from public.profiles pr join public.roles r on r.id = pr.role_id
-    where pr.id = auth.uid()), false)
-$$;
-
-revoke all on function private.is_active(), private.has_perm(text), private.is_scoped() from public;
-grant execute on function private.is_active(), private.has_perm(text), private.is_scoped() to authenticated;
-
-insert into public.roles (id, name, description, locked, scoped) values
-  ('admin', 'Admin', 'Full access to everything', true, false),
-  ('verifier', 'Verifier', 'Checks borrowers and verifies loan requests', false, false),
-  ('supervisor', 'Loan supervisor', 'Manages the loans assigned to them, and only those', false, true),
-  ('collector', 'Collector', 'Records payments in the field', false, false);
-
-insert into public.role_permissions (role_id, permission) values
-  ('verifier', 'borrowers.view'), ('verifier', 'borrowers.edit'), ('verifier', 'loans.view'),
-  ('verifier', 'loans.create'), ('verifier', 'loans.verify'), ('verifier', 'payments.view'),
-  ('verifier', 'payments.record'), ('verifier', 'funds.view'), ('verifier', 'reports.view'),
-  ('supervisor', 'borrowers.view'), ('supervisor', 'loans.view'), ('supervisor', 'loans.create'),
-  ('supervisor', 'loans.verify'), ('supervisor', 'payments.view'), ('supervisor', 'payments.record'),
-  ('supervisor', 'reports.view'),
-  ('collector', 'borrowers.view'), ('collector', 'loans.view'), ('collector', 'payments.view'),
-  ('collector', 'payments.record');
+-- Family Loan Ledger v2 (part 2): borrowers, loans (with supervisor and per-contract late fee),
+-- payments, funds, messages, guards and row level security.
 
 -- ---------------------------------------------------------------- borrowers
 create table public.borrowers (
@@ -142,6 +33,7 @@ create table public.borrower_documents (
   created_at timestamptz not null default now()
 );
 create index on public.borrower_documents (borrower_id);
+create index on public.borrower_documents (created_by);
 
 create table public.bank_accounts (
   id bigint generated always as identity primary key,
@@ -181,6 +73,10 @@ create table public.loans (
 create index on public.loans (borrower_id);
 create index on public.loans (status);
 create index on public.loans (supervisor_id);
+create index on public.loans (requested_by);
+create index on public.loans (verified_by);
+create index on public.loans (approved_by);
+create index on public.loans (bank_account_id);
 
 create table public.loan_collaterals (
   id bigint generated always as identity primary key,
@@ -197,6 +93,7 @@ create table public.loan_attachments (
   file_name text not null default ''
 );
 create index on public.loan_attachments (loan_id);
+create index on public.loan_attachments (collateral_id);
 
 -- true when the signed-in user may see this loan (scoped roles: only their own)
 create function private.can_see_loan(lid bigint) returns boolean
@@ -223,6 +120,8 @@ create table public.payments (
   check (late_fee >= 0 and late_fee <= amount)
 );
 create index on public.payments (loan_id);
+create index on public.payments (bank_account_id);
+create index on public.payments (created_by);
 
 create table public.fund_transactions (
   id bigint generated always as identity primary key,
@@ -354,63 +253,6 @@ end $$;
 create trigger payments_log after insert on public.payments
   for each row execute function private.log_payment();
 
--- profile edits. Server-side calls (edge function, no auth.uid()) are unrestricted.
--- Everyone edits their own personal details; only user managers change names,
--- usernames, roles and status, and never their own role or status.
-create function private.profiles_guard() returns trigger
-  language plpgsql security definer set search_path = public as $$
-declare mgr boolean; me boolean;
-begin
-  if auth.uid() is null then return new; end if;
-  mgr := private.has_perm('users.manage');
-  me := old.id = auth.uid();
-  if not mgr then
-    if not me then raise exception 'Not allowed'; end if;
-    new.username := old.username; new.full_name := old.full_name;
-    new.role_id := old.role_id; new.status := old.status;
-  else
-    if me then new.role_id := old.role_id; new.status := old.status; end if;
-  end if;
-  new.must_change_password := case when me and old.must_change_password and not new.must_change_password
-    then false else old.must_change_password end;   -- only the owner clears it; only the edge function sets it
-  new.id := old.id; new.created_at := old.created_at;
-  return new;
-end $$;
-create trigger profiles_guard before update on public.profiles
-  for each row execute function private.profiles_guard();
-
--- locked roles (Admin) cannot be edited or deleted; permission rows follow the same rule
-create function private.roles_guard() returns trigger
-  language plpgsql security definer set search_path = public as $$
-begin
-  if tg_op = 'DELETE' then
-    if old.locked then raise exception 'The Admin role cannot be deleted'; end if;
-    return old;
-  end if;
-  if tg_op = 'UPDATE' and old.locked then
-    new.id := old.id; new.locked := true; new.scoped := false; new.name := old.name;
-  end if;
-  if tg_op = 'INSERT' then new.locked := false; end if;
-  return new;
-end $$;
-create trigger roles_guard before insert or update or delete on public.roles
-  for each row execute function private.roles_guard();
-
-create function private.role_perms_guard() returns trigger
-  language plpgsql security definer set search_path = public as $$
-begin
-  if (select locked from public.roles where id = coalesce(new.role_id, old.role_id)) then
-    raise exception 'The Admin role always has every permission';
-  end if;
-  return coalesce(new, old);
-end $$;
-create trigger role_perms_guard before insert or update or delete on public.role_permissions
-  for each row execute function private.role_perms_guard();
-
--- ---------------------------------------------------------------------- RLS
-alter table public.roles enable row level security;
-alter table public.role_permissions enable row level security;
-alter table public.profiles enable row level security;
 alter table public.borrowers enable row level security;
 alter table public.borrower_documents enable row level security;
 alter table public.bank_accounts enable row level security;
@@ -422,23 +264,8 @@ alter table public.fund_transactions enable row level security;
 alter table public.app_settings enable row level security;
 alter table public.messages enable row level security;
 alter table public.message_reads enable row level security;
-
 revoke all on all tables in schema public from anon;
 revoke all on all sequences in schema public from anon;
-
-create policy roles_select on public.roles for select to authenticated using (private.is_active());
-create policy roles_write on public.roles for all to authenticated
-  using (private.has_perm('users.manage')) with check (private.has_perm('users.manage'));
-create policy role_perms_select on public.role_permissions for select to authenticated using (private.is_active());
-create policy role_perms_write on public.role_permissions for all to authenticated
-  using (private.has_perm('users.manage')) with check (private.has_perm('users.manage'));
-
--- a user always reads their own profile (even when suspended, so the app can say why)
-create policy profiles_select on public.profiles for select to authenticated
-  using (id = (select auth.uid()) or private.is_active());
-create policy profiles_update on public.profiles for update to authenticated
-  using (id = (select auth.uid()) or private.has_perm('users.manage'))
-  with check (id = (select auth.uid()) or private.has_perm('users.manage'));
 
 create policy borrowers_select on public.borrowers for select to authenticated using (private.has_perm('borrowers.view'));
 create policy borrowers_insert on public.borrowers for insert to authenticated with check (private.has_perm('borrowers.edit'));
@@ -491,17 +318,3 @@ create policy reads_select on public.message_reads for select to authenticated u
 create policy reads_insert on public.message_reads for insert to authenticated
   with check (user_id = (select auth.uid()) and private.is_active());
 
--- ------------------------------------------------------------------ storage
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('files', 'files', false, 10485760,
-  array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
-on conflict (id) do nothing;
-
-create policy files_select on storage.objects for select to authenticated
-  using (bucket_id = 'files' and private.is_active());
-create policy files_insert on storage.objects for insert to authenticated
-  with check (bucket_id = 'files' and private.is_active());
-create policy files_update on storage.objects for update to authenticated
-  using (bucket_id = 'files' and private.is_active());
-create policy files_delete on storage.objects for delete to authenticated
-  using (bucket_id = 'files' and private.is_active());

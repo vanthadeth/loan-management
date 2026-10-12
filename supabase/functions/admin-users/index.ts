@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
   let allowed = (me.role as unknown as { locked: boolean } | null)?.locked === true
   if (!allowed) {
     const { data: rp } = await admin.from('role_permissions').select('permission')
-      .eq('permission', 'users.manage').eq('role_id', (await admin.from('profiles').select('role_id').eq('id', me.id).single()).data!.role_id)
+      .eq('permission', 'users.manage').eq('role_id', me.role_id)
     allowed = (rp ?? []).length > 0
   }
   if (!allowed) return json({ error: 'You do not have permission to manage users' }, 403)

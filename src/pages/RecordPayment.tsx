@@ -1,3 +1,10 @@
+import { useAuth } from '../app/auth'
+import { usePageTitle } from '../app/Layout'
+import { PayWizard } from './money/PayWizard'
+
 export function RecordPayment() {
-  return <p className="muted">RecordPayment — to be built.</p>
+  const { can } = useAuth()
+  usePageTitle('Record payment')
+  if (!can('payments.record')) return <p className="muted">You do not have permission to record payments.</p>
+  return <PayWizard />
 }
