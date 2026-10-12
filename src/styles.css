@@ -1167,3 +1167,8 @@ input,select,textarea{font-size:16px}
 .btn.busy::before{content:"";flex:none;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:btn-spin .7s linear infinite}
 .btn:disabled:not(.busy){opacity:.55;cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){.btn.busy::before{animation-duration:2s}}
+
+/* approve / deny bar floating at the bottom of a requested loan */
+.fbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:6;display:flex;gap:10px;padding:10px;border-radius:99px;background:var(--surface);box-shadow:var(--pop);border:1px solid var(--hair)}
+.fbar .btn{min-width:120px;min-height:44px;justify-content:center;border-radius:99px;padding-inline:24px}
+@media (min-width:900px){.fbar{bottom:24px;left:calc(50% + 115px)}}

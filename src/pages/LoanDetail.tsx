@@ -91,7 +91,7 @@ export function LoanDetail() {
           <b className="num" style={{ fontSize: 20, fontFamily: 'var(--display)' }}>{fmt(loan.amount, cur)}</b>
         </div>
         {loan.status === 'rejected'
-          ? <div style={{ margin: '14px 0' }}><span className="chip overdue">Denied</span></div>
+          ? <div style={{ margin: '14px 0' }}><span className="chip overdue">Denied</span>{loan.reject_reason && <p style={{ margin: '8px 0 0' }}>Reason: {loan.reject_reason}</p>}</div>
           : (
             <div className="stepper" style={{ margin: '14px 0' }}>
               {STEPS.map((k, i) => (
@@ -109,14 +109,7 @@ export function LoanDetail() {
             <button type="button" className="btn danger" onClick={() => setDialog('delete')}>Delete draft</button>
           </div>
         )}
-        {canApprove && (
-          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="btn primary" onClick={() => setDialog('approve')}>Approve</button>
-            <button type="button" className="btn danger" onClick={() => setDialog('reject')}>Deny</button>
-            {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Return to draft</button>}
-          </div>
-        )}
-        {!canApprove && canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Return to draft</button>}
+        {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Return to draft</button>}
         {canReset && <button type="button" className="btn" onClick={() => setDialog('reset')}>Reset approval</button>}
         <div className="kv one" style={{ marginTop: 14 }}>
           <div style={{ gridColumn: '1/-1' }}>
@@ -308,6 +301,15 @@ export function LoanDetail() {
         </div>
       </details>
 
+      {canApprove && (
+        <>
+          <div style={{ height: 72 }} aria-hidden="true" />
+          <div className="fbar" role="group" aria-label="Approval">
+            <button type="button" className="btn primary" onClick={() => setDialog('approve')}>Approve</button>
+            <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('reject') }}>Deny</button>
+          </div>
+        </>
+      )}
       {!voided && can('loans.void') && (
         <button type="button" className="btn danger blockbtn" onClick={() => { setReason(''); setDialog('void') }}>Void loan</button>
       )}
@@ -364,8 +366,9 @@ export function LoanDetail() {
         </Sheet>
       )}
       {dialog === 'reject' && (
-        <Sheet title="Deny loan?" onClose={() => setDialog(null)} action={{ label: 'Confirm deny', cls: 'danger', onClick: move('rejected', 'Loan denied') }}>
+        <Sheet title="Deny loan?" onClose={() => setDialog(null)} action={{ label: 'Confirm deny', cls: 'danger', disabled: !reason.trim(), onClick: async () => { try { await actions.setStatus(loan.id, loan.status, 'rejected', { reject_reason: reason.trim() }); toast('Loan denied'); setDialog(null) } catch (e) { toast(errMsg(e)) } } }}>
           <p style={{ margin: '0 0 6px' }}>Deny <b>{loanCode(loan.id)}</b> for <b>{name}</b>? It can be returned to a draft and edited afterwards.</p>
+          <TextArea id="dr" label="Reason (required)" value={reason} onChange={setReason} />
         </Sheet>
       )}
       {dialog === 'collector' && <SupervisorSheet kind="collector" loanId={loan.id} current={loan.collector_id} onClose={() => setDialog(null)} />}

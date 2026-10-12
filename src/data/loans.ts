@@ -89,8 +89,8 @@ export function useLoanActions() {
 
   return {
     /** Moves a loan one step (submit a draft, approve) or rejects it. The database checks who may do what. */
-    async setStatus(id: number, from: LoanStatus, to: LoanStatus) {
-      const { data, error } = await supabase.from('loans').update({ status: to }).eq('id', id).eq('status', from).select('id')
+    async setStatus(id: number, from: LoanStatus, to: LoanStatus, extra: { reject_reason?: string } = {}) {
+      const { data, error } = await supabase.from('loans').update({ status: to, ...extra }).eq('id', id).eq('status', from).select('id')
       if (error) throw new Error(error.message)
       if (!data?.length) throw new Error('This loan was just changed, or you are not allowed to do this. Reload and try again.')
       await refresh()
