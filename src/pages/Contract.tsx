@@ -11,7 +11,7 @@ import { errMsg, useLoanFiles, useLoans } from '../data/loans'
 import { cleanDocument, contractValues, fillTemplate } from '../lib/contract'
 import { loanCode } from '../lib/format'
 
-const PAGE_PX = 794 // A4 width at 96 dpi; the preview is scaled down to fit narrow screens
+const PAGE_PX = 816 // Google Docs' default page width (8.5 in at 96 dpi); the preview is scaled to fit narrow screens
 
 export function Contract() {
   const loanId = Number(useParams().id)
@@ -63,14 +63,16 @@ export function Contract() {
     if (!body) return
     setBusy(true)
     try {
-      await frame.current?.contentDocument?.fonts.ready // Khmer font must be loaded before the page is drawn
-      const html2pdf = (await import('html2pdf.js')).default
+      await frame.current?.contentDocument?.fonts.ready // the Khmer font must be loaded before the page is drawn
+      const [{ default: html2canvas }, { default: html2pdf }] = await Promise.all([import('html2canvas'), import('html2pdf.js')])
+      // Draw the page inside the preview frame itself, so the template's own styles apply.
+      const height = Math.ceil(body.scrollHeight)
+      const canvas = await html2canvas(body, { scale: height > 7000 ? 1.5 : 2, useCORS: true, backgroundColor: '#fff', width: PAGE_PX, windowWidth: PAGE_PX })
       const options = {
-        margin: [14, 14, 16, 14] as [number, number, number, number], filename: `${loanCode(loanId)}-contract.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.96 }, html2canvas: { scale: 2, useCORS: true, windowWidth: PAGE_PX },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }, pagebreak: { mode: ['css', 'legacy'] },
+        margin: 0, filename: `${loanCode(loanId)}-contract.pdf`, image: { type: 'jpeg' as const, quality: 0.96 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
       }
-      await html2pdf().set(options).from(body).save()
+      await html2pdf().set(options).from(canvas).save()
     } catch (e) {
       toast(errMsg(e))
     } finally {

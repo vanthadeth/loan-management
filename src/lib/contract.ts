@@ -197,7 +197,13 @@ export function fillTemplate(html: string, values: Record<string, { text: string
   })
 }
 
-/** A standalone, script-free document for the preview and the PDF. */
+/** Adds a Khmer font after the template's own fonts so Khmer text falls back to it. */
+const withKhmerFallback = (list: string) => `${list.replace(/\s*!important\s*$/, '')},'Noto Sans Khmer'`
+
+/**
+ * A standalone, script-free document for the preview and the PDF. The template's own
+ * styles are kept as they are so the contract looks like the Google Doc.
+ */
 export function cleanDocument(filled: string, lang: ContractLang = 'km') {
   const doc = new DOMParser().parseFromString(filled, 'text/html')
   doc.querySelectorAll('script, iframe, object, embed, link, meta[http-equiv]').forEach((n) => n.remove())
@@ -206,13 +212,21 @@ export function cleanDocument(filled: string, lang: ContractLang = 'km') {
       if (a.name.startsWith('on') || (a.name === 'href' && /^\s*javascript:/i.test(a.value))) el.removeAttribute(a.name)
     }
   })
+  if (lang === 'km') {
+    // Khmer needs a Khmer font in this separate document; keep each template font first
+    doc.querySelectorAll('style').forEach((st) => {
+      st.textContent = (st.textContent ?? '').replace(/font-family\s*:\s*([^;}]+)/gi, (_m, list: string) => `font-family:${withKhmerFallback(list)}`)
+    })
+    doc.querySelectorAll<HTMLElement>('[style*="font-family"]').forEach((el) => {
+      el.style.fontFamily = withKhmerFallback(el.style.fontFamily)
+    })
+  }
   const style = doc.createElement('style')
-  // Google's export pads the page like a Docs canvas; the PDF adds its own margins
   style.textContent =
     "@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;700&display=swap');" +
-    'html,body{background:#fff!important}body{max-width:none!important;margin:0!important;padding:0!important;color:#000}' +
-    // Khmer text needs a Khmer font in this separate document; Latin falls back to the next family
-    (lang === 'km' ? "body,body *{font-family:'Noto Sans Khmer','Khmer OS',Arial,sans-serif!important}" : '')
+    'html,body{background:#fff!important}' +
+    // the PDF page margins come from the document's own padding, as in Google Docs
+    '@page{size:A4;margin:0}'
   doc.head.append(style)
   return '<!doctype html>' + doc.documentElement.outerHTML
 }
