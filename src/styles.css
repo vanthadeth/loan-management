@@ -1150,3 +1150,6 @@ main{--gb:16px}
 @media (prefers-reduced-motion:reduce){.top,.nav,.fab{transition:none!important}}
 
 #root{height:100%}
+
+/* report list rows are links: no underline on any label */
+a.rlink,a.rlink:hover,a.rlink:focus-visible,a.rlink *{text-decoration:none}
