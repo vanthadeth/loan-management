@@ -42,7 +42,8 @@ export const PLACEHOLDERS: [string, string][] = [
   ['bank_account_name', 'Bank account name'],
   ['collateral', 'Collateral items'],
   ['supervisor', 'Loan supervisor'],
-  ['schedule', 'Ready-made payment schedule table (blue header, balance at start and end, notes column)'],
+  ['schedule', 'Payment schedule as an ANNEX: starts a new page with a heading, then the table (put it at the end of the contract, in its own paragraph)'],
+  ['schedule_table', 'Only the payment schedule table, without the annex page and heading'],
   ['schedule_no', 'Per payment row: number (put in a table row that repeats)'],
   ['schedule_date', 'Per payment row: due date'],
   ['schedule_principal', 'Per payment row: principal'],
@@ -70,9 +71,7 @@ export const STARTER_KM = `កិច្ចសន្យាខ្ចីប្រ�
 អ្នកឱ្យខ្ចីបានឱ្យអ្នកខ្ចីខ្ចីប្រាក់ចំនួន {{amount}} ({{amount_words}}) នៅ{{release_date}}។ ថ្លៃសេវា {{service_fee_percent}} ({{service_fee}}) ត្រូវបានកាត់ទុកមុននៅពេលផ្តល់ប្រាក់ ដូច្នេះអ្នកខ្ចីទទួលបានប្រាក់ចំនួន {{net_amount}} ({{net_amount_words}})។
 
 ៣. ការប្រាក់ និងការសងប្រាក់
-ការប្រាក់គឺ {{interest_rate}} (ការប្រាក់សរុប {{total_interest}})។ អ្នកខ្ចីត្រូវសងសរុប {{total_to_pay}} ({{total_to_pay_words}}) ចំនួន {{occurrences}} ដង {{frequency}} ដោយដងនីមួយៗចំនួន {{installment}} ({{installment_words}})។ រយៈពេលនៃកិច្ចសន្យាគឺ {{contract_duration}} ({{contract_duration_days}} ថ្ងៃ)។ ទម្រង់នៃការសង: {{repayment_mode}}។ ការសងចុងក្រោយត្រូវធ្វើនៅ{{end_date}}។
-
-{{schedule}}
+ការប្រាក់គឺ {{interest_rate}} (ការប្រាក់សរុប {{total_interest}})។ អ្នកខ្ចីត្រូវសងសរុប {{total_to_pay}} ({{total_to_pay_words}}) ចំនួន {{occurrences}} ដង {{frequency}} ដោយដងនីមួយៗចំនួន {{installment}} ({{installment_words}})។ រយៈពេលនៃកិច្ចសន្យាគឺ {{contract_duration}} ({{contract_duration_days}} ថ្ងៃ)។ ទម្រង់នៃការសង: {{repayment_mode}}។ ការសងចុងក្រោយត្រូវធ្វើនៅ{{end_date}}។ តារាងសងប្រាក់លម្អិតមានក្នុងឧបសម្ព័ន្ធនៃកិច្ចសន្យានេះ។
 
 ៤. ការសងយឺត
 រាល់ថ្ងៃដែលសងយឺត អ្នកខ្ចីត្រូវបង់ប្រាក់ពិន័យ {{late_fee_per_day}} ក្នុងមួយថ្ងៃ។
@@ -88,6 +87,8 @@ export const STARTER_KM = `កិច្ចសន្យាខ្ចីប្រ�
 
 អ្នកឱ្យខ្ចី: ____________________        អ្នកខ្ចី: ____________________
                                           {{borrower_name}}
+
+{{schedule}}
 `
 
 /** English starter text. */
@@ -106,9 +107,7 @@ Address: {{borrower_address}}
 The Lender lends the Borrower {{amount}} on {{release_date}}. A service fee of {{service_fee_percent}} ({{service_fee}}) is deducted when the loan is released, so the Borrower receives {{net_amount}}.
 
 3. Interest and repayment
-Interest is {{interest_rate}} (total interest {{total_interest}}). The Borrower repays {{total_to_pay}} in {{occurrences}} payments, {{frequency}}, starting with {{installment}}. The contract lasts {{contract_duration}} ({{contract_duration_days}} days). Repayment: {{repayment_mode}}. The last payment is due on {{end_date}}.
-
-{{schedule}}
+Interest is {{interest_rate}} (total interest {{total_interest}}). The Borrower repays {{total_to_pay}} in {{occurrences}} payments, {{frequency}}, starting with {{installment}}. The contract lasts {{contract_duration}} ({{contract_duration_days}} days). Repayment: {{repayment_mode}}. The last payment is due on {{end_date}}. The full payment schedule is in the annex.
 
 4. Late payment
 For every day a payment is late the Borrower pays a late fee of {{late_fee_per_day}} per day.
@@ -124,6 +123,8 @@ Signed on {{contract_date}}
 
 Lender: ____________________        Borrower: ____________________
                                     {{borrower_name}}
+
+{{schedule}}
 `
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -206,24 +207,40 @@ function fontSizePt(doc: Document, t: TextStyle) {
   return size ? Number(size) : undefined
 }
 
+/** The annex: a new page with a heading, a line tying it to the contract, and the schedule table. */
+function annexBlock(c: ContractInput, lang: ContractLang, text: TextStyle) {
+  const km = lang === 'km'
+  const base = text.size ?? 12
+  const para = (inner: string, size: number, bold: boolean, after: string) =>
+    `<p style="text-align:center;margin:0 0 ${after}"><span${text.cls ? ` class="${text.cls}"` : ''} style="${[text.style, `font-size:${size}pt`, bold ? 'font-weight:700' : ''].filter(Boolean).join(';')}">${inner}</span></p>`
+  const no = loanCode(c.loanId)
+  const date = km ? khDate(todayIso()) : fmtD(todayIso())
+  const [title, sub, ref] = km
+    ? ['ឧបសម្ព័ន្ធ', 'តារាងសងប្រាក់', `ភ្ជាប់ជាមួយកិច្ចសន្យាខ្ចីប្រាក់លេខ ${no} ចុះ${date}`]
+    : ['ANNEX', 'Repayment schedule', `Attached to loan agreement no. ${no} dated ${date}`]
+  return `<div class="komjei-annex" style="break-before:page;page-break-before:always">${para(title, base + 4, true, '4pt')}${para(sub, base + 2, true, '6pt')}${para(ref, base, false, '14pt')}${scheduleTable(c, lang, text)}</div>`
+}
+
 /**
- * Replaces a paragraph that holds only {{schedule}} with the schedule table, styled like the
- * placeholder's own text so it matches the document's font and size.
+ * Replaces a paragraph that holds only {{schedule}} (annex page) or {{schedule_table}} (table only)
+ * with the schedule, styled like the placeholder's own text so it matches the document's font.
  */
 export function fillScheduleTable(html: string, c: ContractInput, lang: ContractLang) {
   if (!/sch/i.test(html)) return html
   const doc = new DOMParser().parseFromString(html, 'text/html')
-  const only = (el: Element) => (el.textContent ?? '').replace(/\s+/g, '').toLowerCase() === '{{schedule}}'
+  const key = (el: Element) => (el.textContent ?? '').replace(/\s+/g, '').toLowerCase()
+  const only = (el: Element) => key(el) === '{{schedule}}' || key(el) === '{{schedule_table}}'
   const blocks = [...doc.querySelectorAll('p, div, li')].filter((el) => only(el) && !el.querySelector('p, div, li'))
   if (!blocks.length) return html
   for (const block of blocks) {
+    const annex = key(block) === '{{schedule}}'
     // the innermost span or element that carries the text's class / style
     let src: Element = block
     while (src.firstElementChild && only(src.firstElementChild)) src = src.firstElementChild
     const text: TextStyle = { cls: src.getAttribute('class') ?? '', style: (src.getAttribute('style') ?? '').replace(/;\s*$/, '') }
     text.size = fontSizePt(doc, text)
     const holder = doc.createElement('div')
-    holder.innerHTML = scheduleTable(c, lang, text)
+    holder.innerHTML = annex ? annexBlock(c, lang, text) : scheduleTable(c, lang, text)
     block.replaceWith(holder.firstElementChild!)
   }
   return '<!doctype html>' + doc.documentElement.outerHTML
@@ -305,6 +322,7 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
   const out: Values = {}
   for (const k of Object.keys(v)) out[k] = { text: v[k] }
   out.schedule = { text: schedule, html: true }
+  out.schedule_table = { text: schedule, html: true }
   return out
 }
 

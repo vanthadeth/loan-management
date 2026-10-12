@@ -11,6 +11,8 @@ import { errMsg, useLoanFiles, useLoans } from '../data/loans'
 import { cleanDocument, contractValues, fillScheduleRows, fillScheduleTable, fillTemplate, scheduleRowValues, type ContractInput } from '../lib/contract'
 import { loanCode } from '../lib/format'
 
+const PAGE_H = Math.round((816 * 297) / 210) // an A4 sheet at the width below
+const ANNEX_TOP = 60
 const PAGE_PX = 816 // Google Docs' default page width (8.5 in at 96 dpi); the preview is scaled to fit narrow screens
 
 export function Contract() {
@@ -54,9 +56,21 @@ export function Contract() {
     return () => removeEventListener('resize', fit)
   }, [doc])
 
+  /** Pushes each annex down to the top of the next sheet, so it starts on its own page in the PDF too. */
+  const alignAnnex = (d: Document) => {
+    d.querySelectorAll<HTMLElement>('.komjei-annex').forEach((el) => {
+      el.style.marginTop = ''
+      const off = (el.getBoundingClientRect().top + d.documentElement.scrollTop) % PAGE_H
+      // start a little below the sheet's top edge so the heading keeps a page margin
+      el.style.marginTop = PAGE_H - off + ANNEX_TOP + 'px'
+    })
+  }
+
   const measure = () => {
     const d = frame.current?.contentDocument
-    if (d) setHeight(Math.max(d.documentElement.scrollHeight, 400))
+    if (!d) return
+    alignAnnex(d)
+    setHeight(Math.max(d.documentElement.scrollHeight, 400))
   }
 
   const download = async () => {
@@ -65,6 +79,7 @@ export function Contract() {
     setBusy(true)
     try {
       await frame.current?.contentDocument?.fonts.ready // the Khmer font must be loaded before the page is drawn
+      measure() // fonts change the line heights, so place the annex again
       const [{ default: html2canvas }, { default: html2pdf }] = await Promise.all([import('html2canvas'), import('html2pdf.js')])
       // Draw the page inside the preview frame itself, so the template's own styles apply.
       const height = Math.ceil(body.scrollHeight)

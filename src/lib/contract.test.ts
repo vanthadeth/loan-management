@@ -67,6 +67,8 @@ describe('contract values', () => {
     const out = fillScheduleTable(html, input({}, { occurrences: 2 }), 'km')
     const doc = new DOMParser().parseFromString(out, 'text/html')
     expect(doc.querySelectorAll('table')).toHaveLength(1)
+    expect(doc.querySelector('.komjei-annex')?.textContent).toContain('ឧបសម្ព័ន្ធ')
+    expect(doc.querySelector('.komjei-annex')?.getAttribute('style')).toContain('page-break-before:always')
     expect(doc.querySelectorAll('tbody tr')).toHaveLength(2)
     const cellSpan = doc.querySelector('tbody td span')!
     expect(cellSpan.getAttribute('class')).toBe('c9')
@@ -78,5 +80,11 @@ describe('contract values', () => {
   it('leaves {{schedule}} alone when it sits inside other text', () => {
     const html = '<p>See {{schedule}} below</p>'
     expect(fillScheduleTable(html, input(), 'km')).toBe(html)
+  })
+  it('{{schedule_table}} gives the table without the annex page', () => {
+    const out = fillScheduleTable('<p><span class="c9">{{schedule_table}}</span></p>', input(), 'km')
+    const doc = new DOMParser().parseFromString(out, 'text/html')
+    expect(doc.querySelectorAll('table')).toHaveLength(1)
+    expect(doc.querySelector('.komjei-annex')).toBeNull()
   })
 })
