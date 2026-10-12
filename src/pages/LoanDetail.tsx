@@ -134,7 +134,7 @@ export function LoanDetail() {
           </div>
           <div><span className="eyebrow">Repayment</span>{loan.frequency === 'custom' ? `Every ${loan.interval_days} days` : loan.frequency} × {loan.occurrences} · {loan.mode === 'equal' ? 'interest + principal ÷ n' : 'interest only, principal at end'}</div>
           <div><span className="eyebrow">Interest</span>{loan.rate_pct}% per {loan.rate_basis} (flat)</div>
-          <div style={{ gridColumn: '1/-1', display: 'flex', gap: 16 }}>
+          <div style={{ gridColumn: '1/-1', display: 'flex', flexDirection: 'row', gap: 16 }}>
             {([
               ['Supervisor', who(loan.supervisor_id), !scoped && can('loans.approve') && !voided, 'supervisor'],
               ['Collector', who(loan.collector_id), can('loans.approve') && !voided, 'collector'],
