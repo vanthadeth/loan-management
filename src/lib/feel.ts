@@ -22,7 +22,7 @@ export function haptic(kind: Haptic = 'light') {
 export const isProblem = (m: string) => /not allowed|could not|couldn't|failed|error|wrong|invalid|check |select |enter |choose |give |required|already|no longer|cannot|can't/i.test(m)
 
 const TAP = 'button, a.btn, a.mcta, .item, .tab, summary, [role="button"], .dd-opt'
-const RIPPLE = '.btn, .mcta, .fab, .hbtn, .tab, .icon-btn'
+const RIPPLE = '.btn, .mcta, .fab, .hbtn, .tab, .icon-btn:not(.bell)'
 
 /** One listener for the whole app: vibrate on every tap and draw a ripple on buttons. */
 export function initFeel() {
