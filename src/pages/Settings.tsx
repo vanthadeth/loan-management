@@ -139,22 +139,40 @@ export function Settings() {
         <section className="bt">
           <span className="bt-h"><Icon name="doc" size={18} />Google Docs</span>
           {(templates.data ?? []).length ? (
-            <div className="lcard">
-              {(templates.data ?? []).map((t) => (
-                <div className="item" key={t.id} style={{ cursor: 'default' }}>
-                  <a className="grow" style={{ textDecoration: 'none', color: 'inherit', minWidth: 0 }} href={t.url} target="_blank" rel="noopener noreferrer">
-                    <b className="ell" style={{ display: 'block' }}>{t.name}</b>
-                    <span className="small muted">{t.kind === 'schedule' ? 'Payment schedule' : 'Contract'} · {t.lang === 'km' ? 'Khmer' : 'English'} · open in Google Docs</span>
-                  </a>
-                  {can('settings.edit') && (
-                    <>
-                      <button className="mcta" aria-label={`Edit ${t.name}`} title="Edit" onClick={() => setTplSheet({ template: t })}><Icon name="edit" size={16} /></button>
-                      <button className="mcta" aria-label={`Remove ${t.name}`} title="Remove" onClick={() => setRemoving(t)}><Icon name="x" size={16} /></button>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
+            <>
+              {([['contract', 'Contract'], ['schedule', 'Payment schedule']] as const).map(([kind, title]) => {
+                const list = (templates.data ?? []).filter((t) => t.kind === kind)
+                return (
+                  <div key={kind}>
+                    <div className="eyebrow" style={{ margin: '6px 0 2px' }}>{title}</div>
+                    {list.length ? (
+                      <div className="lcard">
+                        {list.map((t) => (
+                          <div className="item" key={t.id} style={{ cursor: 'default' }}>
+                            <a className="grow" style={{ textDecoration: 'none', color: 'inherit', minWidth: 0 }} href={t.url} target="_blank" rel="noopener noreferrer">
+                              <b className="ell" style={{ display: 'block' }}>{t.name}{t.is_default && <span className="small muted"> · Default</span>}</b>
+                              <span className="small muted">{t.lang === 'km' ? 'Khmer' : 'English'} · open in Google Docs</span>
+                            </a>
+                            {can('settings.edit') && (
+                              <>
+                                <button className="mcta" style={{ background: 'none', border: 0, cursor: t.is_default ? 'default' : 'pointer', opacity: t.is_default ? 1 : 0.55 }}
+                                  aria-label={t.is_default ? `${t.name} is the default` : `Make ${t.name} the default`} title={t.is_default ? 'Default' : 'Make default'} aria-pressed={t.is_default}
+                                  onClick={() => { if (!t.is_default) void run(() => tplActions.makeDefault(t.id, t.kind), 'Default template set') }}>
+                                  <Icon name="star" size={16} />
+                                </button>
+                                <button className="mcta" aria-label={`Edit ${t.name}`} title="Edit" onClick={() => setTplSheet({ template: t })}><Icon name="edit" size={16} /></button>
+                                <button className="mcta" aria-label={`Remove ${t.name}`} title="Remove" onClick={() => setRemoving(t)}><Icon name="x" size={16} /></button>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : <span className="small bt-sub">None yet{kind === 'schedule' ? '. Contracts then use the built-in annex.' : '.'}</span>}
+                  </div>
+                )
+              })}
+              <p className="small muted" style={{ margin: 0 }}>The default of each type is selected when you open a contract. You can pick another template there.</p>
+            </>
           ) : (
             <span className="small bt-sub">No template yet. Add a contract template, and optionally a separate payment schedule template, and a contract can be made for every loan.</span>
           )}
@@ -191,7 +209,7 @@ export function Settings() {
       </div>
       {tplSheet && <TemplateSheet template={tplSheet.template} onClose={() => setTplSheet(null)} />}
       {removing && (
-        <Sheet title="Remove template?" onClose={() => setRemoving(null)} action={{ label: 'Remove', cls: 'danger', onClick: async () => { await run(() => tplActions.remove(removing.id), 'Template removed'); setRemoving(null) } }}>
+        <Sheet title="Remove template?" onClose={() => setRemoving(null)} action={{ label: 'Remove', cls: 'danger', onClick: async () => { await run(() => tplActions.remove(removing.id, removing.kind), 'Template removed'); setRemoving(null) } }}>
           <p style={{ margin: '0 0 6px' }}>Remove <b>{removing.name}</b> from the list? The Google Doc itself is not deleted.</p>
         </Sheet>
       )}

@@ -16,7 +16,7 @@ export async function fetchTemplate(url: string) {
   return data!
 }
 
-/** All contract templates, oldest first (the first is the default). */
+/** All contract templates, oldest first. */
 export function useContractTemplates() {
   return useQuery({
     queryKey: ['contract-templates'],
@@ -36,6 +36,16 @@ export function useTemplateHtml(url: string | undefined) {
   return { html: q.data?.html ?? null, loading: !!url && q.isLoading, error: q.error ? (q.error as Error).message : null, refetch: q.refetch }
 }
 
+/** A type with templates always has a default: the oldest one takes over when none is set. */
+async function ensureDefault(kind: 'contract' | 'schedule') {
+  const { data } = await supabase.from('contract_templates').select('id,is_default').eq('kind', kind).order('id')
+  if (data?.length && !data.some((r) => r.is_default)) await supabase.from('contract_templates').update({ is_default: true }).eq('id', data[0].id)
+}
+
+/** The template a contract page opens with: the chosen one, else the type's default, else the oldest. */
+export const pickTemplate = (list: ContractTemplate[], id?: string | null) =>
+  list.find((t) => String(t.id) === id) ?? list.find((t) => t.is_default) ?? list[0]
+
 export function useTemplateActions() {
   const inv = useInvalidate()
   const fail = (e: { message: string } | null) => { if (e) throw new Error(e.message) }
@@ -46,10 +56,18 @@ export function useTemplateActions() {
       const row = { name: t.name, url: t.url, lang: t.lang, kind: t.kind }
       const { error } = t.id ? await supabase.from('contract_templates').update(row).eq('id', t.id) : await supabase.from('contract_templates').insert(row)
       fail(error)
+      await ensureDefault(t.kind)
       await inv('contract-templates', 'contract-html')
     },
-    async remove(id: number) {
+    async remove(id: number, kind: 'contract' | 'schedule') {
       fail((await supabase.from('contract_templates').delete().eq('id', id)).error)
+      await ensureDefault(kind)
+      await inv('contract-templates')
+    },
+    /** Makes one template the default of its type. */
+    async makeDefault(id: number, kind: 'contract' | 'schedule') {
+      fail((await supabase.from('contract_templates').update({ is_default: false }).eq('kind', kind).eq('is_default', true)).error)
+      fail((await supabase.from('contract_templates').update({ is_default: true }).eq('id', id)).error)
       await inv('contract-templates')
     },
   }

@@ -6,7 +6,7 @@ import { useToast } from '../ui/Toast'
 import { usePageTitle } from '../app/Layout'
 import { useAuth } from '../app/auth'
 import { dn, useBanks, useTeam } from '../data/core'
-import { useContractTemplates, useTemplateHtml } from '../data/contract'
+import { pickTemplate, useContractTemplates, useTemplateHtml } from '../data/contract'
 import { errMsg, useLoanFiles, useLoans } from '../data/loans'
 import { allScheduleRows, allValues, cleanDocument, fillScheduleRows, fillScheduleTable, fillTemplate, type ContractInput, type ContractLang } from '../lib/contract'
 import { loanCode } from '../lib/format'
@@ -73,10 +73,10 @@ export function Contract() {
   const all = templates.data ?? []
   const contracts = all.filter((t) => t.kind === 'contract')
   const schedules = all.filter((t) => t.kind === 'schedule')
-  const chosen = contracts.find((t) => String(t.id) === params.get('t')) ?? contracts[0]
+  const chosen = pickTemplate(contracts, params.get('t'))
   // the schedule annex: a separate template when one exists, otherwise the built-in annex from {{schedule}}
   const sParam = params.get('s')
-  const sched = sParam === BUILT_IN ? undefined : schedules.find((t) => String(t.id) === sParam) ?? schedules[0]
+  const sched = sParam === BUILT_IN ? undefined : pickTemplate(schedules, sParam)
   const tpl = useTemplateHtml(chosen?.url)
   const stpl = useTemplateHtml(sched?.url)
   const frame = useRef<HTMLIFrameElement>(null)
@@ -205,7 +205,7 @@ export function Contract() {
     )
   }
 
-  const label = (t: { name: string; lang: string }) => `${t.name} (${t.lang === 'km' ? 'Khmer' : 'English'})`
+  const label = (t: { name: string; lang: string; is_default: boolean }) => `${t.name} (${t.lang === 'km' ? 'Khmer' : 'English'})${t.is_default ? ' · default' : ''}`
   return (
     <>
       {contracts.length > 1 && (
