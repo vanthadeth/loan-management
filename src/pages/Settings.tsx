@@ -5,7 +5,7 @@ import { applyTheme, savedTheme, useI18n, type Theme } from '../app/i18n'
 import { useSettings } from '../data/core'
 import { useCopy, useRun, useSaveSettings } from '../data/admin'
 import { useContractTemplates, useTemplateActions } from '../data/contract'
-import { PLACEHOLDERS, STARTER_EN, STARTER_KM } from '../lib/contract'
+import { PLACEHOLDERS, STARTER_EN, STARTER_KM, STARTER_SCHEDULE_EN, STARTER_SCHEDULE_KM } from '../lib/contract'
 import type { ContractTemplate } from '../lib/types'
 import { fmt } from '../lib/format'
 import { Field, Seg } from '../ui/Controls'
@@ -50,19 +50,21 @@ function TemplateSheet({ template, onClose }: { template?: ContractTemplate; onC
   const actions = useTemplateActions()
   const [name, setName] = useState(template?.name ?? '')
   const [lang, setLang] = useState<'km' | 'en'>(template?.lang ?? 'km')
+  const [kind, setKind] = useState<'contract' | 'schedule'>(template?.kind ?? 'contract')
   const [url, setUrl] = useState(template?.url ?? '')
   const submit = async () => {
     if (!name.trim()) { toast('Give the template a name'); return }
     if (!url.trim()) { toast('Paste the Google Doc link'); return }
     // saving checks that Google will share the document, and says why when it will not
-    const ok = await run(() => actions.save({ id: template?.id, name: name.trim(), url: url.trim(), lang }), 'Contract template saved')
+    const ok = await run(() => actions.save({ id: template?.id, name: name.trim(), url: url.trim(), lang, kind }), 'Contract template saved')
     if (ok) onClose()
   }
   return (
     <Sheet title={template ? 'Edit contract template' : 'Add contract template'} onClose={onClose} action={{ onClick: submit }}>
       <div className="form wz-1col">
-        <Field id="tn" label="Name" value={name} onChange={setName} placeholder="e.g. Standard loan contract" />
-        <Seg id="tl" label="Contract language" options={[{ value: 'km', label: 'Khmer' }, { value: 'en', label: 'English' }]} value={lang} onChange={(v) => setLang(v as 'km' | 'en')} />
+        <Field id="tn" label="Name" value={name} onChange={setName} placeholder={kind === 'schedule' ? 'e.g. Repayment schedule' : 'e.g. Standard loan contract'} />
+        <Seg id="tk" label="Type" options={[{ value: 'contract', label: 'Contract' }, { value: 'schedule', label: 'Payment schedule (annex)' }]} value={kind} onChange={(v) => setKind(v as 'contract' | 'schedule')} />
+        <Seg id="tl" label="Language" options={[{ value: 'km', label: 'Khmer' }, { value: 'en', label: 'English' }]} value={lang} onChange={(v) => setLang(v as 'km' | 'en')} />
         <Field id="tu" label="Google Doc link" value={url} onChange={setUrl} placeholder="https://docs.google.com/document/d/…" />
         <p className="small muted" style={{ margin: 0 }}>In the Google Doc choose Share, set General access to "Anyone with the link" as Viewer, then paste the link here. For a Khmer contract every field is filled in Khmer: digits, dates, currency and amounts in words.</p>
       </div>
@@ -145,7 +147,7 @@ export function Settings() {
                 <div className="item" key={t.id} style={{ cursor: 'default' }}>
                   <a className="grow" style={{ textDecoration: 'none', color: 'inherit', minWidth: 0 }} href={t.url} target="_blank" rel="noopener noreferrer">
                     <b className="ell" style={{ display: 'block' }}>{t.name}</b>
-                    <span className="small muted">{t.lang === 'km' ? 'Khmer' : 'English'} · open in Google Docs</span>
+                    <span className="small muted">{t.kind === 'schedule' ? 'Payment schedule' : 'Contract'} · {t.lang === 'km' ? 'Khmer' : 'English'} · open in Google Docs</span>
                   </a>
                   {can('settings.edit') && (
                     <>
@@ -157,7 +159,7 @@ export function Settings() {
               ))}
             </div>
           ) : (
-            <span className="small bt-sub">No template yet. Add one and a contract can be made from it for every loan.</span>
+            <span className="small bt-sub">No template yet. Add a contract template, and optionally a separate payment schedule template, and a contract can be made for every loan.</span>
           )}
           {can('settings.edit') && (
             <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
@@ -166,6 +168,12 @@ export function Settings() {
               </button>
               <button className="btn sm" onClick={() => { void copy(STARTER_EN, 'English starter text'); window.open('https://docs.google.com/document/create', '_blank', 'noopener') }}>
                 Create English template
+              </button>
+              <button className="btn sm" onClick={() => { void copy(STARTER_SCHEDULE_KM, 'Khmer schedule starter text'); window.open('https://docs.google.com/document/create', '_blank', 'noopener') }}>
+                Create schedule template
+              </button>
+              <button className="btn sm" onClick={() => { void copy(STARTER_SCHEDULE_EN, 'English schedule starter text'); window.open('https://docs.google.com/document/create', '_blank', 'noopener') }}>
+                English schedule
               </button>
               <button className="btn sm" onClick={() => setTplSheet({})}>Add link</button>
             </div>

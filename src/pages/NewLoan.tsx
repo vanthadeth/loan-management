@@ -69,7 +69,7 @@ export function NewLoan() {
 
   const [step, setStep] = useState(0)
   const [registering, setRegistering] = useState(false)
-  const contractReady = (useContractTemplates().data ?? []).length > 0
+  const contractReady = (useContractTemplates().data ?? []).some((t) => t.kind === 'contract')
   const [dialog, setDialog] = useState<null | 'cancel' | 'submit'>(null)
   const [borrowerId, setBorrowerId] = useState<number | null>(null)
   const [query, setQuery] = useState('')

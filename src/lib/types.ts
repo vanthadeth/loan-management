@@ -40,4 +40,4 @@ export interface FundTransaction { id: number; kind: 'add' | 'withdraw'; currenc
 export interface AppSettings { id: 1; service_fee_pct: number; late_fee_khr: number; late_fee_usd: number; khr_per_usd: number }
 export interface Message { id: number; kind: string; loan_id: number | null; actor: string | null; created_at: string }
 
-export interface ContractTemplate { id: number; name: string; url: string; lang: 'km' | 'en'; created_at: string }
+export interface ContractTemplate { id: number; name: string; url: string; lang: 'km' | 'en'; kind: 'contract' | 'schedule'; created_at: string }

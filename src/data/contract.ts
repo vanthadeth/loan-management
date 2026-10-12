@@ -41,9 +41,9 @@ export function useTemplateActions() {
   const fail = (e: { message: string } | null) => { if (e) throw new Error(e.message) }
   return {
     /** Saves a template after checking that Google will share the document. */
-    async save(t: { id?: number; name: string; url: string; lang: 'km' | 'en' }) {
+    async save(t: { id?: number; name: string; url: string; lang: 'km' | 'en'; kind: 'contract' | 'schedule' }) {
       await fetchTemplate(t.url)
-      const row = { name: t.name, url: t.url, lang: t.lang }
+      const row = { name: t.name, url: t.url, lang: t.lang, kind: t.kind }
       const { error } = t.id ? await supabase.from('contract_templates').update(row).eq('id', t.id) : await supabase.from('contract_templates').insert(row)
       fail(error)
       await inv('contract-templates', 'contract-html')

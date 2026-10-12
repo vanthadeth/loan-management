@@ -91,6 +91,27 @@ export const STARTER_KM = `កិច្ចសន្យាខ្ចីប្រ�
 {{schedule}}
 `
 
+/** Starter for a separate payment schedule template (the annex, its own Google Doc). */
+export const STARTER_SCHEDULE_KM = `ឧបសម្ព័ន្ធ
+តារាងសងប្រាក់
+ភ្ជាប់ជាមួយកិច្ចសន្យាខ្ចីប្រាក់លេខ {{contract_no}} ចុះ{{contract_date}}
+
+អ្នកខ្ចី: {{borrower_name}}
+ទឹកប្រាក់កម្ចី: {{amount}}    ការប្រាក់: {{interest_rate}}
+
+{{schedule_table}}
+`
+
+export const STARTER_SCHEDULE_EN = `ANNEX
+Repayment schedule
+Attached to loan agreement no. {{contract_no}} dated {{contract_date}}
+
+Borrower: {{borrower_name}}
+Loan amount: {{amount}}    Interest: {{interest_rate}}
+
+{{schedule_table}}
+`
+
 /** English starter text. */
 export const STARTER_EN = `LOAN AGREEMENT
 Contract no. {{contract_no}}    Date: {{contract_date}}
@@ -225,7 +246,7 @@ function annexBlock(c: ContractInput, lang: ContractLang, text: TextStyle) {
  * Replaces a paragraph that holds only {{schedule}} (annex page) or {{schedule_table}} (table only)
  * with the schedule, styled like the placeholder's own text so it matches the document's font.
  */
-export function fillScheduleTable(html: string, c: ContractInput, lang: ContractLang) {
+export function fillScheduleTable(html: string, c: ContractInput, lang: ContractLang, annexPage = true) {
   if (!/sch/i.test(html)) return html
   const doc = new DOMParser().parseFromString(html, 'text/html')
   const key = (el: Element) => (el.textContent ?? '').replace(/\s+/g, '').toLowerCase()
@@ -233,7 +254,8 @@ export function fillScheduleTable(html: string, c: ContractInput, lang: Contract
   const blocks = [...doc.querySelectorAll('p, div, li')].filter((el) => only(el) && !el.querySelector('p, div, li'))
   if (!blocks.length) return html
   for (const block of blocks) {
-    const annex = key(block) === '{{schedule}}'
+    // in a template that is itself the schedule annex, {{schedule}} is just the table
+    const annex = annexPage && key(block) === '{{schedule}}'
     // the innermost span or element that carries the text's class / style
     let src: Element = block
     while (src.firstElementChild && only(src.firstElementChild)) src = src.firstElementChild
