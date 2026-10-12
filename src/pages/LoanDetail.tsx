@@ -246,7 +246,7 @@ export function LoanDetail() {
         <p className="small muted" style={{ margin: '8px 0 0' }}>Service fee is deducted at release: borrower receives {fmt(net, cur)}.</p>
       </details>
 
-      <details className="card sec" open>
+      <details className="card sec">
         <summary><h2>{t('schedule')}</h2><span className="chev" aria-hidden="true">▾</span></summary>
         <div className="sched">
           {status.rows.map((r) => {
