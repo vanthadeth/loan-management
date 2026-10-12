@@ -116,15 +116,6 @@ export function useSaveSettings() {
   }
 }
 
-/** Saves (or clears) the Google Doc link used as the contract template. */
-export function useSaveContractTemplate() {
-  const inv = useInvalidate()
-  return async (url: string) => {
-    check(await supabase.from('app_settings').update({ contract_template_url: url }).eq('id', 1).select('id'), true)
-    await inv('settings', 'contract-template')
-  }
-}
-
 /* ------------------------------------------------------------------- banks */
 
 export const BANK_NAMES = ['ABA Bank', 'ACLEDA Bank', 'Wing Bank', 'Canadia Bank', 'Sathapana Bank', 'Other']

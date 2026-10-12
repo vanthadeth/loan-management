@@ -3,11 +3,12 @@ import { useAuth } from '../app/auth'
 import { usePageTitle } from '../app/Layout'
 import { applyTheme, savedTheme, useI18n, type Theme } from '../app/i18n'
 import { useSettings } from '../data/core'
-import { useCopy, useRun, useSaveContractTemplate, useSaveSettings } from '../data/admin'
-import { checkTemplate } from '../data/contract'
-import { PLACEHOLDERS, STARTER_TEMPLATE } from '../lib/contract'
+import { useCopy, useRun, useSaveSettings } from '../data/admin'
+import { useContractTemplates, useTemplateActions } from '../data/contract'
+import { PLACEHOLDERS, STARTER_EN, STARTER_KM } from '../lib/contract'
+import type { ContractTemplate } from '../lib/types'
 import { fmt } from '../lib/format'
-import { Field } from '../ui/Controls'
+import { Field, Seg } from '../ui/Controls'
 import { Icon } from '../ui/Icon'
 import { Sheet } from '../ui/Sheet'
 import { useToast } from '../ui/Toast'
@@ -43,23 +44,27 @@ function SettingsSheet({ s, onClose }: { s: AppSettings; onClose: () => void }) 
   )
 }
 
-function TemplateSheet({ current, onClose }: { current: string; onClose: () => void }) {
+function TemplateSheet({ template, onClose }: { template?: ContractTemplate; onClose: () => void }) {
   const run = useRun()
-  const save = useSaveContractTemplate()
-  const [url, setUrl] = useState(current)
+  const toast = useToast()
+  const actions = useTemplateActions()
+  const [name, setName] = useState(template?.name ?? '')
+  const [lang, setLang] = useState<'km' | 'en'>(template?.lang ?? 'km')
+  const [url, setUrl] = useState(template?.url ?? '')
   const submit = async () => {
-    const link = url.trim()
-    const ok = await run(async () => {
-      if (link) await checkTemplate(link) // fails with a clear message when Google will not share the doc
-      await save(link)
-    }, link ? 'Contract template saved' : 'Contract template removed')
+    if (!name.trim()) { toast('Give the template a name'); return }
+    if (!url.trim()) { toast('Paste the Google Doc link'); return }
+    // saving checks that Google will share the document, and says why when it will not
+    const ok = await run(() => actions.save({ id: template?.id, name: name.trim(), url: url.trim(), lang }), 'Contract template saved')
     if (ok) onClose()
   }
   return (
-    <Sheet title="Contract template link" onClose={onClose} action={{ onClick: submit }}>
+    <Sheet title={template ? 'Edit contract template' : 'Add contract template'} onClose={onClose} action={{ onClick: submit }}>
       <div className="form wz-1col">
-        <Field id="ct" label="Google Doc link" value={url} onChange={setUrl} placeholder="https://docs.google.com/document/d/…" />
-        <p className="small muted" style={{ margin: 0 }}>In the Google Doc choose Share, set General access to "Anyone with the link" as Viewer, then paste the link here. Leave it empty to remove the template.</p>
+        <Field id="tn" label="Name" value={name} onChange={setName} placeholder="e.g. Standard loan contract" />
+        <Seg id="tl" label="Contract language" options={[{ value: 'km', label: 'Khmer' }, { value: 'en', label: 'English' }]} value={lang} onChange={(v) => setLang(v as 'km' | 'en')} />
+        <Field id="tu" label="Google Doc link" value={url} onChange={setUrl} placeholder="https://docs.google.com/document/d/…" />
+        <p className="small muted" style={{ margin: 0 }}>In the Google Doc choose Share, set General access to "Anyone with the link" as Viewer, then paste the link here. For a Khmer contract every field is filled in Khmer: digits, dates, currency and amounts in words.</p>
       </div>
     </Sheet>
   )
@@ -71,8 +76,12 @@ export function Settings() {
   const settings = useSettings()
   const [theme, setTheme] = useState<Theme>(savedTheme())
   const [editing, setEditing] = useState(false)
-  const [linking, setLinking] = useState(false)
+  const [tplSheet, setTplSheet] = useState<null | { template?: ContractTemplate }>(null)
+  const [removing, setRemoving] = useState<ContractTemplate | null>(null)
+  const templates = useContractTemplates()
+  const tplActions = useTemplateActions()
   const copy = useCopy()
+  const run = useRun()
   usePageTitle('Settings')
   const s = settings.data
 
@@ -123,27 +132,47 @@ export function Settings() {
       </div>
       <div className="bsec">
         <div className="row between" style={{ alignItems: 'center' }}>
-          <div className="bh" style={{ margin: 0 }}>Contract template</div>
+          <div className="bh" style={{ margin: 0 }}>Contract templates</div>
           {can('settings.edit') && (
-            <button className="mcta" aria-label="Set template link" title="Set template link" onClick={() => setLinking(true)}><Icon name="edit" size={17} /></button>
+            <button className="mcta" aria-label="Add contract template" title="Add contract template" onClick={() => setTplSheet({})}><Icon name="plus" size={17} /></button>
           )}
         </div>
         <section className="bt">
-          <span className="bt-h"><Icon name="doc" size={18} />Google Doc</span>
-          {s?.contract_template_url
-            ? <a className="rlink" style={{ textDecoration: 'none' }} href={s.contract_template_url} target="_blank" rel="noopener noreferrer"><span className="grow"><b>Open the template</b></span><Icon name="chev" size={16} /></a>
-            : <span className="small bt-sub">No template yet. A contract is made from it each time a loan is requested.</span>}
+          <span className="bt-h"><Icon name="doc" size={18} />Google Docs</span>
+          {(templates.data ?? []).length ? (
+            <div className="lcard">
+              {(templates.data ?? []).map((t) => (
+                <div className="item" key={t.id} style={{ cursor: 'default' }}>
+                  <a className="grow" style={{ textDecoration: 'none', color: 'inherit', minWidth: 0 }} href={t.url} target="_blank" rel="noopener noreferrer">
+                    <b className="ell" style={{ display: 'block' }}>{t.name}</b>
+                    <span className="small muted">{t.lang === 'km' ? 'Khmer' : 'English'} · open in Google Docs</span>
+                  </a>
+                  {can('settings.edit') && (
+                    <>
+                      <button className="mcta" aria-label={`Edit ${t.name}`} title="Edit" onClick={() => setTplSheet({ template: t })}><Icon name="edit" size={16} /></button>
+                      <button className="mcta" aria-label={`Remove ${t.name}`} title="Remove" onClick={() => setRemoving(t)}><Icon name="x" size={16} /></button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span className="small bt-sub">No template yet. Add one and a contract can be made from it for every loan.</span>
+          )}
           {can('settings.edit') && (
             <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-              <button className="btn sm" onClick={() => { void copy(STARTER_TEMPLATE, 'Starter text'); window.open('https://docs.google.com/document/create', '_blank', 'noopener') }}>
-                <Icon name="plus" size={16} />Create a template
+              <button className="btn sm" onClick={() => { void copy(STARTER_KM, 'Khmer starter text'); window.open('https://docs.google.com/document/create', '_blank', 'noopener') }}>
+                <Icon name="plus" size={16} />Create Khmer template
               </button>
-              <button className="btn sm" onClick={() => setLinking(true)}>Set template link</button>
+              <button className="btn sm" onClick={() => { void copy(STARTER_EN, 'English starter text'); window.open('https://docs.google.com/document/create', '_blank', 'noopener') }}>
+                Create English template
+              </button>
+              <button className="btn sm" onClick={() => setTplSheet({})}>Add link</button>
             </div>
           )}
           <details className="binfo">
             <summary><span>Placeholders you can use</span><Icon name="chev" size={16} /></summary>
-            <p className="small muted" style={{ margin: '6px 0' }}>Type these in the Google Doc, with the double braces. Tap one to copy it. "Create a template" opens a blank Google Doc and copies a starter contract to paste in.</p>
+            <p className="small muted" style={{ margin: '6px 0' }}>Type these in the Google Doc, with the double braces. Tap one to copy it. "Create Khmer template" opens a blank Google Doc and copies a starter contract to paste in. In a Khmer template every value is filled in Khmer.</p>
             <div className="lcard">
               {PLACEHOLDERS.map(([k, d]) => (
                 <button key={k} className="item" onClick={() => void copy(`{{${k}}}`, 'Placeholder')}>
@@ -155,7 +184,12 @@ export function Settings() {
           </details>
         </section>
       </div>
-      {linking && <TemplateSheet current={s?.contract_template_url ?? ''} onClose={() => setLinking(false)} />}
+      {tplSheet && <TemplateSheet template={tplSheet.template} onClose={() => setTplSheet(null)} />}
+      {removing && (
+        <Sheet title="Remove template?" onClose={() => setRemoving(null)} action={{ label: 'Remove', cls: 'danger', onClick: async () => { await run(() => tplActions.remove(removing.id), 'Template removed'); setRemoving(null) } }}>
+          <p style={{ margin: '0 0 6px' }}>Remove <b>{removing.name}</b> from the list? The Google Doc itself is not deleted.</p>
+        </Sheet>
+      )}
       {editing && s && <SettingsSheet s={s} onClose={() => setEditing(false)} />}
     </div>
   )

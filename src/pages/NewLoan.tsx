@@ -10,6 +10,7 @@ import { useI18n } from '../app/i18n'
 import { useBook, useLateFeeDefault } from '../data/book'
 import { bname } from '../data/borrowers'
 import { dn, useBanks, useSettings } from '../data/core'
+import { useContractTemplates } from '../data/contract'
 import { errMsg, useLoanActions, useSupervisors } from '../data/loans'
 import { addDays, previewLoan, todayIso, type Currency, type LoanTerms, type PayMode, type RateBasis } from '../lib/calc'
 import { fmt, fmtD, initials } from '../lib/format'
@@ -68,7 +69,7 @@ export function NewLoan() {
 
   const [step, setStep] = useState(0)
   const [registering, setRegistering] = useState(false)
-  const contractReady = !!useSettings().data?.contract_template_url
+  const contractReady = (useContractTemplates().data ?? []).length > 0
   const [dialog, setDialog] = useState<null | 'cancel' | 'submit'>(null)
   const [borrowerId, setBorrowerId] = useState<number | null>(null)
   const [query, setQuery] = useState('')

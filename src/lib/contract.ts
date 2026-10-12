@@ -1,23 +1,30 @@
 import { fmt, fmtD, loanCode } from './format'
 import { loanTotals, todayIso, type LoanTerms } from './calc'
+import { khDate, khDigits, khMoney, khMoneyWords } from './khmer'
+
+export type ContractLang = 'km' | 'en'
 
 /** Placeholders a contract template can use, written {{name}} in the Google Doc. */
 export const PLACEHOLDERS: [string, string][] = [
   ['contract_no', 'Loan code, e.g. L-021'],
   ['contract_date', 'Date the contract is printed'],
-  ['borrower_name', 'Borrower name'],
-  ['borrower_name_km', 'Borrower name in Khmer'],
+  ['borrower_name', 'Borrower name (Khmer when recorded, otherwise English letters)'],
+  ['borrower_name_km', 'Borrower name in Khmer (empty if not recorded)'],
   ['borrower_id_no', 'ID card number'],
   ['borrower_dob', 'Borrower date of birth'],
   ['borrower_phone', 'Borrower phone'],
   ['borrower_address', 'Borrower address'],
+  ['borrower_name_latin', 'Borrower name in English letters'],
   ['amount', 'Loan amount with currency'],
+  ['amount_words', 'Loan amount in words'],
   ['service_fee_percent', 'Service fee %'],
   ['service_fee', 'Service fee amount'],
   ['net_amount', 'Amount the borrower receives'],
+  ['net_amount_words', 'Amount received, in words'],
   ['interest_rate', 'Interest rate, e.g. 2% per month'],
   ['total_interest', 'Total interest'],
   ['total_to_pay', 'Total to repay (loan + interest)'],
+  ['total_to_pay_words', 'Total to repay, in words'],
   ['occurrences', 'Number of payments'],
   ['frequency', 'How often, e.g. Monthly'],
   ['installment', 'First payment amount'],
@@ -32,7 +39,41 @@ export const PLACEHOLDERS: [string, string][] = [
 ]
 
 /** Starting text for a new template: paste it into a blank Google Doc and edit freely. */
-export const STARTER_TEMPLATE = `LOAN AGREEMENT
+export const STARTER_KM = `កិច្ចសន្យាខ្ចីប្រាក់
+លេខកិច្ចសន្យា {{contract_no}}    កាលបរិច្ឆេទ {{contract_date}}
+
+១. ភាគី
+ភាគីអ្នកឱ្យខ្ចី: ______________________________
+ភាគីអ្នកខ្ចី: {{borrower_name}}
+លេខអត្តសញ្ញាណប័ណ្ណ: {{borrower_id_no}}    ថ្ងៃខែឆ្នាំកំណើត: {{borrower_dob}}
+ទូរស័ព្ទ: {{borrower_phone}}
+អាសយដ្ឋាន: {{borrower_address}}
+
+២. ការខ្ចីប្រាក់
+អ្នកឱ្យខ្ចីបានឱ្យអ្នកខ្ចីខ្ចីប្រាក់ចំនួន {{amount}} ({{amount_words}}) នៅ{{release_date}}។ ថ្លៃសេវា {{service_fee_percent}} ({{service_fee}}) ត្រូវបានកាត់ទុកមុននៅពេលផ្តល់ប្រាក់ ដូច្នេះអ្នកខ្ចីទទួលបានប្រាក់ចំនួន {{net_amount}} ({{net_amount_words}})។
+
+៣. ការប្រាក់ និងការសងប្រាក់
+ការប្រាក់គឺ {{interest_rate}} (ការប្រាក់សរុប {{total_interest}})។ អ្នកខ្ចីត្រូវសងសរុប {{total_to_pay}} ({{total_to_pay_words}}) ចំនួន {{occurrences}} ដង {{frequency}} ដោយដងដំបូងចំនួន {{installment}}។ ទម្រង់នៃការសង: {{repayment_mode}}។ ការសងចុងក្រោយត្រូវធ្វើនៅ{{end_date}}។
+
+{{schedule}}
+
+៤. ការសងយឺត
+រាល់ថ្ងៃដែលសងយឺត អ្នកខ្ចីត្រូវបង់ប្រាក់ពិន័យ {{late_fee_per_day}} ក្នុងមួយថ្ងៃ។
+
+៥. ទ្រព្យធានា
+{{collateral}}
+
+៦. វិធីបង់ប្រាក់
+អ្នកខ្ចីសងប្រាក់តាមរយៈ: {{pay_method}}។
+
+ធ្វើនៅ{{contract_date}}
+
+អ្នកឱ្យខ្ចី: ____________________        អ្នកខ្ចី: ____________________
+                                          {{borrower_name}}
+`
+
+/** English starter text. */
+export const STARTER_EN = `LOAN AGREEMENT
 Contract no. {{contract_no}}    Date: {{contract_date}}
 
 1. Parties
@@ -67,9 +108,6 @@ Lender: ____________________        Borrower: ____________________
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-const BASIS: Record<string, string> = { month: 'per month', occurrence: 'per payment', contract: 'for the whole contract' }
-const FREQ: Record<string, string> = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' }
-const METHOD: Record<string, string> = { cash: 'Cash', bank: 'Bank transfer', other: 'Other' }
 
 export interface ContractInput {
   loanId: number
@@ -83,28 +121,64 @@ export interface ContractInput {
   supervisor: string
 }
 
-/** Every placeholder's value as plain text; `schedule` is an HTML table. */
-export function contractValues(c: ContractInput): Record<string, { text: string; html?: boolean }> {
+type Values = Record<string, { text: string; html?: boolean }>
+
+const KM = {
+  basis: { month: 'ក្នុងមួយខែ', occurrence: 'ក្នុងមួយដង', contract: 'សម្រាប់រយៈពេលកិច្ចសន្យាទាំងមូល' } as Record<string, string>,
+  freq: { daily: 'ប្រចាំថ្ងៃ', weekly: 'ប្រចាំសប្តាហ៍', monthly: 'ប្រចាំខែ' } as Record<string, string>,
+  method: { cash: 'សាច់ប្រាក់', bank: 'ផ្ទេរតាមធនាគារ', other: 'ផ្សេងៗ' } as Record<string, string>,
+  head: ['ល.រ', 'ថ្ងៃកំណត់សង', 'ប្រាក់ដើម', 'ការប្រាក់', 'សរុប'],
+  total: 'សរុប',
+  none: 'គ្មាន',
+}
+const EN = {
+  basis: { month: 'per month', occurrence: 'per payment', contract: 'for the whole contract' } as Record<string, string>,
+  freq: { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' } as Record<string, string>,
+  method: { cash: 'Cash', bank: 'Bank transfer', other: 'Other' } as Record<string, string>,
+  head: ['No.', 'Due date', 'Principal', 'Interest', 'Total'],
+  total: 'Total',
+  none: 'None',
+}
+
+/**
+ * Every placeholder's value, written in the template's language. Khmer contracts get
+ * Khmer digits, dates, currency names, wording and amounts in words.
+ */
+export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Values {
+  const km = lang === 'km'
+  const W = km ? KM : EN
   const t = c.terms
   const tot = loanTotals(t)
   const cur = t.currency
-  const method = c.payMethod === 'bank' && c.bankText ? `${METHOD.bank}, ${c.bankText}` : c.payMethod === 'other' && c.payRemarks ? c.payRemarks : METHOD[c.payMethod] ?? c.payMethod
+  const money = (n: number) => (km ? khMoney(n, cur) : fmt(n, cur))
+  const words = (n: number) => (km ? khMoneyWords(n, cur) : '')
+  const date = (iso: string) => (km ? khDate(iso) : fmtD(iso))
+  const num = (v: string | number) => (km ? khDigits(v) : String(v))
+  const bankName = c.bankText
+  const method = c.payMethod === 'bank' && bankName ? `${W.method.bank}, ${bankName}` : c.payMethod === 'other' && c.payRemarks ? c.payRemarks : W.method[c.payMethod] ?? c.payMethod
   const cell = 'border:1px solid #888;padding:4px 8px;'
-  const schedule = `<table style="border-collapse:collapse;width:100%;font-size:10pt"><thead><tr>${['No.', 'Due date', 'Principal', 'Interest', 'Total'].map((h, i) => `<th style="${cell}text-align:${i < 2 ? 'left' : 'right'}">${h}</th>`).join('')}</tr></thead><tbody>${tot.rows.map((r) => `<tr><td style="${cell}">${r.i}</td><td style="${cell}">${fmtD(r.due)}</td><td style="${cell}text-align:right">${fmt(r.principal, cur)}</td><td style="${cell}text-align:right">${fmt(r.interest, cur)}</td><td style="${cell}text-align:right">${fmt(r.total, cur)}</td></tr>`).join('')}<tr><td style="${cell}" colspan="2"><b>Total</b></td><td style="${cell}text-align:right"><b>${fmt(tot.rows.reduce((s, r) => s + r.principal, 0), cur)}</b></td><td style="${cell}text-align:right"><b>${fmt(tot.interest, cur)}</b></td><td style="${cell}text-align:right"><b>${fmt(tot.total, cur)}</b></td></tr></tbody></table>`
+  const schedule = `<table style="border-collapse:collapse;width:100%;font-size:10pt"><thead><tr>${W.head.map((h, i) => `<th style="${cell}text-align:${i < 2 ? 'left' : 'right'}">${h}</th>`).join('')}</tr></thead><tbody>${tot.rows.map((r) => `<tr><td style="${cell}">${num(r.i)}</td><td style="${cell}">${date(r.due)}</td><td style="${cell}text-align:right">${money(r.principal)}</td><td style="${cell}text-align:right">${money(r.interest)}</td><td style="${cell}text-align:right">${money(r.total)}</td></tr>`).join('')}<tr><td style="${cell}" colspan="2"><b>${W.total}</b></td><td style="${cell}text-align:right"><b>${money(tot.rows.reduce((s, r) => s + r.principal, 0))}</b></td><td style="${cell}text-align:right"><b>${money(tot.interest)}</b></td><td style="${cell}text-align:right"><b>${money(tot.total)}</b></td></tr></tbody></table>`
+  const khName = c.borrower.name_km.trim()
   const v: Record<string, string> = {
-    contract_no: loanCode(c.loanId), contract_date: fmtD(todayIso()),
-    borrower_name: c.borrower.name, borrower_name_km: c.borrower.name_km, borrower_id_no: c.borrower.id_no,
-    borrower_dob: c.borrower.dob ? fmtD(c.borrower.dob) : '', borrower_phone: c.borrower.phone, borrower_address: c.borrower.address,
-    amount: fmt(t.amount, cur), service_fee_percent: `${t.feePct}%`, service_fee: fmt(tot.fee, cur), net_amount: fmt(tot.net, cur),
-    interest_rate: `${t.ratePct}% ${BASIS[t.rateBasis]}`, total_interest: fmt(tot.interest, cur), total_to_pay: fmt(tot.total, cur),
-    occurrences: String(t.occurrences),
-    frequency: c.frequency === 'custom' ? `every ${t.intervalDays} days` : FREQ[c.frequency] ?? c.frequency,
-    installment: fmt(tot.rows[0].total, cur),
-    repayment_mode: t.mode === 'equal' ? 'Interest and principal in every payment' : 'Interest only, principal at the end',
-    release_date: fmtD(t.releaseDate), end_date: fmtD(tot.endDate), late_fee_per_day: fmt(t.lateFeePerDay, cur),
-    pay_method: method, collateral: c.collaterals.length ? c.collaterals.join('; ') : 'None', supervisor: c.supervisor,
+    contract_no: loanCode(c.loanId),
+    contract_date: date(todayIso()),
+    borrower_name: km && khName ? khName : c.borrower.name, borrower_name_km: khName, borrower_name_latin: c.borrower.name,
+    borrower_id_no: num(c.borrower.id_no), borrower_dob: c.borrower.dob ? date(c.borrower.dob) : '', borrower_phone: num(c.borrower.phone),
+    borrower_address: c.borrower.address,
+    amount: money(t.amount), amount_words: words(t.amount), service_fee_percent: `${num(t.feePct)}%`, service_fee: money(tot.fee),
+    net_amount: money(tot.net), net_amount_words: words(tot.net),
+    interest_rate: `${num(t.ratePct)}% ${W.basis[t.rateBasis]}`, total_interest: money(tot.interest),
+    total_to_pay: money(tot.total), total_to_pay_words: words(tot.total),
+    occurrences: num(t.occurrences),
+    frequency: c.frequency === 'custom' ? (km ? `រៀងរាល់ ${khDigits(t.intervalDays)} ថ្ងៃម្តង` : `every ${t.intervalDays} days`) : W.freq[c.frequency] ?? c.frequency,
+    installment: money(tot.rows[0].total),
+    repayment_mode: km
+      ? t.mode === 'equal' ? 'សងការប្រាក់ និងប្រាក់ដើមក្នុងគ្រប់ដង' : 'សងតែការប្រាក់ រីឯប្រាក់ដើមសងនៅដងចុងក្រោយ'
+      : t.mode === 'equal' ? 'Interest and principal in every payment' : 'Interest only, principal at the end',
+    release_date: date(t.releaseDate), end_date: date(tot.endDate), late_fee_per_day: money(t.lateFeePerDay),
+    pay_method: method, collateral: c.collaterals.length ? c.collaterals.join('; ') : W.none, supervisor: c.supervisor,
   }
-  const out: Record<string, { text: string; html?: boolean }> = {}
+  const out: Values = {}
   for (const k of Object.keys(v)) out[k] = { text: v[k] }
   out.schedule = { text: schedule, html: true }
   return out
@@ -124,7 +198,7 @@ export function fillTemplate(html: string, values: Record<string, { text: string
 }
 
 /** A standalone, script-free document for the preview and the PDF. */
-export function cleanDocument(filled: string) {
+export function cleanDocument(filled: string, lang: ContractLang = 'km') {
   const doc = new DOMParser().parseFromString(filled, 'text/html')
   doc.querySelectorAll('script, iframe, object, embed, link, meta[http-equiv]').forEach((n) => n.remove())
   doc.querySelectorAll('*').forEach((el) => {
@@ -134,7 +208,11 @@ export function cleanDocument(filled: string) {
   })
   const style = doc.createElement('style')
   // Google's export pads the page like a Docs canvas; the PDF adds its own margins
-  style.textContent = 'html,body{background:#fff!important}body{max-width:none!important;margin:0!important;padding:0!important;color:#000}'
+  style.textContent =
+    "@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;700&display=swap');" +
+    'html,body{background:#fff!important}body{max-width:none!important;margin:0!important;padding:0!important;color:#000}' +
+    // Khmer text needs a Khmer font in this separate document; Latin falls back to the next family
+    (lang === 'km' ? "body,body *{font-family:'Noto Sans Khmer','Khmer OS',Arial,sans-serif!important}" : '')
   doc.head.append(style)
   return '<!doctype html>' + doc.documentElement.outerHTML
 }
