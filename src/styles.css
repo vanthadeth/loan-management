@@ -1172,3 +1172,16 @@ input,select,textarea{font-size:16px}
 .fbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:6;display:flex;gap:10px;padding:10px;border-radius:99px;background:var(--surface);box-shadow:var(--pop);border:1px solid var(--hair)}
 .fbar .btn{min-width:120px;min-height:44px;justify-content:center;border-radius:99px;padding-inline:24px}
 @media (min-width:900px){.fbar{bottom:24px;left:calc(50% + 115px)}}
+
+/* cashflow as a table */
+.cft{padding:0}
+.cft table{min-width:520px}
+.cft th,.cft td{padding:10px 12px;text-align:left;vertical-align:middle}
+.cft th.r,.cft td.r{text-align:right;white-space:nowrap;width:1%}
+.cft thead th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface)}
+.cft tbody td{border-bottom:1px solid var(--hair)}
+.cft-g th{background:var(--surface2);font-size:12px;font-weight:700;color:var(--muted);padding-block:7px}
+.cft-n td{font-size:12.5px;color:var(--muted);border-bottom:0}
+.cft-d{display:flex;align-items:center;gap:10px;min-width:0}
+.cft-d .grow{display:flex;flex-direction:column;min-width:0}
+.cft .num.na,.cft b.na{color:var(--muted);font-weight:400}

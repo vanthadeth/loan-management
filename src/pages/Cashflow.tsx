@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../app/auth'
 import { useI18n } from '../app/i18n'
@@ -64,36 +64,40 @@ export function Cashflow() {
       )}
       {groups.length > 0 ? (
         <>
-          <div className="cfh"><span>KHR ៛</span><span>USD $</span></div>
-          {groups.map((G) => (
-            <Fragment key={G.g}>
-              <div className="dh">{G.g}</div>
-              <div className="lcard cf">
-                {G.r.map((e) => (
-                  <div className="item" style={{ cursor: 'default' }} key={e.id}>
-                    <span className={'tic ' + e.type}><Icon name={ICON[e.type]} size={e.type === 'add' || e.type === 'wd' ? 16 : 17} /></span>
-                    <span className="grow"><b className="ell">{title(e)}</b><span className="small muted">{e.detail}</span></span>
-                    <span className="amt">
+          <div className="tblwrap card cft">
+            <table>
+              <thead>
+                <tr><th scope="col">Description</th><th scope="col" className="r">KHR ៛</th><th scope="col" className="r">USD $</th></tr>
+              </thead>
+              {groups.map((G) => (
+                <tbody key={G.g}>
+                  <tr className="cft-g"><th colSpan={3} scope="colgroup">{G.g}</th></tr>
+                  {G.r.map((e) => (
+                    <tr key={e.id}>
+                      <td>
+                        <span className="cft-d">
+                          <span className={'tic ' + e.type}><Icon name={ICON[e.type]} size={e.type === 'add' || e.type === 'wd' ? 16 : 17} /></span>
+                          <span className="grow"><b className="ell">{title(e)}</b><span className="small muted">{e.detail}</span></span>
+                        </span>
+                      </td>
                       {CURRENCIES.map((c) => c === e.currency
-                        ? <b key={c} className={'num ' + e.type}>{e.direction === 'in' ? '+' : '−'}{fmt(e.amount, c)}</b>
-                        : <b key={c} className="num na">—</b>)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="cfs">
-                <span>Net change</span>
-                <span className="amt">
-                  {CURRENCIES.map((c) => {
-                    const part = G.r.filter((e) => e.currency === c)
-                    if (!part.length) return <b key={c} className="na">—</b>
-                    const v = net(part)
-                    return <b key={c} className={v < 0 ? 'neg' : ''}>{v < 0 ? '−' : '+'}{fmt(Math.abs(v), c)}</b>
-                  })}
-                </span>
-              </div>
-            </Fragment>
-          ))}
+                        ? <td key={c} className="r"><b className={'num ' + e.type}>{e.direction === 'in' ? '+' : '−'}{fmt(e.amount, c)}</b></td>
+                        : <td key={c} className="r"><b className="num na">—</b></td>)}
+                    </tr>
+                  ))}
+                  <tr className="cft-n">
+                    <td>Net change</td>
+                    {CURRENCIES.map((c) => {
+                      const part = G.r.filter((e) => e.currency === c)
+                      if (!part.length) return <td key={c} className="r"><b className="na">—</b></td>
+                      const v = net(part)
+                      return <td key={c} className="r"><b className={v < 0 ? 'neg' : ''}>{v < 0 ? '−' : '+'}{fmt(Math.abs(v), c)}</b></td>
+                    })}
+                  </tr>
+                </tbody>
+              ))}
+            </table>
+          </div>
           {rows.length > limit && <button className="btn" style={{ alignSelf: 'center' }} onClick={() => setLimit(limit + PAGE)}>Show more</button>}
         </>
       ) : (
