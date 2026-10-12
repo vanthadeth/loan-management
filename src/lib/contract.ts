@@ -1,6 +1,6 @@
 import { fmt, fmtD, loanCode } from './format'
 import { diffDays, loanTotals, todayIso, type LoanTerms } from './calc'
-import { khDate, khDigits, khMoney, khMoneyWords, khWeekdayDate } from './khmer'
+import { khAmountWords, khDate, khDateLatin, khDigits, khMoney, khMoneyWords, khWeekdayDate } from './khmer'
 
 export type ContractLang = 'km' | 'en'
 
@@ -44,14 +44,14 @@ export const PLACEHOLDERS: [string, string][] = [
   ['supervisor', 'Loan supervisor'],
   ['schedule', 'Payment schedule as an ANNEX: starts a new page with a heading, then the table (put it at the end of the contract, in its own paragraph)'],
   ['schedule_table', 'Only the payment schedule table, without the annex page and heading'],
-  ['schedule_no', 'Per payment row: number (put in a table row that repeats)'],
-  ['schedule_date', 'Per payment row: due date'],
-  ['schedule_principal', 'Per payment row: principal'],
-  ['schedule_interest', 'Per payment row: interest'],
-  ['schedule_total', 'Per payment row: amount to pay'],
-  ['schedule_total_words', 'Per payment row: amount to pay, in words'],
-  ['schedule_balance', 'Per payment row: principal left after it'],
-  ['schedule_balance_before', 'Per payment row: principal left before it'],
+  ['schedule_no', 'Per payment row: number, Latin digits (put in a table row that repeats)'],
+  ['schedule_date', 'Per payment row: due date, e.g. 12 តុលា 2026'],
+  ['schedule_principal', 'Per payment row: principal, plain number like 25,000.00 (no currency name)'],
+  ['schedule_interest', 'Per payment row: interest, plain number'],
+  ['schedule_total', 'Per payment row: amount to pay, plain number'],
+  ['schedule_total_words', 'Per payment row: amount to pay, in words (no currency name)'],
+  ['schedule_balance', 'Per payment row: principal left after it, plain number'],
+  ['schedule_balance_before', 'Per payment row: principal left before it, plain number'],
   ['schedule_weekday_date', 'Per payment row: due date with the weekday, e.g. ថ្ងៃសុក្រ 2 តុលា 2026'],
 ]
 
@@ -284,16 +284,19 @@ function formatters(lang: ContractLang, cur: 'KHR' | 'USD') {
  * {{schedule_total}}, {{schedule_total_words}} and {{schedule_balance}}.
  */
 export function scheduleRowValues(c: ContractInput, lang: ContractLang = 'km'): Values[] {
-  const { money, words, date, num } = formatters(lang, c.terms.currency)
+  const km = lang === 'km'
   const rows = loanTotals(c.terms).rows
+  // plain Latin numbers with two decimals and no currency name, like the ready-made table
+  const plain = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const date = (iso: string) => (km ? khDateLatin(iso) : fmtD(iso))
   let left = c.terms.amount
   return rows.map((r) => {
     left -= r.principal
     const v: Record<string, string> = {
-      schedule_no: num(r.i), schedule_date: date(r.due), schedule_principal: money(r.principal),
-      schedule_interest: money(r.interest), schedule_total: money(r.total), schedule_total_words: words(r.total),
-      schedule_balance: money(Math.max(left, 0)), schedule_balance_before: money(left + r.principal),
-      schedule_weekday_date: lang === 'km' ? khWeekdayDate(r.due) : date(r.due),
+      schedule_no: String(r.i), schedule_date: date(r.due), schedule_principal: plain(r.principal),
+      schedule_interest: plain(r.interest), schedule_total: plain(r.total), schedule_total_words: km ? khAmountWords(r.total) : '',
+      schedule_balance: plain(Math.max(left, 0)), schedule_balance_before: plain(left + r.principal),
+      schedule_weekday_date: km ? khWeekdayDate(r.due) : fmtD(r.due),
     }
     return Object.fromEntries(Object.entries(v).map(([k, text]) => [k, { text }]))
   })

@@ -53,9 +53,10 @@ describe('contract values', () => {
     const out = fillScheduleRows(html, scheduleRowValues(input({}, { occurrences: 3 })))
     const rows = new DOMParser().parseFromString(out, 'text/html').querySelectorAll('tr')
     expect(rows).toHaveLength(4) // header + 3 payments
-    expect(rows[1].textContent).toContain('១')
-    expect(rows[1].textContent).toContain('ថ្ងៃទី១២ ខែវិច្ឆិកា ឆ្នាំ២០២៦')
-    expect(rows[3].textContent).toContain('១,០៦០,០០០ រៀល')
+    expect(rows[1].textContent).toContain('1')
+    expect(rows[1].textContent).toContain('12 វិច្ឆិកា 2026')
+    expect(rows[3].textContent).toContain('1,060,000.00')
+    expect(rows[3].textContent).not.toContain('រៀល')
   })
   it('leaves templates without row placeholders alone', () => {
     const html = '<p>{{schedule}}</p>'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { khDate, khDigits, khMoney, khMoneyWords, khWeekdayDate, khWords } from './khmer'
+import { khAmountWords, khDate, khDateLatin, khDigits, khMoney, khMoneyWords, khWeekdayDate, khWords } from './khmer'
 
 describe('khmer formatting', () => {
   it('converts digits and dates', () => {
@@ -26,5 +26,13 @@ describe('weekday dates', () => {
   it('writes the weekday, Khmer month and Latin digits', () => {
     expect(khWeekdayDate('2026-10-02')).toBe('ថ្ងៃសុក្រ 2 តុលា 2026')
     expect(khWeekdayDate('2026-10-04')).toBe('ថ្ងៃអាទិត្យ 4 តុលា 2026')
+  })
+})
+
+describe('schedule helpers', () => {
+  it('keeps Latin digits and drops the currency name', () => {
+    expect(khDateLatin('2026-10-12')).toBe('12 តុលា 2026')
+    expect(khAmountWords(560_000)).toBe('ប្រាំសែនប្រាំមួយម៉ឺន')
+    expect(khAmountWords(12.5)).toBe('ដប់ពីរ ក្បៀស ហាសិប')
   })
 })

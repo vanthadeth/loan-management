@@ -18,6 +18,12 @@ export function khWeekdayDate(iso: string) {
   return `ថ្ងៃ${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d} ${MONTHS[m - 1]} ${y}`
 }
 
+/** '2026-10-12' → '12 តុលា 2026' (Khmer month, Latin digits) */
+export function khDateLatin(iso: string) {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+  return `${d} ${MONTHS[m - 1]} ${y}`
+}
+
 const grouped = (n: number, dec: number) =>
   n.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 
@@ -61,4 +67,11 @@ export function khMoneyWords(n: number, cur: 'KHR' | 'USD') {
   const dollars = Math.floor(n)
   const cents = Math.round((n - dollars) * 100)
   return khWords(dollars) + 'ដុល្លារ' + (cents ? khWords(cents) + 'សេន' : '')
+}
+
+/** Amount in Khmer words without the currency name: 560000 → 'ប្រាំសែនប្រាំមួយម៉ឺន'; 12.5 → 'ដប់ពីរ ក្បៀស ហាសិប'. */
+export function khAmountWords(n: number) {
+  const whole = Math.floor(n)
+  const cents = Math.round((n - whole) * 100)
+  return khWords(whole) + (cents ? ` ក្បៀស ${khWords(cents)}` : '')
 }
