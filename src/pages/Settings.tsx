@@ -7,7 +7,6 @@ import { useCopy, useRun, useSaveSettings } from '../data/admin'
 import { useContractTemplates, useTemplateActions } from '../data/contract'
 import { PLACEHOLDERS, STARTER_EN, STARTER_KM, STARTER_SCHEDULE_EN, STARTER_SCHEDULE_KM } from '../lib/contract'
 import type { ContractTemplate } from '../lib/types'
-import { fmt } from '../lib/format'
 import { Field, Seg } from '../ui/Controls'
 import { Icon } from '../ui/Icon'
 import { Sheet } from '../ui/Sheet'
@@ -22,11 +21,10 @@ function SettingsSheet({ s, onClose }: { s: AppSettings; onClose: () => void }) 
   const run = useRun()
   const save = useSaveSettings()
   const [fee, setFee] = useState(String(s.service_fee_pct))
-  const [khr, setKhr] = useState(String(s.late_fee_khr))
-  const [usd, setUsd] = useState(String(s.late_fee_usd))
+  const [late, setLate] = useState(String(s.late_fee_pct))
   const submit = async () => {
-    const patch = { service_fee_pct: num(fee), late_fee_khr: num(khr), late_fee_usd: num(usd) }
-    if (!(patch.service_fee_pct >= 0 && patch.service_fee_pct < 100) || !(patch.late_fee_khr >= 0) || !(patch.late_fee_usd >= 0)) {
+    const patch = { service_fee_pct: num(fee), late_fee_pct: num(late) }
+    if (!(patch.service_fee_pct >= 0 && patch.service_fee_pct < 100) || !(patch.late_fee_pct >= 0 && patch.late_fee_pct <= 100)) {
       toast('Check the numbers')
       return
     }
@@ -36,8 +34,7 @@ function SettingsSheet({ s, onClose }: { s: AppSettings; onClose: () => void }) 
     <Sheet title="System settings" onClose={onClose} action={{ onClick: submit }}>
       <div className="form wz-1col">
         <Field id="sf" label="Service fee (%)" value={fee} onChange={setFee} inputMode="decimal" />
-        <Field id="sk" label="Late fee per day, KHR loans" value={khr} onChange={setKhr} inputMode="decimal" />
-        <Field id="su" label="Late fee per day, USD loans" value={usd} onChange={setUsd} inputMode="decimal" />
+        <Field id="sk" label="Late fee (% of the unpaid installment, per late payment period)" value={late} onChange={setLate} inputMode="decimal" />
         <p className="small muted" style={{ margin: 0 }}>Applies to new loans and to late fees from now on.</p>
       </div>
     </Sheet>
@@ -126,9 +123,9 @@ export function Settings() {
             <span className="small bt-sub">Deducted at release</span>
           </section>
           <section className="bt">
-            <span className="bt-h">Late fee / day</span>
-            <b className="bt-big num">{s ? fmt(s.late_fee_khr, 'KHR') : '—'}</b>
-            <span className="small bt-sub">{s ? fmt(s.late_fee_usd, 'USD') : '—'} for USD loans</span>
+            <span className="bt-h">Late fee</span>
+            <b className="bt-big num">{s ? `${s.late_fee_pct}%` : '—'}</b>
+            <span className="small bt-sub">Per late payment period</span>
           </section>
         </div>
       </div>

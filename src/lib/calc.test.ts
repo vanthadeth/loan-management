@@ -3,7 +3,7 @@ import { allocatePayment, buildSchedule, loanTotals, scheduleStatus, type LoanTe
 
 const base: LoanTerms = {
   amount: 3_000_000, currency: 'KHR', feePct: 3, ratePct: 2, rateBasis: 'month',
-  occurrences: 6, frequency: 'monthly', intervalDays: 30, mode: 'equal', releaseDate: '2026-07-01', lateFeePerDay: 2000,
+  occurrences: 6, frequency: 'monthly', intervalDays: 30, mode: 'equal', releaseDate: '2026-07-01', lateFeePct: 5,
 }
 
 describe('schedule', () => {
@@ -53,11 +53,11 @@ describe('repeat dates', () => {
 })
 
 describe('payments', () => {
-  it('marks paid and overdue installments and charges late fee per day', () => {
+  it('marks paid and overdue installments and charges a % late fee per late month', () => {
     const s = scheduleStatus(base, [{ amount: 560_000, lateFee: 0, paidOn: '2026-08-01' }], '2026-09-06')
     expect(s.rows[0].state).toBe('paid')
-    expect(s.rows[1]).toMatchObject({ state: 'overdue', lateDays: 5, lateFee: 10_000 })
-    expect(s.lateFeeOutstanding).toBe(10_000)
+    expect(s.rows[1]).toMatchObject({ state: 'overdue', lateDays: 5, lateOccurrences: 1, lateFee: 28_000 })
+    expect(s.lateFeeOutstanding).toBe(28_000)
     expect(s.paidCount).toBe(1)
   })
   it('splits a partial payment across installments', () => {
@@ -68,15 +68,21 @@ describe('payments', () => {
   it('settles late fee before installments', () => {
     const t = base
     const a = allocatePayment(t, [], 600_000, '2026-08-11')
-    expect(a.lateFee).toBe(20_000) // 10 days late on installment 1
-    expect(a.toInstallments).toBe(580_000)
+    expect(a.lateFee).toBe(28_000) // 5% of 560,000 for the first late month
+    expect(a.toInstallments).toBe(572_000)
     expect(a.after.rows[0].state).toBe('paid')
   })
   it('stops charging once an installment is paid in full', () => {
-    const pays = [{ amount: 580_000, lateFee: 20_000, paidOn: '2026-08-11' }]
+    const pays = [{ amount: 588_000, lateFee: 28_000, paidOn: '2026-08-11' }]
     const s = scheduleStatus(base, pays, '2026-12-01')
     expect(s.rows[0].lateDays).toBe(10)
-    expect(s.rows[0].lateFee).toBe(20_000)
+    expect(s.rows[0].lateFee).toBe(28_000)
+  })
+  it('charges again for every further late period', () => {
+    const s = scheduleStatus(base, [], '2026-10-02') // due 08-01: months late = 3 (to 09-01, 10-01, then 11-01 started)
+    expect(s.rows[0]).toMatchObject({ lateOccurrences: 3, lateFee: 84_000 })
+    const w = scheduleStatus({ ...base, frequency: 'weekly', intervalDays: 7, releaseDate: '2026-07-01' }, [], '2026-07-23')
+    expect(w.rows[0]).toMatchObject({ lateDays: 15, lateOccurrences: 3 })
   })
   it('recognises a finished loan', () => {
     const total = loanTotals(base).total

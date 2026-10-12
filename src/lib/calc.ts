@@ -18,7 +18,8 @@ export interface LoanTerms {
   intervalDays: number
   mode: PayMode
   releaseDate: string
-  lateFeePerDay: number
+  /** Percent of the unpaid installment charged for every late occurrence (one payment period). */
+  lateFeePct: number
 }
 
 export interface PaymentLike {
@@ -42,6 +43,8 @@ export interface InstallmentStatus extends Installment {
   paidOn: string | null
   state: InstallmentState
   lateDays: number
+  /** Payment periods the installment has been late (a started period counts). */
+  lateOccurrences: number
   lateFee: number
 }
 
@@ -103,10 +106,23 @@ export function loanTotals(t: LoanTerms) {
 
 const EPS = 0.005
 
+/** Payment periods between a due date and `end`; a period that has started counts as one. */
+export function lateOccurrences(t: Pick<LoanTerms, 'frequency' | 'intervalDays'>, due: string, end: string) {
+  const days = diffDays(due, end)
+  if (days <= 0) return 0
+  if (t.frequency === 'monthly') {
+    let n = 1
+    while (addMonths(due, n) < end) n++
+    return n
+  }
+  return Math.ceil(days / Math.max(1, t.intervalDays))
+}
+
 /**
  * Walks the payments in order and spreads what is left after late fees over the
- * installments, oldest first. Late fees run per day from the due date until the
- * installment is paid in full (or until today if it is still open).
+ * installments, oldest first. The late fee is a percentage of the installment,
+ * charged once per payment period from the due date until the installment is
+ * paid in full (or until today if it is still open).
  */
 export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: string) {
   const rows = buildSchedule(t)
@@ -128,7 +144,8 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
     const lateDays = Math.max(0, diffDays(r.due, end))
     const state: InstallmentState = full ? 'paid' : r.due < today ? 'overdue' : paidAmount > 0 ? 'partial' : 'upcoming'
     before = upTo
-    return { ...r, paidAmount, paidOn, state, lateDays, lateFee: roundMoney(lateDays * t.lateFeePerDay, t.currency) }
+    const occ = lateOccurrences(t, r.due, end)
+    return { ...r, paidAmount, paidOn, state, lateDays, lateOccurrences: occ, lateFee: roundMoney((occ * t.lateFeePct * r.total) / 100, t.currency) }
   })
   const total = rows.reduce((s, r) => s + r.total, 0)
   const lateFeeAccrued = status.reduce((s, r) => s + r.lateFee, 0)

@@ -23,7 +23,7 @@ export interface BankAccount { id: number; bank: string; account_name: string; a
 
 export interface Loan {
   id: number; borrower_id: number; supervisor_id: string | null; currency: Currency; amount: number; fee_pct: number
-  late_fee_per_day: number; rate_pct: number; rate_basis: RateBasis; frequency: 'daily' | 'weekly' | 'monthly' | 'custom'
+  late_fee_pct: number; rate_pct: number; rate_basis: RateBasis; frequency: 'daily' | 'weekly' | 'monthly' | 'custom'
   interval_days: number; occurrences: number; mode: PayMode; release_date: string; status: LoanStatus
   pay_method: 'cash' | 'bank' | 'other'; bank_account_id: number | null; pay_remarks: string
   requested_by: string | null; verified_by: string | null; approved_by: string | null
@@ -38,7 +38,7 @@ export interface Payment {
   paid_on: string; photo_path: string | null; note: string; created_by: string | null; created_at: string
 }
 export interface FundTransaction { id: number; kind: 'add' | 'withdraw'; currency: Currency; amount: number; txn_date: string; note: string; created_at: string }
-export interface AppSettings { id: 1; service_fee_pct: number; late_fee_khr: number; late_fee_usd: number; khr_per_usd: number }
+export interface AppSettings { id: 1; service_fee_pct: number; late_fee_pct: number; khr_per_usd: number }
 export interface Message { id: number; kind: string; loan_id: number | null; actor: string | null; created_at: string }
 
 export interface ContractTemplate { id: number; name: string; url: string; lang: 'km' | 'en'; kind: 'contract' | 'schedule'; created_at: string }

@@ -90,7 +90,7 @@ export function NewLoan() {
   const [remarks, setRemarks] = useState('')
   const [hasCollateral, setHasCollateral] = useState(false)
   const [collaterals, setCollaterals] = useState<Collateral[]>([])
-  const lateDefault = Number(useLateFeeDefault(currency))
+  const lateDefault = Number(useLateFeeDefault())
 
   // a borrower chosen on the borrower page: skip the first step
   const preselect = useRef(params.get('borrower'))
@@ -117,9 +117,10 @@ export function NewLoan() {
   const unit = freq === 'Custom' ? `${intervalDays} days` : FREQ[freq][1]
   const terms: LoanTerms = {
     amount: num(amount), currency, feePct: num(feeText), ratePct: num(rate), rateBasis: basis, occurrences: n,
-    frequency: freq.toLowerCase() as Loan['frequency'], intervalDays, mode, releaseDate: release || todayIso(), lateFeePerDay: num(lateText),
+    frequency: freq.toLowerCase() as Loan['frequency'], intervalDays, mode, releaseDate: release || todayIso(), lateFeePct: num(lateText),
   }
   const p = previewLoan(terms)
+  const lateLabel = `${terms.lateFeePct}% per late ${freq === 'Custom' ? `${intervalDays}-day period` : freq === 'Daily' ? 'day' : freq === 'Weekly' ? 'week' : 'month'}`
   const equal = mode === 'equal'
   const first = p.rows[0]
   const installment = equal ? first.total : first.interest
@@ -174,7 +175,7 @@ export function NewLoan() {
       const { id, warning } = await actions.create({
         loan: {
           borrower_id: borrower.id, supervisor_id: scoped ? (me?.id ?? null) : supervisor || null, currency, amount: terms.amount,
-          fee_pct: terms.feePct, late_fee_per_day: terms.lateFeePerDay, rate_pct: terms.ratePct, rate_basis: basis,
+          fee_pct: terms.feePct, late_fee_pct: terms.lateFeePct, rate_pct: terms.ratePct, rate_basis: basis,
           frequency: freq.toLowerCase() as Loan['frequency'], interval_days: intervalDays, occurrences: n, mode, release_date: terms.releaseDate,
           pay_method: effMethod, bank_account_id: effMethod === 'bank' && bank ? bank.id : null, pay_remarks: effMethod === 'other' ? remarks.trim() : '',
         },
@@ -194,7 +195,7 @@ export function NewLoan() {
       <Lr k={feeLabel} v={'−' + fmt(p.fee, currency)} />
       <Lr k="Borrower receives" v={fmt(p.net, currency)} cls="strong" />
       <Lr k={`Total interest (~${p.interestPct}%)`} v={fmt(p.interest, currency)} />
-      <Lr k="Late fee per day" v={fmt(terms.lateFeePerDay, currency)} />
+      <Lr k="Late fee" v={lateLabel} />
       {equal ? (
         <>
           <Lr k="Installment" v={fmt(installment, currency)} />
@@ -292,9 +293,9 @@ export function NewLoan() {
                 ? <div className="field"><label>Supervisor</label><p style={{ margin: 0 }}><b>{dn(me)}</b> <span className="muted small">(you)</span></p></div>
                 : <Dropdown id="lsv" label="Supervisor" options={[{ value: '', label: 'Not assigned' }, ...supervisors.map((s) => ({ value: s.id, label: dn(s) }))]} value={supervisor} onChange={setSupervisor} />}
               <div className="field">
-                <label htmlFor="llf">Late fee per day</label>
-                <div className="wz-amt"><input id="llf" inputMode="decimal" value={lateText} onChange={(e) => setLate(e.target.value)} autoComplete="off" /><span id="llfs">{sym}</span></div>
-                <p className="small muted">Charged for each day an installment is late. Defaults from Settings; change it for this contract.</p>
+                <label htmlFor="llf">Late fee (%)</label>
+                <div className="wz-amt"><input id="llf" inputMode="decimal" value={lateText} onChange={(e) => setLate(e.target.value)} autoComplete="off" /><span id="llfs">%</span></div>
+                <p className="small muted">Percent of the unpaid installment, charged for every payment period it stays late. Defaults from Settings; change it for this contract.</p>
               </div>
             </div>
             <div className="wz-bento" id="linst">
@@ -380,7 +381,7 @@ export function NewLoan() {
                   <Tile k="Interest" v={terms.ratePct + '%'} sub={BASIS.find((b) => b.value === basis)?.label} />
                   <Tile k="Occurrences" v={String(n)} sub={freq === 'Custom' ? `Every ${intervalDays} days` : freq} />
                   <Tile k="Service fee" v={terms.feePct + '%'} />
-                  <Tile k="Late fee per day" v={fmt(terms.lateFeePerDay, currency)} />
+                  <Tile k="Late fee" v={lateLabel} />
                   <Tile k="Supervisor" v={supervisorName} />
                 </div>
               </Section>

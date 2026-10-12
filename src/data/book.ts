@@ -35,7 +35,7 @@ export function useBook() {
       // numeric columns can arrive as strings; normalise them
       const num = <T extends object>(rows: T[], keys: (keyof T)[]): T[] =>
         rows.map((r) => { const o = { ...r }; keys.forEach((k) => { if (o[k] != null) o[k] = Number(o[k]) as T[keyof T] }); return o })
-      const allLoans = num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_per_day', 'rate_pct'])
+      const allLoans = num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_pct', 'rate_pct'])
       const allPayments = num(must(p) as Payment[], ['amount', 'late_fee'])
       const voidedIds = new Set(allLoans.filter((x) => x.voided_at).map((x) => x.id))
       return {
@@ -53,7 +53,7 @@ export function useBook() {
 export const termsOf = (l: Loan): LoanTerms => ({
   amount: l.amount, currency: l.currency, feePct: l.fee_pct, ratePct: l.rate_pct, rateBasis: l.rate_basis,
   occurrences: l.occurrences, frequency: l.frequency, intervalDays: l.interval_days, mode: l.mode, releaseDate: l.release_date,
-  lateFeePerDay: l.late_fee_per_day,
+  lateFeePct: l.late_fee_pct,
 })
 
 /** A loan joined with its borrower, payments and live schedule status. */
@@ -90,7 +90,7 @@ export function useLoanViews(): { views: LoanView[]; voidedViews: LoanView[]; is
 }
 
 /** Defaults for the new-loan form come from the shared settings. */
-export function useLateFeeDefault(currency: 'KHR' | 'USD') {
+export function useLateFeeDefault() {
   const { data } = useSettings()
-  return currency === 'USD' ? data?.late_fee_usd ?? 0.5 : data?.late_fee_khr ?? 2000
+  return data?.late_fee_pct ?? 2
 }

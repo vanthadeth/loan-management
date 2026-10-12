@@ -55,7 +55,8 @@ export function LoanDetail() {
   const voided = !!loan.voided_at
   const canAdvance = !voided && (loan.status === 'requested' && can('loans.verify')) || (loan.status === 'verified' && can('loans.approve'))
   const pct = Math.round((status.paidCount / loan.occurrences) * 100)
-  const lateRate = fmt(loan.late_fee_per_day, cur)
+  const lateRate = `${Number(loan.late_fee_pct)}%`
+  const lateUnit = loan.frequency === 'daily' ? 'day' : loan.frequency === 'weekly' ? 'week' : loan.frequency === 'monthly' ? 'month' : `${loan.interval_days}-day period`
   const end = status.done ? status.rows[status.rows.length - 1].paidOn : status.rows[status.rows.length - 1].due
 
   const move = (to: LoanStatus, done: string) => async () => {
@@ -122,7 +123,7 @@ export function LoanDetail() {
             <span className="eyebrow">Supervisor</span>{who(loan.supervisor_id) ?? 'Not assigned'}
             {!scoped && can('loans.verify') && <> <button type="button" className="linkbtn" onClick={() => setDialog('supervisor')}>Change</button></>}
           </div>
-          <div><span className="eyebrow">Late fee</span>{lateRate} per day late</div>
+          <div><span className="eyebrow">Late fee</span>{lateRate} per late {lateUnit}</div>
           <div><span className="eyebrow">Borrower pays by</span>{payText}</div>
           <div><span className="eyebrow">Collateral</span>{collaterals.length ? collaterals.map((c) => c.description).join(', ') : 'None'}</div>
         </div>
@@ -250,7 +251,7 @@ export function LoanDetail() {
                   <div className="calc num">
                     <div><span>Principal</span><b>{fmt(r.principal, cur)}</b></div>
                     <div><span>Interest ({loan.rate_pct}% {loan.rate_basis}, flat)</span><b>{fmt(r.interest, cur)}</b></div>
-                    {r.lateFee > 0 && <div className="tag-late"><span>Late fee ({r.lateDays}d × {lateRate})</span><b>{fmt(r.lateFee, cur)}</b></div>}
+                    {r.lateFee > 0 && <div className="tag-late"><span>Late fee ({r.lateOccurrences} × {lateRate})</span><b>{fmt(r.lateFee, cur)}</b></div>}
                     <div className="t"><span>Total</span><b>{fmt(r.total + r.lateFee, cur)}</b></div>
                   </div>
                 </div>
@@ -258,7 +259,7 @@ export function LoanDetail() {
             )
           })}
         </div>
-        <p className="small muted" style={{ margin: '8px 0 0' }}>Late fee: {lateRate} per day late, as agreed in this contract.</p>
+        <p className="small muted" style={{ margin: '8px 0 0' }}>Late fee: {lateRate} of the unpaid installment for every {lateUnit} it is late, as agreed in this contract.</p>
       </details>
 
       <details className="card sec">

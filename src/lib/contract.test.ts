@@ -5,7 +5,7 @@ import type { LoanTerms } from './calc'
 
 const terms: LoanTerms = {
   amount: 3_000_000, currency: 'KHR', feePct: 3, ratePct: 2, rateBasis: 'month', occurrences: 6, frequency: 'monthly',
-  intervalDays: 30, mode: 'equal', releaseDate: '2026-10-12', lateFeePerDay: 2000,
+  intervalDays: 30, mode: 'equal', releaseDate: '2026-10-12', lateFeePct: 5,
 }
 const input = (over: Partial<ContractInput> = {}, t: Partial<LoanTerms> = {}): ContractInput => ({
   loanId: 14, terms: { ...terms, ...t }, frequency: t.frequency ?? 'monthly', payMethod: 'bank', payRemarks: '',
