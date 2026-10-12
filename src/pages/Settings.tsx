@@ -113,7 +113,7 @@ export function Settings() {
         <div className="row between" style={{ alignItems: 'center' }}>
           <div className="bh" style={{ margin: 0 }}>System settings</div>
           {can('settings.edit') && s && (
-            <button className="mcta" aria-label="Edit system settings" title="Edit system settings" onClick={() => setEditing(true)}><Icon name="edit" size={17} /></button>
+            <button className="mcta" style={{ background: "none", border: 0, cursor: "pointer" }} aria-label="Edit system settings" title="Edit system settings" onClick={() => setEditing(true)}><Icon name="edit" size={17} /></button>
           )}
         </div>
         <div className="bpair">
