@@ -39,8 +39,8 @@ export function Sheet({ title, onClose, children, action }: Props) {
         {children}
         {action && (
           <div className="row sheetbar">
-            <button className="btn" onClick={close}>{t('cancel')}</button>
-            <button className={'btn ' + (action.cls ?? 'primary')} disabled={busy || action.disabled} onClick={run}>
+            <button className="btn" disabled={busy} onClick={close}>{t('cancel')}</button>
+            <button className={'btn ' + (action.cls ?? 'primary') + (busy ? ' busy' : '')} disabled={busy || action.disabled} aria-busy={busy} onClick={run}>
               {action.label ?? t('save')}
             </button>
           </div>

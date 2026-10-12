@@ -37,7 +37,7 @@ export function SignIn() {
         <div className="field"><label htmlFor="ap">Password</label>
           <input id="ap" type="password" autoComplete="current-password" value={p} onChange={(e) => setP(e.target.value)} /></div>
         <p className="auth-err" role="alert">{err}</p>
-        <button className="btn primary blockbtn" type="submit" disabled={busy}>Sign in</button>
+        <button className={'btn primary blockbtn' + (busy ? ' busy' : '')} type="submit" disabled={busy} aria-busy={busy}>Sign in</button>
       </form>
       <p className="small muted">Forgot your password? Ask an admin to reset it.</p>
     </Card>
@@ -69,7 +69,7 @@ export function NewPassword() {
         <div className="field"><label htmlFor="an2">Confirm new password</label>
           <input id="an2" type="password" autoComplete="new-password" value={b} onChange={(e) => setB(e.target.value)} /></div>
         <p className="auth-err" role="alert">{err}</p>
-        <button className="btn primary blockbtn" type="submit" disabled={busy}>Save and continue</button>
+        <button className={'btn primary blockbtn' + (busy ? ' busy' : '')} type="submit" disabled={busy} aria-busy={busy}>Save and continue</button>
       </form>
       <button className="linkbtn" onClick={() => signOut()}>Sign out</button>
     </Card>

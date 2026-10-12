@@ -213,7 +213,7 @@ export function Contract() {
           value={sched ? String(sched.id) : BUILT_IN} onChange={(val) => setParams({ ...(params.get('t') ? { t: params.get('t')! } : {}), s: val }, { replace: true })} />
       )}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <button className="btn primary" disabled={busy || !doc} onClick={download}><Icon name="download" size={17} />{busy ? 'Making PDF…' : 'Download PDF'}</button>
+        <button className={'btn primary' + (busy ? ' busy' : '')} disabled={busy || !doc} aria-busy={busy} onClick={download}>{!busy && <Icon name="download" size={17} />}{busy ? 'Making PDF…' : 'Download PDF'}</button>
         <button className="btn" disabled={!doc} onClick={() => downloadWord('contract')}><Icon name="doc" size={17} />Contract (.doc)</button>
         {sdoc && <button className="btn" onClick={() => downloadWord('schedule')}><Icon name="doc" size={17} />Schedule (.doc)</button>}
         <button className="btn" disabled={!doc} onClick={() => frame.current?.contentWindow?.print()}>Print contract</button>

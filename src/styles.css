@@ -1159,3 +1159,10 @@ a.rlink,a.rlink:hover,a.rlink:focus-visible,a.rlink *{text-decoration:none}
 /* No zooming: no double-tap zoom, and 16px fields so iOS does not zoom in on focus */
 html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 input,select,textarea{font-size:16px}
+
+/* A button that is saving: disabled, with a spinner before its label, so people know to wait */
+@keyframes btn-spin{to{transform:rotate(360deg)}}
+.btn.busy{opacity:.75;cursor:progress;pointer-events:none;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.busy::before{content:"";flex:none;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:btn-spin .7s linear infinite}
+.btn:disabled:not(.busy){opacity:.55;cursor:not-allowed}
+@media (prefers-reduced-motion:reduce){.btn.busy::before{animation-duration:2s}}

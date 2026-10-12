@@ -160,7 +160,7 @@ export function UserDetail() {
             <PasswordBox key={dlg.pw} text={dlg.pw} />
             <button type="button" className="mcta" aria-label="Copy password" title="Copy password" onClick={() => copy(dlg.pw, 'Password')}><Icon name="copy" size={17} /></button>
           </div>
-          <button type="button" className="btn blockbtn" style={{ marginTop: 12 }} disabled={regen} onClick={regenerate}><Icon name="refresh" size={17} />Regenerate password</button>
+          <button type="button" className={'btn blockbtn' + (regen ? ' busy' : '')} style={{ marginTop: 12 }} disabled={regen} aria-busy={regen} onClick={regenerate}><Icon name="refresh" size={17} />Regenerate password</button>
           <button type="button" className="btn blockbtn" style={{ marginTop: 8 }} onClick={() => copy(loginMessage(u.full_name, u.username, dlg.pw), 'Login information')}><Icon name="copy" size={17} />Copy login information</button>
         </Sheet>
       )}
