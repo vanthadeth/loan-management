@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Icon } from '../ui/Icon'
 import { useAuth } from './auth'
 import { useI18n } from './i18n'
 
@@ -7,7 +6,7 @@ const Card = ({ children }: { children: React.ReactNode }) => {
   const { t } = useI18n()
   return (
     <div className="auth"><div className="auth-card">
-      <span className="logo" aria-hidden="true"><Icon name="coin" size={22} /></span>
+      <img className="logo-img" src="/icon.svg" width={40} height={40} alt="" />
       <h1>{t('appname')}</h1>
       {children}
     </div></div>

@@ -1153,3 +1153,5 @@ main{--gb:16px}
 
 /* report list rows are links: no underline on any label */
 a.rlink,a.rlink:hover,a.rlink:focus-visible,a.rlink *{text-decoration:none}
+
+.logo-img{width:40px;height:40px;border-radius:22%;flex:none;display:block}
