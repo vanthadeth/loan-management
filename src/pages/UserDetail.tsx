@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../app/auth'
 import { usePageTitle } from '../app/Layout'
 import { dn, useRoles, useTeam } from '../data/core'
-import { lastSeenLabel, STATUS_LABEL, useCopy, useRun, useUserAdmin } from '../data/admin'
+import { lastSeenLabel, loginMessage, STATUS_LABEL, useCopy, useRun, useUserAdmin } from '../data/admin'
 import { ALL_PERMS } from '../lib/perms'
 import { fmtD } from '../lib/format'
 import { Avatar } from '../ui/Avatar'
@@ -54,6 +54,12 @@ export function UserDetail() {
     <button className="mcta" aria-label={label} title={label} onClick={onClick}><Icon name={icon} size={17} /></button>
   )
 
+  // The temporary password is shown only once, so a user who has not signed in yet needs a fresh one.
+  const copyLogin = () => {
+    if (u.must_change_password) setDlg({ kind: 'reset' })
+    else copy(`Hello ${u.full_name},\n\nOpen the app:\n${window.location.origin}\n\nUsername: ${u.username}\nUse the password you set. If you forgot it, ask me to reset it.`, 'Login information')
+  }
+
   const reset = async () => {
     const r = await run(() => admin.resetPassword(u.id))
     if (r) setDlg({ kind: 'pw', pw: r.value })
@@ -91,6 +97,7 @@ export function UserDetail() {
         <table className="ut">
           <tbody>
             {row('Username', u.username, cta('Copy username', 'copy', () => copy(u.username, 'Username')))}
+            {row('Login information', u.must_change_password ? 'Not signed in yet' : 'App link and username', canAct && cta('Copy login information', 'copy', copyLogin))}
             {row('Full name', u.full_name)}
             {row('Display name', u.display_name || '—')}
             {row('Gender', u.gender === 'F' ? 'Female' : u.gender === 'M' ? 'Male' : '—')}
@@ -160,6 +167,7 @@ export function UserDetail() {
             <button type="button" className="mcta" aria-label="Copy password" title="Copy password" onClick={() => copy(dlg.pw, 'Password')}><Icon name="copy" size={17} /></button>
           </div>
           <button type="button" className="btn blockbtn" style={{ marginTop: 12 }} disabled={regen} onClick={regenerate}><Icon name="refresh" size={17} />Regenerate password</button>
+          <button type="button" className="btn blockbtn" style={{ marginTop: 8 }} onClick={() => copy(loginMessage(u.full_name, u.username, dlg.pw), 'Login information')}><Icon name="copy" size={17} />Copy login information</button>
         </Sheet>
       )}
     </div>
