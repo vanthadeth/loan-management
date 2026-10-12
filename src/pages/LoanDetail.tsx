@@ -1,5 +1,6 @@
 import { Fragment, useState, type ChangeEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Icon } from '../ui/Icon'
 import { Sheet } from '../ui/Sheet'
 import { useToast } from '../ui/Toast'
 import { usePageTitle } from '../app/Layout'
@@ -123,6 +124,12 @@ export function LoanDetail() {
           <div><span className="eyebrow">Collateral</span>{collaterals.length ? collaterals.map((c) => c.description).join(', ') : 'None'}</div>
         </div>
       </section>
+
+      <Link className="item" to={`/loans/${loan.id}/contract`} style={{ textDecoration: 'none' }}>
+        <span className="tic in"><Icon name="doc" size={17} /></span>
+        <span className="grow"><b className="ell" style={{ display: 'block' }}>Contract</b><span className="small muted">Make the printable contract (PDF)</span></span>
+        <Icon name="chev" size={16} />
+      </Link>
 
       <details className="card sec">
         <summary><h2>Attachments</h2><span className="chev" aria-hidden="true">▾</span></summary>

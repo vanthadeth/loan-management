@@ -10,6 +10,7 @@ import { LoanQueue } from './pages/LoanQueue'
 import { LoanHistory } from './pages/LoanHistory'
 import { NewLoan } from './pages/NewLoan'
 import { LoanDetail } from './pages/LoanDetail'
+import { Contract } from './pages/Contract'
 import { Reports } from './pages/Reports'
 import { ReportPage } from './pages/ReportPage'
 import { More } from './pages/More'
@@ -40,6 +41,7 @@ export function App() {
         <Route path="loans/queue/:kind" element={<LoanQueue />} />
         <Route path="loans/history" element={<LoanHistory />} />
         <Route path="loans/:id" element={<LoanDetail />} />
+        <Route path="loans/:id/contract" element={<Contract />} />
         <Route path="reports" element={<Reports />} />
         <Route path="reports/:name" element={<ReportPage />} />
         <Route path="more" element={<More />} />

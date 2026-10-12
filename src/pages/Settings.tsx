@@ -3,7 +3,9 @@ import { useAuth } from '../app/auth'
 import { usePageTitle } from '../app/Layout'
 import { applyTheme, savedTheme, useI18n, type Theme } from '../app/i18n'
 import { useSettings } from '../data/core'
-import { useRun, useSaveSettings } from '../data/admin'
+import { useCopy, useRun, useSaveContractTemplate, useSaveSettings } from '../data/admin'
+import { checkTemplate } from '../data/contract'
+import { PLACEHOLDERS, STARTER_TEMPLATE } from '../lib/contract'
 import { fmt } from '../lib/format'
 import { Field } from '../ui/Controls'
 import { Icon } from '../ui/Icon'
@@ -41,12 +43,36 @@ function SettingsSheet({ s, onClose }: { s: AppSettings; onClose: () => void }) 
   )
 }
 
+function TemplateSheet({ current, onClose }: { current: string; onClose: () => void }) {
+  const run = useRun()
+  const save = useSaveContractTemplate()
+  const [url, setUrl] = useState(current)
+  const submit = async () => {
+    const link = url.trim()
+    const ok = await run(async () => {
+      if (link) await checkTemplate(link) // fails with a clear message when Google will not share the doc
+      await save(link)
+    }, link ? 'Contract template saved' : 'Contract template removed')
+    if (ok) onClose()
+  }
+  return (
+    <Sheet title="Contract template link" onClose={onClose} action={{ onClick: submit }}>
+      <div className="form wz-1col">
+        <Field id="ct" label="Google Doc link" value={url} onChange={setUrl} placeholder="https://docs.google.com/document/d/…" />
+        <p className="small muted" style={{ margin: 0 }}>In the Google Doc choose Share, set General access to "Anyone with the link" as Viewer, then paste the link here. Leave it empty to remove the template.</p>
+      </div>
+    </Sheet>
+  )
+}
+
 export function Settings() {
   const { can } = useAuth()
   const { lang, setLang } = useI18n()
   const settings = useSettings()
   const [theme, setTheme] = useState<Theme>(savedTheme())
   const [editing, setEditing] = useState(false)
+  const [linking, setLinking] = useState(false)
+  const copy = useCopy()
   usePageTitle('Settings')
   const s = settings.data
 
@@ -95,6 +121,41 @@ export function Settings() {
           </section>
         </div>
       </div>
+      <div className="bsec">
+        <div className="row between" style={{ alignItems: 'center' }}>
+          <div className="bh" style={{ margin: 0 }}>Contract template</div>
+          {can('settings.edit') && (
+            <button className="mcta" aria-label="Set template link" title="Set template link" onClick={() => setLinking(true)}><Icon name="edit" size={17} /></button>
+          )}
+        </div>
+        <section className="bt">
+          <span className="bt-h"><Icon name="doc" size={18} />Google Doc</span>
+          {s?.contract_template_url
+            ? <a className="rlink" style={{ textDecoration: 'none' }} href={s.contract_template_url} target="_blank" rel="noopener noreferrer"><span className="grow"><b>Open the template</b></span><Icon name="chev" size={16} /></a>
+            : <span className="small bt-sub">No template yet. A contract is made from it each time a loan is requested.</span>}
+          {can('settings.edit') && (
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+              <button className="btn sm" onClick={() => { void copy(STARTER_TEMPLATE, 'Starter text'); window.open('https://docs.google.com/document/create', '_blank', 'noopener') }}>
+                <Icon name="plus" size={16} />Create a template
+              </button>
+              <button className="btn sm" onClick={() => setLinking(true)}>Set template link</button>
+            </div>
+          )}
+          <details className="binfo">
+            <summary><span>Placeholders you can use</span><Icon name="chev" size={16} /></summary>
+            <p className="small muted" style={{ margin: '6px 0' }}>Type these in the Google Doc, with the double braces. Tap one to copy it. "Create a template" opens a blank Google Doc and copies a starter contract to paste in.</p>
+            <div className="lcard">
+              {PLACEHOLDERS.map(([k, d]) => (
+                <button key={k} className="item" onClick={() => void copy(`{{${k}}}`, 'Placeholder')}>
+                  <span className="grow"><b className="ell" style={{ display: 'block' }}>{`{{${k}}}`}</b><span className="small muted">{d}</span></span>
+                  <Icon name="copy" size={16} />
+                </button>
+              ))}
+            </div>
+          </details>
+        </section>
+      </div>
+      {linking && <TemplateSheet current={s?.contract_template_url ?? ''} onClose={() => setLinking(false)} />}
       {editing && s && <SettingsSheet s={s} onClose={() => setEditing(false)} />}
     </div>
   )

@@ -68,6 +68,7 @@ export function NewLoan() {
 
   const [step, setStep] = useState(0)
   const [registering, setRegistering] = useState(false)
+  const contractReady = !!useSettings().data?.contract_template_url
   const [dialog, setDialog] = useState<null | 'cancel' | 'submit'>(null)
   const [borrowerId, setBorrowerId] = useState<number | null>(null)
   const [query, setQuery] = useState('')
@@ -179,7 +180,8 @@ export function NewLoan() {
         collaterals: hasCollateral ? collaterals.map((c, i) => ({ description: c.desc.trim() || 'Collateral ' + (i + 1), files: c.files })) : [],
       })
       toast(warning ? `Loan requested, but the collateral was not fully saved: ${warning}` : 'Loan request submitted')
-      nav(`/loans/${id}`, { replace: true })
+      // with a contract template set up, go straight to the printable contract
+      nav(contractReady ? `/loans/${id}/contract` : `/loans/${id}`, { replace: true })
     } catch (e) {
       toast(errMsg(e))
     }
