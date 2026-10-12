@@ -28,6 +28,7 @@ export interface Loan {
   pay_method: 'cash' | 'bank' | 'other'; bank_account_id: number | null; pay_remarks: string
   requested_by: string | null; verified_by: string | null; approved_by: string | null
   verified_at: string | null; approved_at: string | null; created_at: string
+  voided_at: string | null; voided_by: string | null; void_reason: string
 }
 export interface LoanCollateral { id: number; loan_id: number; description: string }
 export interface LoanAttachment { id: number; loan_id: number; collateral_id: number | null; file_path: string; file_name: string }

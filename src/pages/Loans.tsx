@@ -13,7 +13,7 @@ export function Loans() {
   const { t, lang } = useI18n()
   const { can } = useAuth()
   const nav = useNavigate()
-  const { views, loading, error } = useLoans()
+  const { views, voidedViews, loading, error } = useLoans()
   const [q, setQ] = useState('')
   const needle = q.trim().toLowerCase()
   const rows = views.filter((v) => v.active && (loanCode(v.loan.id) + bname(v.borrower, lang)).toLowerCase().includes(needle))
@@ -48,6 +48,9 @@ export function Loans() {
       </div>
       {nDone > 0 && (
         <button type="button" className="btn blockbtn" onClick={() => nav('/loans/history')}><Icon name="clock" size={17} />Loans history ({nDone})</button>
+      )}
+      {can('loans.void') && voidedViews.length > 0 && (
+        <button type="button" className="btn blockbtn" onClick={() => nav('/loans/voided')}><Icon name="ban" size={17} />Voided loans ({voidedViews.length})</button>
       )}
       {can('loans.create') && <Fab label={t('newLoan')} onClick={() => nav('/loans/new')} />}
     </>

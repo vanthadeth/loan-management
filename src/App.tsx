@@ -8,6 +8,7 @@ import { RecordPayment } from './pages/RecordPayment'
 import { Loans } from './pages/Loans'
 import { LoanQueue } from './pages/LoanQueue'
 import { LoanHistory } from './pages/LoanHistory'
+import { LoanVoided } from './pages/LoanVoided'
 import { NewLoan } from './pages/NewLoan'
 import { LoanDetail } from './pages/LoanDetail'
 import { Contract } from './pages/Contract'
@@ -40,6 +41,7 @@ export function App() {
         <Route path="loans/new" element={<NewLoan />} />
         <Route path="loans/queue/:kind" element={<LoanQueue />} />
         <Route path="loans/history" element={<LoanHistory />} />
+        <Route path="loans/voided" element={<LoanVoided />} />
         <Route path="loans/:id" element={<LoanDetail />} />
         <Route path="loans/:id/contract" element={<Contract />} />
         <Route path="reports" element={<Reports />} />

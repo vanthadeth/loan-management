@@ -6,7 +6,11 @@ import { scheduleStatus, todayIso, type LoanTerms } from '../lib/calc'
 import type { Borrower, FundTransaction, Loan, Payment } from '../lib/types'
 
 export interface Book {
+  /** loans that are not voided: every list and total uses these */
   loans: Loan[]
+  /** voided loans (only people holding loans.void ever receive them) and their payments */
+  voidedLoans: Loan[]
+  voidedPayments: Payment[]
   borrowers: Borrower[]
   payments: Payment[]
   funds: FundTransaction[]
@@ -31,11 +35,15 @@ export function useBook() {
       // numeric columns can arrive as strings; normalise them
       const num = <T extends object>(rows: T[], keys: (keyof T)[]): T[] =>
         rows.map((r) => { const o = { ...r }; keys.forEach((k) => { if (o[k] != null) o[k] = Number(o[k]) as T[keyof T] }); return o })
+      const allLoans = num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_per_day', 'rate_pct'])
+      const allPayments = num(must(p) as Payment[], ['amount', 'late_fee'])
+      const voidedIds = new Set(allLoans.filter((x) => x.voided_at).map((x) => x.id))
       return {
-        // numeric columns arrive as strings or numbers depending on precision; normalise
-        loans: num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_per_day', 'rate_pct']),
+        loans: allLoans.filter((x) => !x.voided_at),
+        voidedLoans: allLoans.filter((x) => x.voided_at),
+        payments: allPayments.filter((x) => !voidedIds.has(x.loan_id)),
+        voidedPayments: allPayments.filter((x) => voidedIds.has(x.loan_id)),
         borrowers: must(b) as Borrower[],
-        payments: num(must(p) as Payment[], ['amount', 'late_fee']),
         funds: num(must(f) as FundTransaction[], ['amount']),
       }
     },
@@ -61,23 +69,24 @@ export interface LoanView {
   active: boolean
 }
 
-export function useLoanViews(): { views: LoanView[]; isLoading: boolean; book: Book | undefined } {
+export function useLoanViews(): { views: LoanView[]; voidedViews: LoanView[]; isLoading: boolean; book: Book | undefined } {
   const { data: book, isLoading } = useBook()
-  const views = useMemo(() => {
-    if (!book) return []
+  const { views, voidedViews } = useMemo(() => {
+    if (!book) return { views: [], voidedViews: [] }
     const today = todayIso()
     const bor = new Map(book.borrowers.map((b) => [b.id, b]))
     const pays = new Map<number, Payment[]>()
-    book.payments.forEach((p) => pays.set(p.loan_id, [...(pays.get(p.loan_id) ?? []), p]))
-    return book.loans.map<LoanView>((loan) => {
+    ;[...book.payments, ...book.voidedPayments].forEach((p) => pays.set(p.loan_id, [...(pays.get(p.loan_id) ?? []), p]))
+    const build = (loan: Loan): LoanView => {
       const payments = pays.get(loan.id) ?? []
       const terms = termsOf(loan)
       const status = scheduleStatus(terms, payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, paidOn: p.paid_on })), today)
       const approved = loan.status === 'approved'
       return { loan, borrower: bor.get(loan.borrower_id), payments, terms, status, done: approved && status.done, active: approved && !status.done }
-    })
+    }
+    return { views: book.loans.map(build), voidedViews: book.voidedLoans.map(build) }
   }, [book])
-  return { views, isLoading, book }
+  return { views, voidedViews, isLoading, book }
 }
 
 /** Defaults for the new-loan form come from the shared settings. */

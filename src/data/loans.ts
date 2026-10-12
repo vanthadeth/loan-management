@@ -9,9 +9,9 @@ export const errMsg = (e: unknown) => (e instanceof Error && e.message ? e.messa
 
 /** Loan views plus a loading flag and a readable error, for screens that list loans. */
 export function useLoans() {
-  const { views, isLoading } = useLoanViews()
+  const { views, voidedViews, isLoading } = useLoanViews()
   const { error } = useBook()
-  return { views, loading: isLoading, error: error ? errMsg(error) : null }
+  return { views, voidedViews, loading: isLoading, error: error ? errMsg(error) : null }
 }
 
 /** The date a fully repaid loan was settled. */
@@ -76,6 +76,21 @@ export function useLoanActions() {
       const { data, error } = await supabase.from('loans').update({ supervisor_id: supervisorId }).eq('id', id).select('id')
       if (error) throw new Error(error.message)
       if (!data?.length) throw new Error('You are not allowed to change the supervisor of this loan.')
+      await refresh()
+    },
+
+    /** Voids a loan: it is hidden from everyone and left out of every total, but kept for the record. */
+    async voidLoan(id: number, reason: string) {
+      const { data, error } = await supabase.from('loans').update({ voided_at: new Date().toISOString(), void_reason: reason }).eq('id', id).select('id')
+      if (error) throw new Error(error.message)
+      if (!data?.length) throw new Error('You are not allowed to void this loan.')
+      await refresh()
+    },
+
+    async restoreLoan(id: number) {
+      const { data, error } = await supabase.from('loans').update({ voided_at: null, void_reason: '' }).eq('id', id).select('id')
+      if (error) throw new Error(error.message)
+      if (!data?.length) throw new Error('You are not allowed to restore this loan.')
       await refresh()
     },
 

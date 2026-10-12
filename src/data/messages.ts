@@ -17,11 +17,11 @@ export function useMessages() {
     refetchInterval: 60_000,
     queryFn: async () => {
       const [m, r] = await Promise.all([
-        supabase.from('messages').select('id,kind,loan_id,actor,created_at,loan:loans(borrower:borrowers(name))').order('created_at', { ascending: false }).limit(60),
+        supabase.from('messages').select('id,kind,loan_id,actor,created_at,loan:loans(voided_at,borrower:borrowers(name))').order('created_at', { ascending: false }).limit(60),
         supabase.from('message_reads').select('message_id'),
       ])
       const read = new Set((must(r) as { message_id: number }[]).map((x) => x.message_id))
-      return (must(m) as unknown as { id: number; kind: string; loan_id: number | null; actor: string | null; created_at: string; loan: { borrower: { name: string } | null } | null }[]).map<MessageRow>((x) => ({
+      return (must(m) as unknown as { id: number; kind: string; loan_id: number | null; actor: string | null; created_at: string; loan: { voided_at: string | null; borrower: { name: string } | null } | null }[]).filter((x) => !x.loan?.voided_at).map<MessageRow>((x) => ({
         id: x.id, kind: x.kind, loan_id: x.loan_id, actor: x.actor, created_at: x.created_at,
         read: read.has(x.id), borrower: x.loan?.borrower?.name ?? '',
       }))

@@ -2,6 +2,7 @@ import { Fragment, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { Sheet } from '../ui/Sheet'
+import { TextArea } from '../ui/Controls'
 import { useToast } from '../ui/Toast'
 import { usePageTitle } from '../app/Layout'
 import { useAuth } from '../app/auth'
@@ -17,7 +18,7 @@ import { Bar, Ring } from './loans/parts'
 import { SupervisorSheet } from './loans/SupervisorSheet'
 
 const STEPS: LoanStatus[] = ['requested', 'verified', 'approved']
-type Dialog = 'verify' | 'approve' | 'reject' | 'supervisor' | null
+type Dialog = 'verify' | 'approve' | 'reject' | 'supervisor' | 'void' | 'restore' | null
 
 export function LoanDetail() {
   const loanId = Number(useParams().id)
@@ -25,15 +26,16 @@ export function LoanDetail() {
   const { can, scoped } = useAuth()
   const toast = useToast()
   const nav = useNavigate()
-  const { views, loading, error } = useLoans()
+  const { views, voidedViews, loading, error } = useLoans()
   const team = useTeam()
   const banks = useBanks()
   const files = useLoanFiles(loanId)
   const actions = useLoanActions()
   const [dialog, setDialog] = useState<Dialog>(null)
+  const [reason, setReason] = useState('')
   usePageTitle(Number.isFinite(loanId) ? loanCode(loanId) : 'Loan')
 
-  const v = views.find((x) => x.loan.id === loanId)
+  const v = views.find((x) => x.loan.id === loanId) ?? voidedViews.find((x) => x.loan.id === loanId)
   if (!v) return <p className="muted">{loading ? 'Loading…' : error ?? 'Loan not found.'}</p>
 
   const { loan, status, terms, payments, borrower } = v
@@ -50,7 +52,8 @@ export function LoanDetail() {
     : loan.pay_method === 'other' ? 'Other' + (loan.pay_remarks ? ` · ${loan.pay_remarks}` : '') : 'Cash'
   const collaterals = files.data?.collaterals ?? []
   const attachments = files.data?.attachments ?? []
-  const canAdvance = (loan.status === 'requested' && can('loans.verify')) || (loan.status === 'verified' && can('loans.approve'))
+  const voided = !!loan.voided_at
+  const canAdvance = !voided && (loan.status === 'requested' && can('loans.verify')) || (loan.status === 'verified' && can('loans.approve'))
   const pct = Math.round((status.paidCount / loan.occurrences) * 100)
   const lateRate = fmt(loan.late_fee_per_day, cur)
   const end = status.done ? status.rows[status.rows.length - 1].paidOn : status.rows[status.rows.length - 1].due
@@ -124,6 +127,21 @@ export function LoanDetail() {
           <div><span className="eyebrow">Collateral</span>{collaterals.length ? collaterals.map((c) => c.description).join(', ') : 'None'}</div>
         </div>
       </section>
+
+      {voided && (
+        <section className="card" style={{ borderColor: 'var(--late)' }}>
+          <div className="row between" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <div>
+              <b style={{ color: 'var(--late)' }}>Voided</b>
+              <p className="small muted" style={{ margin: '2px 0 0' }}>
+                {fmtD(loan.voided_at)} by {dn(team.data?.find((p) => p.id === loan.voided_by))}. Hidden from everyone else and left out of every total.
+              </p>
+              {loan.void_reason && <p style={{ margin: '6px 0 0' }}>Reason: {loan.void_reason}</p>}
+            </div>
+            {can('loans.void') && <button type="button" className="btn" onClick={() => setDialog('restore')}><Icon name="refresh" size={17} />Restore loan</button>}
+          </div>
+        </section>
+      )}
 
       <Link className="item" to={`/loans/${loan.id}/contract`} style={{ textDecoration: 'none' }}>
         <span className="tic in"><Icon name="doc" size={17} /></span>
@@ -220,7 +238,7 @@ export function LoanDetail() {
                   <b className="num">{fmt(r.total, cur)}</b>
                   {r.state === 'paid'
                     ? <span className="cta done" aria-label="Paid">✓</span>
-                    : approved && can('payments.record') && (
+                    : approved && !voided && can('payments.record') && (
                       <button type="button" className="cta" aria-label={`Collect installment ${r.i}`} onClick={(e) => { e.preventDefault(); nav(`/cashflow/pay?loan=${loan.id}`) }}>
                         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="7" width="18" height="12" rx="2" /><circle cx="12" cy="13" r="2.5" /><path d="M7 7V5h10v2" /></svg>
                       </button>
@@ -245,7 +263,7 @@ export function LoanDetail() {
 
       <details className="card sec">
         <summary><h2>{t('payments')}</h2><span className="chev" aria-hidden="true">▾</span></summary>
-        {approved && can('payments.record') && (
+        {approved && !voided && can('payments.record') && (
           <div className="row" style={{ justifyContent: 'flex-end' }}>
             <button type="button" className="btn primary sm" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>+ {t('record')}</button>
           </div>
@@ -264,6 +282,30 @@ export function LoanDetail() {
           {!payments.length && <p className="muted">No payments yet.</p>}
         </div>
       </details>
+
+      {!voided && can('loans.void') && (
+        <button type="button" className="btn danger blockbtn" onClick={() => { setReason(''); setDialog('void') }}>Void loan</button>
+      )}
+
+      {dialog === 'void' && (
+        <Sheet title="Void this loan?" onClose={() => setDialog(null)} action={{
+          label: 'Void loan', cls: 'danger', disabled: !reason.trim(),
+          onClick: async () => {
+            try { await actions.voidLoan(loan.id, reason.trim()); toast('Loan voided'); setDialog(null); nav('/loans', { replace: true }) } catch (e) { toast(errMsg(e)) }
+          },
+        }}>
+          <p style={{ margin: '0 0 10px' }}>Voiding <b>{loanCode(loan.id)}</b> ({name}) hides it from everyone, including its payments, and removes it from every total and report. It stays on record and you can restore it later.</p>
+          <TextArea id="vr" label="Reason (required)" value={reason} onChange={setReason} />
+        </Sheet>
+      )}
+      {dialog === 'restore' && (
+        <Sheet title="Restore this loan?" onClose={() => setDialog(null)} action={{
+          label: 'Restore loan',
+          onClick: async () => { try { await actions.restoreLoan(loan.id); toast('Loan restored'); setDialog(null) } catch (e) { toast(errMsg(e)) } },
+        }}>
+          <p style={{ margin: '0 0 6px' }}>Show <b>{loanCode(loan.id)}</b> again in lists and totals?</p>
+        </Sheet>
+      )}
 
       {dialog === 'verify' && (
         <Sheet title="Verify loan?" onClose={() => setDialog(null)} action={{ label: 'Confirm verify', onClick: move('verified', 'Loan verified') }}>
