@@ -11,11 +11,18 @@ import {
 } from '../data/money'
 import { HeroBars } from './money/HeroBars'
 import { FundSheet } from './money/FundSheet'
+import { FieldHome } from './money/FieldHome'
 
 type DueTab = 'all' | 'upcoming' | 'overdue'
 const TAB_ICON: Record<DueTab, string> = { all: 'asterisk', upcoming: 'clock', overdue: 'alert' }
 
+/** Admins and anyone who sees funds get the money dashboard; field roles get a round of their own loans. */
 export function Dashboard() {
+  const { can } = useAuth()
+  return can('funds.view') || !can('loans.view') ? <MoneyDashboard /> : <FieldHome />
+}
+
+function MoneyDashboard() {
   const { t, lang } = useI18n()
   const { can } = useAuth()
   const nav = useNavigate()

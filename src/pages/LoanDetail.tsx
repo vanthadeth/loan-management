@@ -11,6 +11,7 @@ import { dn, useBanks, useTeam } from '../data/core'
 import { bname } from '../data/borrowers'
 import { errMsg, useLoanActions, useLoanFiles, useLoans } from '../data/loans'
 import { loanTotals } from '../lib/calc'
+import { dueParts } from '../data/money'
 import { fmt, fmtD, loanCode } from '../lib/format'
 import type { LoanStatus } from '../lib/types'
 import { FileView } from './loans/FileView'
@@ -58,6 +59,8 @@ export function LoanDetail() {
   const canReturn = !voided && (loan.status === 'requested' || loan.status === 'rejected') && (can('loans.create') || can('loans.approve'))
   const canVoid = !voided && can('loans.void')
   const canReset = !voided && loan.status === 'approved' && can('loans.approve') && payments.length === 0
+  const next = approved && !voided ? status.rows.find((r) => r.state !== 'paid') : undefined
+  const phone = (borrower?.phone ?? '').replace(/[^\d+]/g, '')
   const pct = Math.round((status.paidCount / loan.occurrences) * 100)
   const lateRate = `${Number(loan.late_fee_pct)}%`
   const lateUnit = loan.frequency === 'daily' ? 'day' : loan.frequency === 'weekly' ? 'week' : loan.frequency === 'monthly' ? 'month' : `${loan.interval_days}-day period`
@@ -173,6 +176,20 @@ export function LoanDetail() {
         <Icon name="chev" size={16} />
       </Link>
 
+      {next && (
+        <section className="card">
+          <div className="eyebrow">Next installment</div>
+          <div className="row between" style={{ alignItems: 'center', margin: '4px 0' }}>
+            <b className="num" style={{ fontSize: 18 }}>#{next.i} · {fmt(dueParts(next).remaining + next.lateFee, cur)}</b>
+            <span className={'chip ' + (next.state === 'overdue' ? 'overdue' : '')}>{next.state === 'overdue' ? `${next.lateDays}d late` : fmtD(next.due)}</span>
+          </div>
+          {next.lateFee > 0 && <p className="small muted" style={{ margin: 0 }}>Includes a late fee of {fmt(next.lateFee, cur)} ({next.lateOccurrences} × {lateRate}).</p>}
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+            {can('payments.record') && <button type="button" className="btn primary" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>Record payment</button>}
+            {phone && <a className="btn" href={'tel:' + phone}><Icon name="phone" size={16} />Call</a>}
+          </div>
+        </section>
+      )}
       <details className="card sec">
         <summary><h2>Attachments</h2><span className="chev" aria-hidden="true">▾</span></summary>
         {can('loans.create') && (

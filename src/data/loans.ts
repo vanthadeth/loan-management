@@ -52,7 +52,8 @@ export function useCollectors() {
 export function useSupervisors() {
   const team = useTeam()
   const roles = useRoles()
-  const scoped = new Set((roles.data?.roles ?? []).filter((r) => r.scoped && !r.locked).map((r) => r.id))
+  const makers = new Set((roles.data?.perms ?? []).filter((p) => p.permission === 'loans.create').map((p) => p.role_id))
+  const scoped = new Set((roles.data?.roles ?? []).filter((r) => r.scoped && !r.locked && makers.has(r.id)).map((r) => r.id))
   return (team.data ?? []).filter((p) => p.status === 'active' && scoped.has(p.role_id))
 }
 
