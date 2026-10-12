@@ -93,6 +93,10 @@ export function Contract() {
       bank: bank ?? null, payRemarks: v.loan.pay_remarks,
       borrower: v.borrower, collaterals: files.data.collaterals.map((c) => c.description),
       supervisor: dn(team.data?.find((p) => p.id === v.loan.supervisor_id)),
+      supervisorName: (() => {
+        const sv = team.data?.find((p) => p.id === v.loan.supervisor_id)
+        return { km: sv?.full_name ?? '', latin: sv?.name_latin ?? '' }
+      })(),
     }
   }, [v, files.data, banks.data, team.data, loanId])
 

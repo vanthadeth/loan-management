@@ -11,7 +11,7 @@ const input = (over: Partial<ContractInput> = {}, t: Partial<LoanTerms> = {}): C
   loanId: 14, terms: { ...terms, ...t }, frequency: t.frequency ?? 'monthly', payMethod: 'bank', payRemarks: '',
   bank: { bank: 'ABA Bank', account_no: '000 123 456', account_name: 'Family Loans' },
   borrower: { name: 'Sokha Chan', name_km: 'សុខា ចាន់', gender: 'F', id_no: '010 234 567', dob: null, phone: '012 345 678', address: 'Phnom Penh' },
-  collaterals: [], supervisor: '', ...over,
+  collaterals: [], supervisor: 'Vichea', supervisorName: { km: 'វិជ្ជា លី', latin: 'Vichea Ly' }, ...over,
 })
 const get = (v: ReturnType<typeof contractValues>, k: string) => v[k].text
 
@@ -126,5 +126,13 @@ describe('contract values', () => {
     expect(get(contractValues(input({ borrower: b }), 'km'), 'borrower_name')).toBe('សុខា ចាន់')
     expect(get(contractValues(input({ borrower: b }), 'en'), 'borrower_name')).toBe('Sokha Chan')
     expect(get(contractValues(input({ borrower: { ...b, name: '' } }), 'en'), 'borrower_name')).toBe('សុខា ចាន់')
+  })
+
+  it('gives the supervisor full name', () => {
+    expect(get(contractValues(input()), 'supervisor_name')).toBe('វិជ្ជា លី')
+    expect(get(contractValues(input(), 'en'), 'supervisor_name')).toBe('Vichea Ly')
+    expect(get(contractValues(input({ supervisorName: { km: 'វិជ្ជា លី', latin: '' } }), 'en'), 'supervisor_name')).toBe('វិជ្ជា លី')
+    expect(get(contractValues(input()), 'supervisor')).toBe('Vichea')
+    expect(get(allValues(input(), 'km'), 'supervisor_name_en')).toBe('Vichea Ly')
   })
 })
