@@ -4,6 +4,7 @@
 export type Currency = 'KHR' | 'USD'
 export type RateBasis = 'month' | 'occurrence' | 'contract'
 export type PayMode = 'equal' | 'interest'
+export type Frequency = 'daily' | 'weekly' | 'monthly' | 'custom'
 
 export interface LoanTerms {
   amount: number
@@ -12,6 +13,8 @@ export interface LoanTerms {
   ratePct: number
   rateBasis: RateBasis
   occurrences: number
+  /** Monthly repeats on the same day of every calendar month; the others repeat every `intervalDays` days. */
+  frequency: Frequency
   intervalDays: number
   mode: PayMode
   releaseDate: string
@@ -49,6 +52,13 @@ const parse = (iso: string) => {
 }
 export const toIso = (ms: number) => new Date(ms).toISOString().slice(0, 10)
 export const addDays = (iso: string, n: number) => toIso(parse(iso) + n * DAY)
+/** Same day of the month `n` months later; a 31st falls back to the month's last day (31 Jan → 28 Feb → 31 Mar). */
+export const addMonths = (iso: string, n: number) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  const first = Date.UTC(y, m - 1 + n, 1)
+  const last = new Date(Date.UTC(new Date(first).getUTCFullYear(), new Date(first).getUTCMonth() + 1, 0)).getUTCDate()
+  return toIso(first + (Math.min(d, last) - 1) * DAY)
+}
 export const diffDays = (from: string, to: string) => Math.round((parse(to) - parse(from)) / DAY)
 export const todayIso = () => {
   const d = new Date()
@@ -60,11 +70,16 @@ export const todayIso = () => {
 export const roundMoney = (v: number, cur: Currency) =>
   cur === 'USD' ? Math.round(v * 100) / 100 : Math.round(v / 100) * 100
 
-export function totalInterest(t: Pick<LoanTerms, 'amount' | 'ratePct' | 'rateBasis' | 'occurrences' | 'intervalDays'>) {
+/** Date of installment `i` (1-based). */
+export const dueDate = (t: Pick<LoanTerms, 'frequency' | 'releaseDate' | 'intervalDays'>, i: number) =>
+  t.frequency === 'monthly' ? addMonths(t.releaseDate, i) : addDays(t.releaseDate, t.intervalDays * i)
+
+export function totalInterest(t: Pick<LoanTerms, 'amount' | 'ratePct' | 'rateBasis' | 'occurrences' | 'intervalDays' | 'frequency'>) {
   const r = t.ratePct / 100
   if (t.rateBasis === 'contract') return t.amount * r
   if (t.rateBasis === 'occurrence') return t.amount * r * t.occurrences
-  return t.amount * r * ((t.occurrences * t.intervalDays) / 30)
+  // per month: monthly loans count calendar months, other frequencies count days / 30
+  return t.amount * r * (t.frequency === 'monthly' ? t.occurrences : (t.occurrences * t.intervalDays) / 30)
 }
 
 export function buildSchedule(t: LoanTerms): Installment[] {
@@ -73,7 +88,7 @@ export function buildSchedule(t: LoanTerms): Installment[] {
   for (let i = 1; i <= t.occurrences; i++) {
     const interest = roundMoney(I / t.occurrences, t.currency)
     const principal = t.mode === 'equal' ? roundMoney(t.amount / t.occurrences, t.currency) : i === t.occurrences ? t.amount : 0
-    rows.push({ i, due: addDays(t.releaseDate, t.intervalDays * i), interest, principal, total: interest + principal })
+    rows.push({ i, due: dueDate(t, i), interest, principal, total: interest + principal })
   }
   return rows
 }

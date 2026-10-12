@@ -117,7 +117,7 @@ export function NewLoan() {
   const unit = freq === 'Custom' ? `${intervalDays} days` : FREQ[freq][1]
   const terms: LoanTerms = {
     amount: num(amount), currency, feePct: num(feeText), ratePct: num(rate), rateBasis: basis, occurrences: n,
-    intervalDays, mode, releaseDate: release || todayIso(), lateFeePerDay: num(lateText),
+    frequency: freq.toLowerCase() as Loan['frequency'], intervalDays, mode, releaseDate: release || todayIso(), lateFeePerDay: num(lateText),
   }
   const p = previewLoan(terms)
   const equal = mode === 'equal'

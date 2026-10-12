@@ -44,7 +44,7 @@ export function useBook() {
 
 export const termsOf = (l: Loan): LoanTerms => ({
   amount: l.amount, currency: l.currency, feePct: l.fee_pct, ratePct: l.rate_pct, rateBasis: l.rate_basis,
-  occurrences: l.occurrences, intervalDays: l.interval_days, mode: l.mode, releaseDate: l.release_date,
+  occurrences: l.occurrences, frequency: l.frequency, intervalDays: l.interval_days, mode: l.mode, releaseDate: l.release_date,
   lateFeePerDay: l.late_fee_per_day,
 })
 

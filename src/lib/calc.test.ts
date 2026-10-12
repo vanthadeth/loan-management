@@ -3,15 +3,15 @@ import { allocatePayment, buildSchedule, loanTotals, scheduleStatus, type LoanTe
 
 const base: LoanTerms = {
   amount: 3_000_000, currency: 'KHR', feePct: 3, ratePct: 2, rateBasis: 'month',
-  occurrences: 6, intervalDays: 30, mode: 'equal', releaseDate: '2026-07-01', lateFeePerDay: 2000,
+  occurrences: 6, frequency: 'monthly', intervalDays: 30, mode: 'equal', releaseDate: '2026-07-01', lateFeePerDay: 2000,
 }
 
 describe('schedule', () => {
   it('splits interest and principal evenly', () => {
     const rows = buildSchedule(base)
     expect(rows).toHaveLength(6)
-    expect(rows[0]).toMatchObject({ due: '2026-07-31', interest: 60_000, principal: 500_000, total: 560_000 })
-    expect(rows[5].due).toBe('2026-12-28')
+    expect(rows[0]).toMatchObject({ due: '2026-08-01', interest: 60_000, principal: 500_000, total: 560_000 })
+    expect(rows[5].due).toBe('2027-01-01')
   })
   it('interest-only keeps all principal for the last installment', () => {
     const rows = buildSchedule({ ...base, mode: 'interest' })
@@ -35,34 +35,51 @@ describe('schedule', () => {
   })
 })
 
+describe('repeat dates', () => {
+  it('monthly repeats on the same day of every month', () => {
+    expect(buildSchedule({ ...base, releaseDate: '2026-10-12', occurrences: 4 }).map((r) => r.due)).toEqual(['2026-11-12', '2026-12-12', '2027-01-12', '2027-02-12'])
+  })
+  it('monthly on the 31st falls back to the last day of shorter months', () => {
+    expect(buildSchedule({ ...base, releaseDate: '2026-01-31', occurrences: 4 }).map((r) => r.due)).toEqual(['2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31'])
+    expect(buildSchedule({ ...base, releaseDate: '2027-12-31', occurrences: 3 }).map((r) => r.due)).toEqual(['2028-01-31', '2028-02-29', '2028-03-31'])
+  })
+  it('weekly repeats on the same weekday', () => {
+    const rows = buildSchedule({ ...base, frequency: 'weekly', intervalDays: 7, releaseDate: '2026-10-12', occurrences: 3 })
+    expect(rows.map((r) => r.due)).toEqual(['2026-10-19', '2026-10-26', '2026-11-02'])
+  })
+  it('per-month interest counts calendar months for monthly loans', () => {
+    expect(loanTotals({ ...base, occurrences: 12 }).interest).toBe(720_000)
+  })
+})
+
 describe('payments', () => {
   it('marks paid and overdue installments and charges late fee per day', () => {
-    const s = scheduleStatus(base, [{ amount: 560_000, lateFee: 0, paidOn: '2026-07-31' }], '2026-09-05')
+    const s = scheduleStatus(base, [{ amount: 560_000, lateFee: 0, paidOn: '2026-08-01' }], '2026-09-06')
     expect(s.rows[0].state).toBe('paid')
-    expect(s.rows[1]).toMatchObject({ state: 'overdue', lateDays: 6, lateFee: 12_000 })
-    expect(s.lateFeeOutstanding).toBe(12_000)
+    expect(s.rows[1]).toMatchObject({ state: 'overdue', lateDays: 5, lateFee: 10_000 })
+    expect(s.lateFeeOutstanding).toBe(10_000)
     expect(s.paidCount).toBe(1)
   })
   it('splits a partial payment across installments', () => {
-    const s = scheduleStatus(base, [{ amount: 700_000, lateFee: 0, paidOn: '2026-07-31' }], '2026-08-15')
+    const s = scheduleStatus(base, [{ amount: 700_000, lateFee: 0, paidOn: '2026-08-01' }], '2026-08-15')
     expect(s.rows[0].state).toBe('paid')
     expect(s.rows[1]).toMatchObject({ state: 'partial', paidAmount: 140_000 })
   })
   it('settles late fee before installments', () => {
     const t = base
-    const a = allocatePayment(t, [], 600_000, '2026-08-10')
+    const a = allocatePayment(t, [], 600_000, '2026-08-11')
     expect(a.lateFee).toBe(20_000) // 10 days late on installment 1
     expect(a.toInstallments).toBe(580_000)
     expect(a.after.rows[0].state).toBe('paid')
   })
   it('stops charging once an installment is paid in full', () => {
-    const pays = [{ amount: 580_000, lateFee: 20_000, paidOn: '2026-08-10' }]
+    const pays = [{ amount: 580_000, lateFee: 20_000, paidOn: '2026-08-11' }]
     const s = scheduleStatus(base, pays, '2026-12-01')
     expect(s.rows[0].lateDays).toBe(10)
     expect(s.rows[0].lateFee).toBe(20_000)
   })
   it('recognises a finished loan', () => {
     const total = loanTotals(base).total
-    expect(scheduleStatus(base, [{ amount: total, lateFee: 0, paidOn: '2026-12-28' }], '2026-12-30').done).toBe(true)
+    expect(scheduleStatus(base, [{ amount: total, lateFee: 0, paidOn: '2027-01-01' }], '2027-01-02').done).toBe(true)
   })
 })
