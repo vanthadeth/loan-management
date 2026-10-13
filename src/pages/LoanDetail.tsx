@@ -87,7 +87,8 @@ export function LoanDetail() {
   const wanted = params.get('tab')
   const tab: Tab = tabs.some(([k]) => k === wanted) ? (wanted as Tab) : 'main'
   const setTab = (k: Tab) => setParams((q) => { const n = new URLSearchParams(q); if (k === 'main') n.delete('tab'); else n.set('tab', k); return n }, { replace: true })
-  const canVoid = !voided && can('loans.void')
+  // an approved loan is not voided (reset its approval first); the exception is undoing a refinancing, a refinancing loan with no payments
+  const canVoid = !voided && can('loans.void') && (!(loan.status === 'approved' || loan.status === 'refinanced') || (loan.status === 'approved' && !!loan.refinance_of && payments.length === 0))
   const canVoidPay = approved && !voided && can('payments.void')
   const canReset = !voided && loan.status === 'approved' && can('loans.approve') && payments.length === 0 && !loan.refinance_of
   // refinance: an approved loan still collecting, with no other refinancing loan in progress
@@ -173,7 +174,7 @@ export function LoanDetail() {
             Being refinanced by <Link to={`/loans/${refinancedBy.loan.id}`}>{loanCode(refinancedBy.loan.id)}</Link> ({t(refinancedBy.loan.status)}). It is paid off when that loan is approved.
           </p>
         )}
-        {(mine || canReturn || canReset || canVoid || canRefinance || canEarly || canWriteOff) && (
+        {(mine || canReturn || canEarly || canRefinance) && (
           <div className="ctas">
             {mine && (
               <>
@@ -183,11 +184,15 @@ export function LoanDetail() {
               </>
             )}
             {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Draft</button>}
-            {canReset && <button type="button" className="btn" onClick={() => setDialog('reset')}>Reset approval</button>}
             {canEarly && <button type="button" className="btn" onClick={() => setDialog('early')}>Early payoff</button>}
-            {canWriteOff && <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('writeoff') }}>Write off</button>}
             {canRefinance && <button type="button" className="btn" onClick={() => nav(`/loans/new?refinance=${loan.id}`)}>Refinance</button>}
-            {canVoid && <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('void') }}>Void</button>}
+          </div>
+        )}
+        {(canReset || canWriteOff || canVoid) && (
+          <div className="row minor" style={{ marginTop: 10 }}>
+            {canReset && <button type="button" className="linkbtn quiet" onClick={() => setDialog('reset')}>Reset approval</button>}
+            {canWriteOff && <button type="button" className="linkbtn danger-text" onClick={() => { setReason(''); setDialog('writeoff') }}>Write off</button>}
+            {canVoid && <button type="button" className="linkbtn danger-text" onClick={() => { setReason(''); setDialog('void') }}>{loan.status === 'approved' ? 'Undo refinancing' : 'Void'}</button>}
           </div>
         )}
       </section>

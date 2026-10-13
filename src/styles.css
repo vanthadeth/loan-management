@@ -1268,3 +1268,8 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
   .kv.dates>div:last-child{border-bottom:0;padding-bottom:0}
   .kv.dates .eyebrow{margin:0}
 }
+
+/* loan details: less important actions (reset approval, write off, void) as quiet text links */
+.minor{gap:18px;flex-wrap:wrap;justify-content:flex-end}
+.linkbtn.quiet{color:var(--muted)!important;font-weight:500}
+.linkbtn.danger-text{color:var(--late)!important;font-weight:500}

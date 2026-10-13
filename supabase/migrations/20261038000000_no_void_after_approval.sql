@@ -1,0 +1,16 @@
+-- An approved loan cannot be voided: reset its approval first (possible while it has no payments), then void it.
+-- The one exception is undoing a refinancing: voiding an approved refinancing loan that has no payments (step 7).
+-- This is private.loans_guard as of step 7 plus the check marked below; run `select pg_get_functiondef('private.loans_guard'::regproc)`
+-- to see the complete current text. Only the void branch changed:
+--
+--   if new.voided_at is distinct from old.voided_at or new.void_reason is distinct from old.void_reason then
+--     if not private.has_perm('loans.void') then raise exception 'Not allowed'; end if;
+--     if new.voided_at is not null and old.status in ('approved', 'refinanced')
+--        and not (old.status = 'approved' and old.refinance_of is not null
+--                 and not exists (select 1 from public.payments where loan_id = old.id and voided_at is null)) then
+--       raise exception 'An approved loan cannot be voided. Reset its approval first (possible while it has no payments).';
+--     end if;
+--     ... (unchanged)
+--
+-- Applied live. Tested (rolled back): a draft can be voided; an approved loan cannot; after resetting the approval it can;
+-- an old loan paid off by a refinance cannot; voiding the refinancing loan still undoes the refinancing.
