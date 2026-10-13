@@ -56,6 +56,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe()
   }, [load])
 
+  // last active, shown on the team list: stamped on sign-in and every few minutes while the app is in view
+  const uid = session?.user.id
+  useEffect(() => {
+    if (!uid) return
+    const touch = () => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      void supabase.rpc('touch_last_seen').then(() => {}, () => {})
+    }
+    touch()
+    const timer = setInterval(touch, 2 * 60_000)
+    const onShow = () => { if (typeof document !== 'undefined' && !document.hidden) touch() }
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onShow)
+    return () => {
+      clearInterval(timer)
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onShow)
+    }
+  }, [uid])
+
   const value = useMemo<Auth>(() => {
     const active = me?.status === 'active'
     return {
