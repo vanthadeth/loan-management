@@ -139,8 +139,9 @@ waivers (R-PAY-5); a reason on every waiver, void and write-off; permissions sta
   blocks overpayment (R-PAY-3) in the database. The app still shows the recomputed schedule from `src/lib/calc.ts`, and the
   allocation itself is a replay of the payments that count.
 - Paid and overdue are derived on every load, so they follow the code and terms of the day. No snapshots exist.
-- Refinance posts a payoff payment (`apply_refinance`, migration `20261025000000`) and flips the old loan to `refinanced`, but
-  individual installments are not locked.
+- Refinance posts a payoff payment (`apply_refinance`, migration `20261025000000`), flips the old loan to `refinanced` and
+  locks what is left of its installments (step 2). Voiding a refinancing loan without payments undoes all of it (step 7,
+  migration `20261034000000`, R-REFI-4); the dropped interest is not yet posted as a waiver entry (R-REFI-2).
 - Backdating limit (R-PAY-4) and four-eyes approval (R-LOAN-2, a setting, off by default) are enforced since step 4
   (migration `20261031000000`). Overpayment is blocked since step 3.
 - Early payoff (R-PAY-5) exists since step 6 (migration `20261033000000`, `EarlyPayoff` sheet, `earlyPayoffQuote`): the

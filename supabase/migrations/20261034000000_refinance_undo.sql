@@ -2,8 +2,9 @@
 -- the payoff payment on the old loan is voided (its installments unlock and reopen) and the old loan goes back
 -- from 'refinanced' to 'approved'. Restoring a voided refinancing loan is refused (refinance the old loan again).
 --
--- STATUS WHEN WRITTEN: parts 1 and 2 (loans_guard, payments_void_guard) were applied live; parts 3 to 5 were
--- NOT yet applied because the database tool began asking for approval. Apply them before relying on the undo.
+-- All parts are applied live. Tested (rolled back): voiding a refinancing loan without payments reopens the old loan
+-- ('approved', installments open/partial, payoff voided, snapshot 'refinance_undone'); with payments it is refused;
+-- the payoff cannot be voided directly; restoring the voided refinancing loan is refused.
 
 -- 1. loans_guard: one more allowed status change, refinanced -> approved, only while the undo runs (applied live)
 --    (the full function is the step-0 definition plus this branch, next to the 'approved' -> 'refinanced' one:)
@@ -36,7 +37,7 @@ begin
   return new;
 end $$;
 
--- 3. the undo itself (NOT yet applied)
+-- 3. the undo itself
 create function private.loans_refinance_undo() returns trigger
   language plpgsql security definer set search_path = public as $$
 declare v_code text;
@@ -60,7 +61,7 @@ end $$;
 create trigger loans_refinance_undo after update of voided_at on public.loans
   for each row execute function private.loans_refinance_undo();
 
--- 4. the snapshot written when the old loan goes back to approved is labelled (NOT yet applied)
+-- 4. the snapshot written when the old loan goes back to approved is labelled 
 create or replace function private.loans_snapshot() returns trigger
   language plpgsql security definer set search_path = public as $$
 begin

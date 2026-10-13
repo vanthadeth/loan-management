@@ -181,7 +181,7 @@ export function LoanDetail() {
               </p>
               {loan.void_reason && <p style={{ margin: '6px 0 0' }}>Reason: {loan.void_reason}</p>}
             </div>
-            {can('loans.void') && <button type="button" className="btn" onClick={() => setDialog('restore')}><Icon name="refresh" size={17} />Restore loan</button>}
+            {can('loans.void') && !loan.refinance_of && <button type="button" className="btn" onClick={() => setDialog('restore')}><Icon name="refresh" size={17} />Restore loan</button>}
           </div>
         </section>
       )}
@@ -456,7 +456,7 @@ export function LoanDetail() {
             try { await actions.voidLoan(loan.id, reason.trim()); toast('Loan voided'); setDialog(null); nav('/loans', { replace: true }) } catch (e) { toast(errMsg(e)) }
           },
         }}>
-          <p style={{ margin: '0 0 10px' }}>Voiding <b>{loanCode(loan.id)}</b> ({name}) hides it from everyone, including its payments, and removes it from every total and report. It stays on record and you can restore it later.</p>
+          <p style={{ margin: '0 0 10px' }}>Voiding <b>{loanCode(loan.id)}</b> ({name}) hides it from everyone, including its payments, and removes it from every total and report. {loan.refinance_of && loan.status === 'approved' ? <>It refinanced <b>{loanCode(loan.refinance_of)}</b>, so voiding it reverses that: the payoff on {loanCode(loan.refinance_of)} is voided and its installments open again. This is only possible while this loan has no payments, and it cannot be restored afterwards.</> : 'It stays on record and you can restore it later.'}</p>
           <TextArea id="vr" label="Reason (required)" value={reason} onChange={setReason} />
         </Sheet>
       )}
