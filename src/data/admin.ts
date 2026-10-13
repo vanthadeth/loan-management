@@ -6,7 +6,8 @@ import { fmtD } from '../lib/format'
 import { useAuth } from '../app/auth'
 import { useToast } from '../ui/Toast'
 import { squarePhoto, uploadFile, useInvalidate } from './core'
-import type { AppSettings, BankAccount, Profile, Role } from '../lib/types'
+import { appUrl, copyText } from '../lib/device'
+import type { AppSettings, BankAccount, Profile, Role, Upload } from '../lib/types'
 
 /* ---------------------------------------------------------------- errors */
 
@@ -95,7 +96,7 @@ export function useSaveProfile() {
 export function useUploadPhoto() {
   const save = useSaveProfile()
   const { me } = useAuth()
-  return async (file: File) => {
+  return async (file: Upload) => {
     if (!me) return
     const old = me.photo_path
     const path = await uploadFile('avatars', await squarePhoto(file))
@@ -238,14 +239,14 @@ export function lastSeenLabel(ts: string | null) {
 
 /** Message the admin sends to a new user (copied from the first-login page). */
 export const loginMessage = (fullName: string, username: string, password: string) =>
-  `Hello ${fullName},\n\nWelcome to the team.\n\nClick on the following URL to download the app.\n${window.location.origin}\n\n----\n\nYour login information:\nUsername: ${username}\nPassword: ${password}\n\nPlease set your own password on your first login.`
+  `Hello ${fullName},\n\nWelcome to the team.\n\nClick on the following URL to download the app.\n${appUrl()}\n\n----\n\nYour login information:\nUsername: ${username}\nPassword: ${password}\n\nPlease set your own password on your first login.`
 
 /** Copies text and tells the user, with a fallback hint when the browser refuses. */
 export function useCopy() {
   const toast = useToast()
   return async (value: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(value)
+      await copyText(value)
       toast(label + ' copied')
     } catch {
       toast('Press and hold the text to copy it')

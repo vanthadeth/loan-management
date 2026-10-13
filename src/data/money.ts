@@ -2,10 +2,11 @@ import { useMemo, useSyncExternalStore } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { uploadFile } from './core'
+import { prefs } from '../lib/device'
 import { useLoanViews, type LoanView } from './book'
 import { addDays, buildSchedule, roundMoney, todayIso, toIso, type Currency, type LoanTerms } from '../lib/calc'
 import { fmt } from '../lib/format'
-import type { Borrower, Payment } from '../lib/types'
+import type { Borrower, Payment, Upload } from '../lib/types'
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -39,7 +40,7 @@ export function createStore<T>(initial: T, key?: string, valid?: (v: unknown) =>
   let value = initial
   if (key) {
     try {
-      const raw = localStorage.getItem(key)
+      const raw = prefs.get(key)
       const v: unknown = raw === null ? undefined : JSON.parse(raw)
       if (valid?.(v)) value = v
     } catch { /* storage can be unavailable */ }
@@ -50,7 +51,7 @@ export function createStore<T>(initial: T, key?: string, valid?: (v: unknown) =>
     subscribe: (cb: () => void) => { subs.add(cb); return () => { subs.delete(cb) } },
     set: (v: T) => {
       value = v
-      if (key) { try { localStorage.setItem(key, JSON.stringify(v)) } catch { /* ignore */ } }
+      if (key) prefs.set(key, JSON.stringify(v))
       subs.forEach((cb) => cb())
     },
   }
@@ -330,7 +331,7 @@ export interface NewPayment {
   amount: number
   late_fee: number
   paid_on: string
-  photo: File | null
+  photo: Upload | null
 }
 
 export function useRecordPayment() {

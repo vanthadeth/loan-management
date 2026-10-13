@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { fileUrl, must, uploadFile, useInvalidate, useRoles, useTeam } from './core'
 import { useBook, useLoanViews, type LoanView } from './book'
-import type { Loan, LoanAttachment, LoanCollateral, LoanStatus } from '../lib/types'
+import type { Loan, LoanAttachment, LoanCollateral, LoanStatus, Upload } from '../lib/types'
 
 /** Readable text for any failure (RLS and DB triggers raise plain sentences). */
 export const errMsg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Something went wrong. Please try again.')
@@ -63,7 +63,7 @@ export type NewLoanFields = Pick<Loan,
 
 export interface NewLoanInput {
   loan: NewLoanFields
-  collaterals: { description: string; files: File[] }[]
+  collaterals: { description: string; files: Upload[] }[]
 }
 
 /** Adds collateral items and their files to a loan; returns a warning text if something could not be saved. */
@@ -126,7 +126,7 @@ export function useLoanActions() {
       await refresh()
     },
 
-    async addAttachments(loanId: number, files: File[]) {
+    async addAttachments(loanId: number, files: Upload[]) {
       for (const f of files) {
         const file_path = await uploadFile('loans', f)
         const { error } = await supabase.from('loan_attachments').insert({ loan_id: loanId, collateral_id: null, file_path, file_name: f.name })
