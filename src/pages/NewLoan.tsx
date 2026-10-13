@@ -264,8 +264,6 @@ export function NewLoan() {
       <Lr k={feeLabel} v={'−' + fmt(p.fee, currency)} />
       <Lr k="Borrower receives" v={fmt(p.net, currency)} cls="strong" />
       <Lr k={`Total interest (~${p.interestPct}%)`} v={fmt(p.interest, currency)} />
-      <Lr k="Effective annual rate (APR)" v={aprText} />
-      <Lr k="Late fee" v={lateLabel} />
       {equal ? (
         <>
           <Lr k="Installment" v={fmt(installment, currency)} />
@@ -478,11 +476,13 @@ export function NewLoan() {
                   <Tile k="Interest" v={terms.ratePct + '%'} sub={BASIS.find((b) => b.value === basis)?.label} />
                   <Tile k="Occurrences" v={String(n)} sub={freq === 'Custom' ? `Every ${intervalDays} days` : freq} />
                   <Tile k="Service fee" v={terms.feePct + '%'} />
-                  <Tile k="Effective annual rate (APR)" v={aprText} />
-                  <Tile k="Late fee" v={lateLabel} />
-                  <Tile k="Supervisor" v={supervisorName} />
-                  <Tile k="Collector" v={collectorName} />
                 </div>
+              </Section>
+              <Section title="Late fee and people" step={2} onEdit={setStep}>
+                <Line k="Effective annual rate (APR)" v={aprText} />
+                <Line k="Late fee" v={lateLabel} />
+                <Line k="Supervisor" v={supervisorName} />
+                <Line k="Collector" v={collectorName} />
               </Section>
               <Section title="Payment and collateral" step={3} onEdit={setStep}>
                 <Line k="Borrower pays by" v={effMethod === 'bank' ? 'Bank' + (bank ? ' · ' + bankLabel(bank) : '') : effMethod === 'other' ? 'Other' + (remarks.trim() ? ' · ' + remarks.trim() : '') : 'Cash'} />
@@ -494,9 +494,20 @@ export function NewLoan() {
         )}
       </form>
       <div className="wz-bar">
-        <button type="button" className="btn" onClick={() => (step === 0 || (refiOf && step === 1) ? setDialog('cancel') : setStep(step - 1))}>{step === 0 || (refiOf && step === 1) ? t('cancel') : t('back')}</button>
-        {step === STEPS.length - 1 && <button type="button" className="btn" onClick={() => { const m = [0, 1, 2].map(problem).find(Boolean); if (m) toast(m); else void submit(true) }}>Save draft</button>}
-        <button type="button" className="btn primary" onClick={next}>{step === STEPS.length - 1 ? 'Submit request' : 'Next'}</button>
+        {(() => {
+          const first = step === 0 || (refiOf && step === 1)
+          return (
+            <button type="button" className="btn ico" aria-label={first ? t('cancel') : t('back')} title={first ? t('cancel') : t('back')}
+              onClick={() => (first ? setDialog('cancel') : setStep(step - 1))}><Icon name={first ? 'x' : 'back'} size={22} /></button>
+          )
+        })()}
+        {step === STEPS.length - 1 && (
+          <button type="button" className="btn ico" aria-label="Save draft" title="Save draft"
+            onClick={() => { const m = [0, 1, 2].map(problem).find(Boolean); if (m) toast(m); else void submit(true) }}><Icon name="save" size={22} /></button>
+        )}
+        {step === STEPS.length - 1
+          ? <button type="button" className="btn primary" onClick={next}>Submit request</button>
+          : <button type="button" className="btn primary ico wide" aria-label="Next" title="Next" onClick={next}><Icon name="chev" size={22} /></button>}
       </div>
 
       {dialog === 'cancel' && (
