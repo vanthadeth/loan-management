@@ -1220,3 +1220,6 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 /* messages bell in the app title: flat, and its unread count may sit outside the button */
 .icon-btn.bell{overflow:visible!important;background:none!important;box-shadow:none!important;color:var(--ink)}
 .icon-btn.bell:hover{background:var(--surface2)}
+
+/* trust level: bad */
+.chip.bad{background:transparent;color:var(--late);border:1px solid var(--late)}

@@ -36,7 +36,7 @@ export function useBook() {
       const num = <T extends object>(rows: T[], keys: (keyof T)[]): T[] =>
         rows.map((r) => { const o = { ...r }; keys.forEach((k) => { if (o[k] != null) o[k] = Number(o[k]) as T[keyof T] }); return o })
       const allLoans = num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_pct', 'rate_pct'])
-      const allPayments = num(must(p) as Payment[], ['amount', 'late_fee'])
+      const allPayments = num(must(p) as Payment[], ['amount', 'late_fee', 'late_fee_waived'])
       const voidedIds = new Set(allLoans.filter((x) => x.voided_at).map((x) => x.id))
       return {
         loans: allLoans.filter((x) => !x.voided_at),
@@ -80,7 +80,7 @@ export function useLoanViews(): { views: LoanView[]; voidedViews: LoanView[]; is
     const build = (loan: Loan): LoanView => {
       const payments = pays.get(loan.id) ?? []
       const terms = termsOf(loan)
-      const status = scheduleStatus(terms, payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, paidOn: p.paid_on })), today)
+      const status = scheduleStatus(terms, payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), today)
       const approved = loan.status === 'approved'
       return { loan, borrower: bor.get(loan.borrower_id), payments, terms, status, done: approved && status.done, active: approved && !status.done }
     }

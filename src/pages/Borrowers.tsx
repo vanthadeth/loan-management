@@ -11,7 +11,7 @@ import { BorrowerSheet } from './borrowers/BorrowerSheet'
 import { BorrowerChip, TierIcon } from './borrowers/parts'
 import { SearchBar } from './loans/parts'
 
-const FILTERS = ['all', 'gold', 'silver', 'normal', 'banned']
+const FILTERS = ['all', 'gold', 'silver', 'normal', 'bad', 'banned']
 
 export function Borrowers() {
   const { t, lang } = useI18n()

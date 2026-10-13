@@ -180,10 +180,10 @@ export function LoanDetail() {
         <section className="card">
           <div className="eyebrow">Next installment</div>
           <div className="row between" style={{ alignItems: 'center', margin: '4px 0' }}>
-            <b className="num" style={{ fontSize: 18 }}>#{next.i} · {fmt(dueParts(next).remaining + next.lateFee, cur)}</b>
+            <b className="num" style={{ fontSize: 18 }}>#{next.i} · {fmt(dueParts(next).remaining + status.lateFeeOutstanding, cur)}</b>
             <span className={'chip ' + (next.state === 'overdue' ? 'overdue' : '')}>{next.state === 'overdue' ? `${next.lateDays}d late` : fmtD(next.due)}</span>
           </div>
-          {next.lateFee > 0 && <p className="small muted" style={{ margin: 0 }}>Includes a late fee of {fmt(next.lateFee, cur)} ({next.lateOccurrences} × {lateRate}).</p>}
+          {status.lateFeeOutstanding > 0 && <p className="small muted" style={{ margin: 0 }}>Includes late fees of {fmt(status.lateFeeOutstanding, cur)} ({lateRate} of what is still owed, per late {lateUnit}).</p>}
           <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
             {can('payments.record') && <button type="button" className="btn primary" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>Record payment</button>}
             {phone && <a className="btn" href={'tel:' + phone}><Icon name="phone" size={16} />Call</a>}
@@ -299,7 +299,7 @@ export function LoanDetail() {
             )
           })}
         </div>
-        <p className="small muted" style={{ margin: '8px 0 0' }}>Late fee: {lateRate} of the unpaid installment for every {lateUnit} it is late, as agreed in this contract.</p>
+        <p className="small muted" style={{ margin: '8px 0 0' }}>Late fee: {lateRate} of everything still owed on the contract, for every {lateUnit} a payment is late, as agreed in this contract.</p>
       </details>
 
       <details className="card sec">
@@ -314,7 +314,7 @@ export function LoanDetail() {
             <div className="item" style={{ cursor: 'default' }} key={p.id}>
               <span className="grow">
                 <b>{fmtD(p.paid_on)}</b>
-                {(p.late_fee > 0 || p.note) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee > 0 ? `incl. ${fmt(p.late_fee, cur)} late fee` : '', p.note].filter(Boolean).join(' · ')}</span>}
+                {(p.late_fee > 0 || p.late_fee_waived > 0 || p.note) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee > 0 ? `incl. ${fmt(p.late_fee, cur)} late fee` : '', p.late_fee_waived > 0 ? `${fmt(p.late_fee_waived, cur)} late fee forgiven` : '', p.note].filter(Boolean).join(' · ')}</span>}
               </span>
               {p.photo_path && <FileView path={p.photo_path} label="Photo" />}
               <b className="num in">+{fmt(p.amount, cur)}</b>

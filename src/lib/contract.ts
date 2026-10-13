@@ -37,7 +37,7 @@ export const PLACEHOLDERS: [string, string][] = [
   ['end_date', 'Date of the last payment'],
   ['contract_duration', 'Length of the contract with its unit: weeks if paid weekly, months if paid monthly, otherwise days'],
   ['contract_duration_days', 'Length of the contract in days (number only)'],
-  ['late_fee_percent', 'Late fee, % of the unpaid installment per late payment period'],
+  ['late_fee_percent', 'Late fee, % of everything still owed per late payment period'],
   ['pay_method', 'How the borrower pays'],
   ['bank_name', 'Bank the borrower pays into (empty if not by bank)'],
   ['bank_account_no', 'Bank account number'],
@@ -79,7 +79,7 @@ export const STARTER_KM = `កិច្ចសន្យាខ្ចីប្រ�
 ការប្រាក់គឺ {{interest_rate}} (ការប្រាក់សរុប {{total_interest}})។ អ្នកខ្ចីត្រូវសងសរុប {{total_to_pay}} ({{total_to_pay_words}}) ចំនួន {{occurrences}} ដង {{frequency}} ដោយដងនីមួយៗចំនួន {{installment}} ({{installment_words}})។ រយៈពេលនៃកិច្ចសន្យាគឺ {{contract_duration}} ({{contract_duration_days}} ថ្ងៃ)។ ទម្រង់នៃការសង: {{repayment_mode}}។ ការសងចុងក្រោយត្រូវធ្វើនៅ{{end_date}}។ តារាងសងប្រាក់លម្អិតមានក្នុងឧបសម្ព័ន្ធនៃកិច្ចសន្យានេះ។
 
 ៤. ការសងយឺត
-រាល់ការសងយឺតមួយគ្រា (តាមរយៈពេលនៃការសងនីមួយៗ) អ្នកខ្ចីត្រូវបង់ប្រាក់ពិន័យ {{late_fee_percent}} នៃទឹកប្រាក់ដែលមិនទាន់បង់។
+រាល់ការសងយឺតមួយគ្រា (តាមរយៈពេលនៃការសងនីមួយៗ) អ្នកខ្ចីត្រូវបង់ប្រាក់ពិន័យ {{late_fee_percent}} នៃទឹកប្រាក់ទាំងអស់ដែលនៅជំពាក់។
 
 ៥. ទ្រព្យធានា
 {{collateral}}
@@ -136,7 +136,7 @@ The Lender lends the Borrower {{amount}} on {{release_date}}. A service fee of {
 Interest is {{interest_rate}} (total interest {{total_interest}}). The Borrower repays {{total_to_pay}} in {{occurrences}} payments, {{frequency}}, starting with {{installment}}. The contract lasts {{contract_duration}} ({{contract_duration_days}} days). Repayment: {{repayment_mode}}. The last payment is due on {{end_date}}. The full payment schedule is in the annex.
 
 4. Late payment
-For every payment period an installment is late the Borrower pays a late fee of {{late_fee_percent}} of the unpaid installment.
+For every payment period a payment is late the Borrower pays a late fee of {{late_fee_percent}} of everything still owed under this agreement.
 
 5. Collateral
 {{collateral}}

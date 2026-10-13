@@ -18,13 +18,17 @@ export interface LoanTerms {
   intervalDays: number
   mode: PayMode
   releaseDate: string
-  /** Percent of the unpaid installment charged for every late occurrence (one payment period). */
+  /** Percent of everything still owed on the contract, charged for every payment period it is late. */
   lateFeePct: number
+  /** Balance carried over from a loan this one refinances: part of `amount`, but no service fee and not paid out. */
+  carried?: number
 }
 
 export interface PaymentLike {
   amount: number
   lateFee: number
+  /** late fee that was due with this payment but forgiven */
+  lateFeeWaived?: number
   paidOn: string
 }
 
@@ -98,10 +102,12 @@ export function buildSchedule(t: LoanTerms): Installment[] {
 
 export function loanTotals(t: LoanTerms) {
   const rows = buildSchedule(t)
-  const fee = roundMoney((t.amount * t.feePct) / 100, t.currency)
+  const carried = t.carried ?? 0
+  const fee = roundMoney(((t.amount - carried) * t.feePct) / 100, t.currency)
   const total = rows.reduce((s, r) => s + r.total, 0)
   const interest = rows.reduce((s, r) => s + r.interest, 0)
-  return { rows, fee, interest, total, net: t.amount - fee, endDate: rows[rows.length - 1].due }
+  // net: what the borrower actually receives (a carried balance pays off the old loan instead)
+  return { rows, fee, interest, total, net: t.amount - carried - fee, endDate: rows[rows.length - 1].due }
 }
 
 const EPS = 0.005
@@ -118,11 +124,18 @@ export function lateOccurrences(t: Pick<LoanTerms, 'frequency' | 'intervalDays'>
   return Math.ceil(days / Math.max(1, t.intervalDays))
 }
 
+/** Start of late period `k` (0-based) that began on `start`: same day of the month, or every `intervalDays` days. */
+const periodStart = (t: Pick<LoanTerms, 'frequency' | 'intervalDays'>, start: string, k: number) =>
+  t.frequency === 'monthly' ? addMonths(start, k) : addDays(start, k * Math.max(1, t.intervalDays))
+
 /**
  * Walks the payments in order and spreads what is left after late fees over the
- * installments, oldest first. The late fee is a percentage of the installment,
- * charged once per payment period from the due date until the installment is
- * paid in full (or until today if it is still open).
+ * installments, oldest first.
+ *
+ * Late fee: while any installment is overdue the loan is late. For every payment
+ * period it is late (a started period counts) the borrower owes `lateFeePct` % of
+ * everything still owed on the contract at the start of that period. Each period's
+ * fee is shown on the oldest installment that was overdue then.
  */
 export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: string) {
   const rows = buildSchedule(t)
@@ -134,6 +147,7 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
     cumulative.push({ total: run, on: p.paidOn })
   }
   const applied = run
+  const total = rows.reduce((s, r) => s + r.total, 0)
   let before = 0
   const status: InstallmentStatus[] = rows.map((r) => {
     const upTo = before + r.total
@@ -144,12 +158,33 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
     const lateDays = Math.max(0, diffDays(r.due, end))
     const state: InstallmentState = full ? 'paid' : r.due < today ? 'overdue' : paidAmount > 0 ? 'partial' : 'upcoming'
     before = upTo
-    const occ = lateOccurrences(t, r.due, end)
-    return { ...r, paidAmount, paidOn, state, lateDays, lateOccurrences: occ, lateFee: roundMoney((occ * t.lateFeePct * r.total) / 100, t.currency) }
+    return { ...r, paidAmount, paidOn, state, lateDays, lateOccurrences: 0, lateFee: 0 }
   })
-  const total = rows.reduce((s, r) => s + r.total, 0)
+
+  // late stretches: from an installment's due date until it is paid; overlapping ones join up
+  const owedOn = (date: string) => total - cumulative.filter((c) => c.on <= date).reduce((m, c) => Math.max(m, c.total), 0)
+  const stretches: [string, string][] = []
+  for (const r of status) {
+    const end = r.paidOn ?? today
+    if (end <= r.due) continue
+    const last = stretches[stretches.length - 1]
+    if (last && r.due < last[1]) last[1] = end > last[1] ? end : last[1]
+    else stretches.push([r.due, end])
+  }
+  for (const [start, end] of stretches) {
+    for (let k = 0; ; k++) {
+      const at = periodStart(t, start, k)
+      if (at >= end) break
+      const fee = roundMoney((Math.max(owedOn(at), 0) * t.lateFeePct) / 100, t.currency)
+      const row = status.find((r) => r.due <= at && (r.paidOn === null || r.paidOn > at)) ?? status[0]
+      row.lateFee += fee
+      row.lateOccurrences++
+    }
+  }
+
   const lateFeeAccrued = status.reduce((s, r) => s + r.lateFee, 0)
   const lateFeePaid = payments.reduce((s, p) => s + p.lateFee, 0)
+  const lateFeeWaived = payments.reduce((s, p) => s + (p.lateFeeWaived ?? 0), 0)
   const collected = Math.min(applied, total)
   return {
     rows: status,
@@ -159,19 +194,28 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
     paidCount: status.filter((r) => r.state === 'paid').length,
     lateFeeAccrued,
     lateFeePaid,
-    lateFeeOutstanding: Math.max(lateFeeAccrued - lateFeePaid, 0),
+    lateFeeWaived,
+    lateFeeOutstanding: Math.max(lateFeeAccrued - lateFeePaid - lateFeeWaived, 0),
     done: applied >= total - EPS,
   }
 }
 
-/** What a new payment settles: late fee first, then installments oldest first. */
-export function allocatePayment(t: LoanTerms, payments: PaymentLike[], amount: number, paidOn: string) {
+/**
+ * What a new payment settles: late fee first, then installments oldest first.
+ * `collectLateFee` is how much late fee the collector actually took (0 up to what is due); the rest of the
+ * late fee due is forgiven. Left out, the full late fee is collected as far as the amount covers it.
+ */
+export function allocatePayment(t: LoanTerms, payments: PaymentLike[], amount: number, paidOn: string, collectLateFee?: number) {
   const before = scheduleStatus(t, payments, paidOn)
-  const lateFee = Math.min(amount, before.lateFeeOutstanding)
-  const after = scheduleStatus(t, [...payments, { amount, lateFee, paidOn }], paidOn)
+  const due = before.lateFeeOutstanding
+  const lateFee = Math.max(0, Math.min(collectLateFee ?? due, due, amount))
+  const lateFeeWaived = roundMoney(Math.max(due - lateFee, 0), t.currency)
+  const after = scheduleStatus(t, [...payments, { amount, lateFee, lateFeeWaived, paidOn }], paidOn)
   const toInstallments = amount - lateFee
   return {
+    lateFeeDue: due,
     lateFee,
+    lateFeeWaived,
     toInstallments,
     above: Math.max(toInstallments - before.remaining, 0),
     balanceAfter: after.remaining,

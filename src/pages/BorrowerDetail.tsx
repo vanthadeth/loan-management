@@ -18,7 +18,7 @@ import { BorrowerChip } from './borrowers/parts'
 import { FileView } from './loans/FileView'
 import { LoanRow } from './loans/parts'
 
-const TIERS: Tier[] = ['normal', 'silver', 'gold']
+const TIERS: Tier[] = ['bad', 'normal', 'silver', 'gold']
 
 function Contact({ href, icon, label }: { href: string; icon: string; label: string }) {
   return <a className="mcta" href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}><Icon name={icon} size={17} /></a>
@@ -119,7 +119,7 @@ export function BorrowerDetail() {
         </details>
         <section className={'card' + (banned ? ' locked' : '')}>
           <h2 className="row" style={{ gap: 8 }}>{banned && <Icon name="lock" size={18} />}Trust rating</h2>
-          <p className="muted small" style={{ margin: '4px 0 10px' }}>{banned ? 'Locked while the borrower is banned.' : 'Set by staff. Normal → Silver (good customer) → Gold (trusted).'}</p>
+          <p className="muted small" style={{ margin: '4px 0 10px' }}>{banned ? 'Locked while the borrower is banned.' : 'Set by staff. Bad (pays late or not at all) → Normal → Silver (good customer) → Gold (trusted).'}</p>
           <div className="seg big">
             {TIERS.map((x) => (
               <button key={x} type="button" aria-pressed={b.tier === x} disabled={banned || !can('borrowers.ban')} onClick={() => x !== b.tier && setDialog({ tier: x })}>{t(x)}</button>

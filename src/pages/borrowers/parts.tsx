@@ -2,7 +2,7 @@ import { Icon } from '../../ui/Icon'
 import { useI18n } from '../../app/i18n'
 import type { Borrower } from '../../lib/types'
 
-const ICON: Record<string, string> = { all: 'asterisk', gold: 'medal', silver: 'medal', normal: 'userp', banned: 'ban' }
+const ICON: Record<string, string> = { all: 'asterisk', gold: 'medal', silver: 'medal', normal: 'userp', bad: 'alert', banned: 'ban' }
 
 /** Small icon for a trust level / filter, as used on chips and tabs. */
 export function TierIcon({ kind, size }: { kind: string; size: number }) {

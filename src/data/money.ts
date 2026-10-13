@@ -329,6 +329,7 @@ export interface NewPayment {
   bank_account_id: number | null
   amount: number
   late_fee: number
+  late_fee_waived: number
   paid_on: string
   photo: File | null
 }

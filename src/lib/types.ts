@@ -2,7 +2,7 @@ import type { Currency, PayMode, RateBasis } from './calc'
 
 export type UserStatus = 'active' | 'suspended' | 'discharged'
 export type LoanStatus = 'drafted' | 'requested' | 'approved' | 'rejected'
-export type Tier = 'normal' | 'silver' | 'gold'
+export type Tier = 'bad' | 'normal' | 'silver' | 'gold'
 
 export interface Role { id: string; name: string; description: string; locked: boolean; scoped: boolean }
 export interface RolePermission { role_id: string; permission: string }
@@ -34,7 +34,7 @@ export interface LoanCollateral { id: number; loan_id: number; description: stri
 export interface LoanAttachment { id: number; loan_id: number; collateral_id: number | null; file_path: string; file_name: string }
 
 export interface Payment {
-  id: number; loan_id: number; bank_account_id: number | null; amount: number; late_fee: number
+  id: number; loan_id: number; bank_account_id: number | null; amount: number; late_fee: number; late_fee_waived: number
   paid_on: string; photo_path: string | null; note: string; created_by: string | null; created_at: string
 }
 export interface FundTransaction { id: number; kind: 'add' | 'withdraw'; currency: Currency; amount: number; txn_date: string; note: string; created_at: string }

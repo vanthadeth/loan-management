@@ -41,6 +41,7 @@ export function PayWizard() {
   const [q, setQ] = useState('')
   const [bank, setBank] = useState<string | null>(null)
   const [amount, setAmount] = useState<string | null>(null)
+  const [lateText, setLateText] = useState<string | null>(null)
   const [paidOn, setPaidOn] = useState(todayIso())
   const [photo, setPhotoState] = useState<{ file: File; url: string } | null>(null)
   const urlRef = useRef<string | null>(null)
@@ -62,13 +63,18 @@ export function PayWizard() {
   const bankText = bankOptions.find((o) => o.value === bankValue)?.label ?? CASH
   const value = parseAmount(amountValue)
 
+  const history = useMemo(() => (view?.payments ?? []).map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), [view])
+  // late fee due on the payment date; the collector may take anything from 0 to all of it, the rest is forgiven
+  const lateDue = useMemo(() => (view ? allocatePayment(view.terms, history, 0, paidOn).lateFeeDue : 0), [view, history, paidOn])
+  const lateCap = Math.min(lateDue, value)
+  const lateValue = lateText === null ? lateCap : Math.min(parseAmount(lateText), lateCap)
   const alloc = useMemo(() => {
     if (!view || !(value > 0)) return null
-    return allocatePayment(view.terms, view.payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, paidOn: p.paid_on })), value, paidOn)
-  }, [view, value, paidOn])
+    return allocatePayment(view.terms, history, value, paidOn, lateValue)
+  }, [view, history, value, paidOn, lateValue])
 
   const pick = (id: number) => {
-    if (id !== loanId) { setPhoto(null); setAmount(null); setBank(null) }
+    if (id !== loanId) { setPhoto(null); setAmount(null); setBank(null); setLateText(null) }
     setLoanId(id)
     setStep(1)
   }
@@ -96,7 +102,7 @@ export function PayWizard() {
     try {
       await rec.mutateAsync({
         loan_id: view.loan.id, bank_account_id: bankValue ? Number(bankValue) : null, amount: value,
-        late_fee: alloc.lateFee, paid_on: paidOn, photo: photo?.file ?? null,
+        late_fee: alloc.lateFee, late_fee_waived: alloc.lateFeeWaived, paid_on: paidOn, photo: photo?.file ?? null,
       })
       toast('Payment recorded')
       nav('/cashflow')
@@ -128,6 +134,19 @@ export function PayWizard() {
                 <p className="small muted">{hint(view)}</p>
               </div>
               <DateField id="pyd" label="Paid on" value={paidOn} onChange={setPaidOn} />
+              {lateDue > 0 && (
+                <div className="field">
+                  <label htmlFor="pl">Late fee collected</label>
+                  <div className="wz-amt">
+                    <input id="pl" inputMode="decimal" autoComplete="off" value={lateText ?? amountToText(lateValue, cur)} onChange={(e) => setLateText(amountText(e.target.value, cur))} />
+                    <span>{symbol(cur)}</span>
+                  </div>
+                  <p className="small muted">
+                    Late fee due {fmt(lateDue, cur)}. Take anything from 0 up to that; the rest is forgiven.
+                    {lateValue < lateDue && <> <b>{fmt(lateDue - lateValue, cur)} forgiven.</b></>}
+                  </p>
+                </div>
+              )}
               <div className="field">
                 <label>Photo of payment transaction (optional)</label>
                 <div className="drop">
@@ -243,7 +262,8 @@ function Review({ view, alloc, amount, paidOn, bankText, photo, onEdit, lang }: 
           {row('Receiving account', bankText)}
           {row('Paid on', fmtD(paidOn))}
           {row('Amount received', fmt(amount, cur), 'strong')}
-          {alloc.lateFee > 0 && row('Late fee settled', fmt(alloc.lateFee, cur), 'sub')}
+          {alloc.lateFee > 0 && row('Late fee collected', fmt(alloc.lateFee, cur), 'sub')}
+          {alloc.lateFeeWaived > 0 && row('Late fee forgiven', fmt(alloc.lateFeeWaived, cur), 'sub')}
           {row('Applied to installments', fmt(applied, cur), 'sub')}
           {alloc.above > 0.005 && row('Above the contract balance', fmt(alloc.above, cur), 'sub')}
           {row('Balance after payment', fmt(Math.max(alloc.balanceAfter, 0), cur), 'strong')}
