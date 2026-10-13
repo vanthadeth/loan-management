@@ -133,8 +133,10 @@ waivers (R-PAY-5); a reason on every waiver, void and write-off; permissions sta
 
 ## 12. Where the app is not there yet
 
-- The schedule is now stored at approval (`loan_installments`, migration `20261028000000`, roadmap step 1), but the app still
-  reads the recomputed one from `src/lib/calc.ts`, and payments are not linked to installments yet (step 2).
+- The schedule is stored at approval (`loan_installments`, migration `20261028000000`, roadmap step 1) and payments are linked
+  to its installments (`payment_allocations`, `private.reallocate_loan`, migration `20261029000000`, step 2): paid and
+  partial are set by the database. The app still shows the recomputed schedule from `src/lib/calc.ts`, and allocation is a
+  replay of the payments that count, not yet an append-only record with snapshots (step 3).
 - Paid and overdue are derived on every load, so they follow the code and terms of the day. No snapshots exist.
 - Refinance posts a payoff payment (`apply_refinance`, migration `20261025000000`) and flips the old loan to `refinanced`, but
   individual installments are not locked.
