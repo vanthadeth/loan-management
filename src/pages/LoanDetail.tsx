@@ -473,8 +473,8 @@ export function LoanDetail() {
           <div style={{ height: 72 }} aria-hidden="true" />
           {createPortal(
             <div className="fbar" role="group" aria-label="Approval">
-              <button type="button" className="btn primary" onClick={() => setDialog('approve')}>Approve</button>
               <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('reject') }}>Deny</button>
+              <button type="button" className="btn primary" onClick={() => setDialog('approve')}>Approve</button>
             </div>,
             document.body,
           )}
