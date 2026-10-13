@@ -29,6 +29,7 @@ export function BorrowerSheet({ borrower, onClose }: { borrower?: Borrower; onCl
   })
   const [photo, setPhoto] = useState<File | null>(null)
   const [showMap, setShowMap] = useState(false)
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => { setPhoto(e.target.files?.[0] ?? null); e.target.value = '' }
   const preview = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo])
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
   const set = (k: keyof typeof f) => (v: string) => setF((s) => ({ ...s, [k]: v }))
@@ -75,9 +76,16 @@ export function BorrowerSheet({ borrower, onClose }: { borrower?: Borrower; onCl
             {preview ? <span className="avatar lg" style={{ backgroundImage: `url('${preview}')` }} />
               : borrower ? <Avatar p={{ full_name: borrower.name_km || borrower.name, display_name: '', photo_path: borrower.photo_path }} size="lg" />
               : <span className="avatar lg"><Icon name="camera" size={28} /></span>}
-            <label className="btn sm" style={{ cursor: 'pointer' }}>
-              Take / choose photo<input type="file" accept="image/*" capture="user" hidden onChange={(e) => { setPhoto(e.target.files?.[0] ?? null); e.target.value = '' }} />
-            </label>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <label className="btn sm" style={{ cursor: 'pointer' }}>
+                <Icon name="camera" size={16} />Take photo
+                <input type="file" accept="image/*" capture="environment" hidden onChange={pick} />
+              </label>
+              <label className="btn sm" style={{ cursor: 'pointer' }}>
+                <Icon name="upload" size={16} />Choose from gallery
+                <input type="file" accept="image/*" hidden onChange={pick} />
+              </label>
+            </div>
           </div>
         </div>
         <Field id="bk" label="Name in Khmer" value={f.name_km} onChange={set('name_km')} cls="full" />
