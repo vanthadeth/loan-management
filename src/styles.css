@@ -1247,3 +1247,5 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 .ins-row{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
 .ins-row:first-of-type{border-top:0}
 .dot{width:12px;height:12px;border-radius:50%;flex:none;margin-top:5px}
+.ctas{display:flex;gap:8px;flex-wrap:wrap}
+.ctas>.btn{flex:1 1 110px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-align:center}

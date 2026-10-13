@@ -150,7 +150,7 @@ export function LoanDetail() {
           </p>
         )}
         {(mine || canReturn || canReset || canVoid || canRefinance) && (
-          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <div className="ctas">
             {mine && (
               <>
                 <button type="button" className="btn primary" onClick={() => setDialog('submit')}>Submit request</button>
@@ -183,6 +183,17 @@ export function LoanDetail() {
       )}
 
 
+
+
+
+
+
+      <div className="tabs ltabs" role="tablist" aria-label="Loan sections">
+        {tabs.map(([k, label]) => (
+          <button type="button" role="tab" key={k} className="tab" aria-pressed={tab === k} aria-selected={tab === k} onClick={() => setTab(k)}>{label}</button>
+        ))}
+      </div>
+      {tab === 'main' && <>
       {!voided && (next || (approved && status.done) || status.lateFeeOutstanding > 0) && (
         <div className="qa2">
           {next ? (
@@ -192,7 +203,7 @@ export function LoanDetail() {
                 <b className="num" style={{ fontSize: 22, fontFamily: 'var(--display)' }}>{fmt(dueParts(next).remaining, cur)}</b>
                 <span className={'chip ' + (next.state === 'overdue' ? 'overdue' : '')}>{next.state === 'overdue' ? `${next.lateDays}d late` : `Due ${fmtD(next.due)}`}</span>
               </div>
-              <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              <div className="ctas" style={{ marginTop: 10 }}>
                 {can('payments.record') && <button type="button" className="btn primary" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>Record payment</button>}
                 {phone && <a className="btn" style={{ textDecoration: 'none' }} href={'tel:' + phone}><Icon name="phone" size={16} />Call</a>}
               </div>
@@ -210,23 +221,12 @@ export function LoanDetail() {
               <b className="num out" style={{ fontSize: 22, fontFamily: 'var(--display)', display: 'block', margin: '4px 0' }}>{fmt(status.lateFeeOutstanding, cur)}</b>
               <p className="small muted" style={{ margin: 0 }}>{lateRate} of the unpaid principal, per late {lateUnit}. Collected separately from payments.</p>
               {approved && can('payments.record') && (
-                <div className="row" style={{ marginTop: 10 }}><button type="button" className="btn" onClick={() => setDialog('latefee')}>Collect late fee</button></div>
+                <div className="ctas" style={{ marginTop: 10 }}><button type="button" className="btn" onClick={() => setDialog('latefee')}>Collect late fee</button></div>
               )}
             </section>
           )}
         </div>
       )}
-
-
-
-
-
-      <div className="tabs ltabs" role="tablist" aria-label="Loan sections">
-        {tabs.map(([k, label]) => (
-          <button type="button" role="tab" key={k} className="tab" aria-pressed={tab === k} aria-selected={tab === k} onClick={() => setTab(k)}>{label}</button>
-        ))}
-      </div>
-      {tab === 'main' && <>
       <section className="card">
         <div className="row between">
           <h2>{t('progress')}</h2>
