@@ -71,8 +71,6 @@ export function NewLoan() {
   // refinancing: this loan pays off an ongoing one; the amount typed in is the new cash on top of its balance
   const [refiOf, setRefiOf] = useState<number | null>(Number(params.get('refinance')) || null)
   const refi = views.find((v) => v.loan.id === refiOf && v.active)
-  const payoff = refi ? payoffOf(refi, todayIso()) : null
-  const carried = payoff?.total ?? 0
   usePageTitle(refiOf ? `Refinance ${loanCode(refiOf)}` : draftId ? 'Edit draft' : t('newLoan'))
 
   const [step, setStep] = useState(0)
@@ -157,6 +155,10 @@ export function NewLoan() {
   const n = Math.min(MAX_OCCURRENCES, Math.max(1, Math.round(num(occ)) || 1))
   const intervalDays = freq === 'Custom' ? Math.max(1, Math.round(num(days)) || 1) : FREQ[freq][0]
   const unit = freq === 'Custom' ? `${intervalDays} days` : FREQ[freq][1]
+  // the old loan is paid off on this loan's release date, so its balance is taken as of that day
+  const payoffDate = release && release > todayIso() ? release : todayIso()
+  const payoff = refi ? payoffOf(refi, payoffDate) : null
+  const carried = payoff?.total ?? 0
   const terms: LoanTerms = {
     amount: num(amount) + carried, carried, currency, feePct: num(feeText), ratePct: num(rate), rateBasis: basis, occurrences: n,
     frequency: freq.toLowerCase() as Loan['frequency'], intervalDays, mode, releaseDate: release || todayIso(), lateFeePct: num(lateText),
@@ -311,7 +313,7 @@ export function NewLoan() {
                 <div className="eyebrow">Refinancing {loanCode(refi.loan.id)}</div>
                 <b className="num" style={{ fontSize: 18 }}>{fmt(payoff.total, currency)} carried over</b>
                 <p className="small muted" style={{ margin: '4px 0 0' }}>
-                  What is due today plus the principal not yet due{payoff.lateFee > 0 ? `, including ${fmt(payoff.lateFee, currency)} late fee` : ''}.
+                  What is due by the release date ({fmtD(payoffDate)}) plus the principal not yet due{payoff.lateFee > 0 ? `, including ${fmt(payoff.lateFee, currency)} late fee` : ''}.
                   Interest not yet due is dropped. When this loan is approved, {loanCode(refi.loan.id)} is paid off and closed.
                   No service fee is charged on the carried-over balance.
                 </p>

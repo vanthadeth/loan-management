@@ -3,13 +3,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { uploadFile } from './core'
 import { useLoanViews, type LoanView } from './book'
-import { addDays, buildSchedule, roundMoney, todayIso, toIso, type Currency, type LoanTerms } from '../lib/calc'
+import { addDays, isPayoff, roundMoney, splitPayments, todayIso, toIso, type Currency } from '../lib/calc'
 import { fmt } from '../lib/format'
-import type { Borrower, Payment } from '../lib/types'
+import type { Borrower } from '../lib/types'
 
 /* ------------------------------------------------------------------ helpers */
 
-const EPS = 0.005
 const cents = (n: number) => Math.round(n * 100) / 100
 
 export const CURRENCIES: Currency[] = ['KHR', 'USD']
@@ -95,32 +94,6 @@ export interface LedgerEntry {
   lateFee: number
 }
 
-/** How much of each payment went to principal and how much to interest (interest first, oldest installment first). Late fee is separate. */
-function splitPayments(terms: LoanTerms, payments: Payment[]) {
-  const rows = buildSchedule(terms)
-  const ordered = [...payments].sort((a, b) => (a.paid_on < b.paid_on ? -1 : a.paid_on > b.paid_on ? 1 : 0))
-  const out = new Map<number, { principal: number; interest: number }>()
-  let idx = 0
-  let used = 0
-  for (const p of ordered) {
-    let left = p.amount - p.late_fee
-    let principal = 0
-    let interest = 0
-    while (left > EPS && idx < rows.length) {
-      const r = rows[idx]
-      const take = Math.min(left, r.total - used)
-      const toInterest = Math.min(take, Math.max(r.interest - used, 0))
-      interest += toInterest
-      principal += take - toInterest
-      used += take
-      left -= take
-      if (used >= r.total - EPS) { idx++; used = 0 }
-    }
-    out.set(p.id, { principal: cents(principal + Math.max(left, 0)), interest: cents(interest) })
-  }
-  return out
-}
-
 export interface MoneyData {
   entries: LedgerEntry[]
   views: LoanView[]
@@ -142,13 +115,17 @@ export function useMoneyData(): MoneyData {
     for (const v of views) {
       const { loan, borrower } = v
       const code = 'L-' + String(loan.id).padStart(3, '0')
-      if (loan.status === 'approved' && loan.release_date <= today) {
+      // a refinanced loan was released and collected like any other until it was paid off, so it stays in the ledger
+      if ((loan.status === 'approved' || loan.status === 'refinanced') && loan.release_date <= today) {
         const ts = loan.approved_at ?? loan.created_at
+        const carried = Number(loan.carried_amount ?? 0)
         entries.push({
           ...blank, id: `r${loan.id}`, date: loan.release_date, ord: ts + '1', kind: 'release', type: 'out', direction: 'out',
-          currency: loan.currency, amount: loan.amount, borrower, loanId: loan.id, detail: `Loan released · ${code}`,
+          currency: loan.currency, amount: loan.amount, borrower, loanId: loan.id,
+          detail: `Loan released · ${code}` + (carried > 0 && loan.refinance_of ? ` · ${fmt(carried, loan.currency)} carried over from L-${String(loan.refinance_of).padStart(3, '0')}, no cash` : ''),
         })
-        const fee = roundMoney((loan.amount * loan.fee_pct) / 100, loan.currency)
+        // the service fee is charged on the new cash only, not on a balance carried over from a refinanced loan
+        const fee = roundMoney(((loan.amount - carried) * loan.fee_pct) / 100, loan.currency)
         entries.push({
           ...blank, id: `f${loan.id}`, date: loan.release_date, ord: ts + '0', kind: 'fee', type: 'in', direction: 'in',
           currency: loan.currency, amount: fee, borrower, loanId: loan.id, detail: `Service fee · ${code}`,
@@ -159,10 +136,14 @@ export function useMoneyData(): MoneyData {
       for (const p of v.payments) {
         const s = split.get(p.id) ?? { principal: 0, interest: 0 }
         repaid += s.principal
+        // a refinancing payoff is dated on the new loan's release day: like the release, it counts from that day
+        if (isPayoff(p) && p.paid_on > today) continue
         entries.push({
           ...blank, id: `p${p.id}`, date: p.paid_on, ord: p.created_at + '0', kind: 'payment', type: 'in', direction: 'in',
           currency: loan.currency, amount: p.amount, borrower, loanId: loan.id, principal: s.principal, interest: s.interest,
-          lateFee: p.late_fee, detail: `Payment · ${code}` + (p.late_fee > 0 ? ` · incl. late fee ${fmt(p.late_fee, loan.currency)}` : ''),
+          lateFee: p.late_fee,
+          detail: (isPayoff(p) ? `Paid off by refinancing · ${code} · ${p.note.replace('Refinanced into ', 'into ')}, no cash` : `Payment · ${code}`)
+            + (p.late_fee > 0 ? ` · incl. late fee ${fmt(p.late_fee, loan.currency)}` : ''),
         })
       }
       principalPaid.set(loan.id, repaid)

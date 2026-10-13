@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { fileUrl, must, uploadFile, useInvalidate, useRoles, useTeam } from './core'
 import { useBook, useLoanViews, type LoanView } from './book'
-import { roundMoney } from '../lib/calc'
+import { payoffAmount } from '../lib/calc'
 import type { Loan, LoanAttachment, LoanCollateral, LoanStatus } from '../lib/types'
 
 /** Readable text for any failure (RLS and DB triggers raise plain sentences). */
@@ -21,20 +21,9 @@ export const completedOn = (v: LoanView) =>
     ? v.payments.reduce((d, p) => (p.paid_on > d ? p.paid_on : d), v.loan.release_date)
     : v.status.rows[v.status.rows.length - 1].paidOn ?? v.loan.release_date
 
-/**
- * What it takes to pay off an ongoing loan today, for refinancing: everything already due (principal and interest),
- * the principal not yet due (interest not yet due is dropped), and the late fee still owed.
- */
-export function payoffOf(v: LoanView, today: string) {
-  let owed = 0
-  for (const r of v.status.rows) {
-    if (r.state === 'paid') continue
-    const left = r.total - r.paidAmount
-    owed += r.due <= today ? left : Math.min(r.principal, left)
-  }
-  const lateFee = v.status.lateFeeOutstanding
-  return { lateFee, total: roundMoney(owed + lateFee, v.loan.currency) }
-}
+/** What it takes to pay off an ongoing loan on `asOf`; see payoffAmount. */
+export const payoffOf = (v: LoanView, asOf: string) =>
+  payoffAmount(v.terms, v.payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), asOf)
 
 /** Signed URL for a private file; null while loading or when there is no file. */
 export function useFileUrl(path: string | null | undefined) {

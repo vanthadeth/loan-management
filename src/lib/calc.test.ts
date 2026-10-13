@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allocatePayment, buildSchedule, loanTotals, scheduleStatus, type LoanTerms } from './calc'
+import { allocatePayment, buildSchedule, loanTotals, payoffAmount, scheduleStatus, splitPayments, type LoanTerms } from './calc'
 
 const base: LoanTerms = {
   amount: 3_000_000, currency: 'KHR', feePct: 3, ratePct: 2, rateBasis: 'month',
@@ -99,5 +99,36 @@ describe('payments', () => {
   it('recognises a finished loan', () => {
     const total = loanTotals(base).total
     expect(scheduleStatus(base, [{ amount: total, lateFee: 0, paidOn: '2027-01-01' }], '2027-01-02').done).toBe(true)
+  })
+})
+
+describe('refinancing', () => {
+  const first = { amount: 560_000, lateFee: 0, paidOn: '2026-08-01' }
+  it('pays off what is due plus the principal not yet due', () => {
+    // on its due date #2 is not late yet: #2 in full + 4 × 500,000 principal; the 4 × 60,000 interest not due is dropped
+    expect(payoffAmount(base, [first], '2026-09-01')).toEqual({ lateFee: 0, total: 2_560_000 })
+    // 9 days later #2 is late: one late month at 5% of the 2,800,000 still owed on 09-01
+    expect(payoffAmount(base, [first], '2026-09-10')).toEqual({ lateFee: 140_000, total: 2_700_000 })
+  })
+  it('leaves nothing owed on the old loan but the dropped interest', () => {
+    const payoff = { amount: 2_700_000, lateFee: 140_000, paidOn: '2026-09-10' }
+    const s = scheduleStatus(base, [first, payoff], '2026-09-10')
+    expect(s.lateFeeOutstanding).toBe(0)
+    expect(s.rows.filter((r) => r.state === 'overdue')).toHaveLength(0)
+    expect(s.remaining).toBe(240_000)
+  })
+  it('counts only the interest that was due as interest', () => {
+    const pays = [
+      { id: 1, amount: 560_000, late_fee: 0, paid_on: '2026-08-01', note: '' },
+      { id: 2, amount: 2_700_000, late_fee: 140_000, paid_on: '2026-09-10', note: 'Refinanced into L-020' },
+    ]
+    const split = splitPayments(base, pays)
+    expect(split.get(1)).toEqual({ principal: 500_000, interest: 60_000 })
+    expect(split.get(2)).toEqual({ principal: 2_500_000, interest: 60_000 })
+  })
+  it('charges the service fee on the new cash only', () => {
+    const t = loanTotals({ ...base, amount: 3_200_000, carried: 2_700_000 })
+    expect(t.fee).toBe(15_000) // 3% of 500,000
+    expect(t.net).toBe(485_000) // what the borrower receives
   })
 })

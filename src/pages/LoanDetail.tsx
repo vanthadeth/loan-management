@@ -9,8 +9,8 @@ import { useAuth } from '../app/auth'
 import { useI18n } from '../app/i18n'
 import { dn, useBanks, useTeam } from '../data/core'
 import { bname } from '../data/borrowers'
-import { errMsg, useLoanActions, useLoanFiles, useLoans } from '../data/loans'
-import { loanTotals } from '../lib/calc'
+import { completedOn, errMsg, payoffOf, useLoanActions, useLoanFiles, useLoans } from '../data/loans'
+import { loanTotals, todayIso } from '../lib/calc'
 import { dueParts } from '../data/money'
 import { fmt, fmtD, loanCode } from '../lib/format'
 import type { LoanStatus } from '../lib/types'
@@ -47,7 +47,9 @@ export function LoanDetail() {
   const who = (id: string | null) => (id ? dn((team.data ?? []).find((p) => p.id === id)) : null)
   const { fee, net } = loanTotals(terms)
   const collected = status.collected
-  const gain = fee + status.total - loan.amount
+  const refinanced = loan.status === 'refinanced'
+  // a refinanced loan only earns what was collected up to the payoff; its interest not yet due was dropped
+  const gain = fee + (refinanced ? status.collected + status.lateFeePaid : status.total) - loan.amount
   const bank = (banks.data ?? []).find((b) => b.id === loan.bank_account_id)
   const payText = loan.pay_method === 'bank' ? 'Bank' + (bank ? ` · ${bank.bank} ${bank.account_no}` : '')
     : loan.pay_method === 'other' ? 'Other' + (loan.pay_remarks ? ` · ${loan.pay_remarks}` : '') : 'Cash'
@@ -55,7 +57,12 @@ export function LoanDetail() {
   const attachments = files.data?.attachments ?? []
   const voided = !!loan.voided_at
   const mine = loan.status === 'drafted' && loan.requested_by === me?.id && can('loans.create')
-  const canApprove = !voided && loan.status === 'requested' && can('loans.approve')
+  // refinancing loan: the old loan's balance must still match what was carried over when this was drafted
+  const oldView = loan.refinance_of ? [...views, ...voidedViews].find((x) => x.loan.id === loan.refinance_of) : undefined
+  const freshPayoff = oldView?.active ? payoffOf(oldView, loan.release_date > todayIso() ? loan.release_date : todayIso()) : null
+  const stale = !!loan.refinance_of && (loan.status === 'requested' || loan.status === 'drafted')
+    && (!freshPayoff || Math.abs(freshPayoff.total - Number(loan.carried_amount ?? 0)) > 0.005)
+  const canApprove = !voided && loan.status === 'requested' && can('loans.approve') && !stale
   const canReturn = !voided && (loan.status === 'requested' || loan.status === 'rejected') && (can('loans.create') || can('loans.approve'))
   const canVoid = !voided && can('loans.void')
   const canReset = !voided && loan.status === 'approved' && can('loans.approve') && payments.length === 0 && !loan.refinance_of
@@ -67,7 +74,7 @@ export function LoanDetail() {
   const pct = Math.round((status.paidCount / loan.occurrences) * 100)
   const lateRate = `${Number(loan.late_fee_pct)}%`
   const lateUnit = loan.frequency === 'daily' ? 'day' : loan.frequency === 'weekly' ? 'week' : loan.frequency === 'monthly' ? 'month' : `${loan.interval_days}-day period`
-  const end = status.done ? status.rows[status.rows.length - 1].paidOn : status.rows[status.rows.length - 1].due
+  const end = refinanced ? completedOn(v) : status.done ? status.rows[status.rows.length - 1].paidOn : status.rows[status.rows.length - 1].due
 
   const move = (to: LoanStatus, done: string) => async () => {
     try {
@@ -115,6 +122,13 @@ export function LoanDetail() {
           <p className="small" style={{ margin: '0 0 12px' }}>
             Refinances <Link to={`/loans/${loan.refinance_of}`}>{loanCode(loan.refinance_of)}</Link>: {fmt(Number(loan.carried_amount ?? 0), cur)} of this loan is the balance carried over
             {Number(loan.carried_late_fee ?? 0) > 0 ? ` (incl. ${fmt(Number(loan.carried_late_fee), cur)} late fee)` : ''}; the borrower receives {fmt(net, cur)}.
+          </p>
+        )}
+        {stale && (
+          <p className="small tag-late" style={{ margin: '0 0 12px' }}>
+            {freshPayoff
+              ? <>The balance of {loanCode(loan.refinance_of!)} has changed since this was drafted: it is now {fmt(freshPayoff.total, cur)}, not {fmt(Number(loan.carried_amount ?? 0), cur)}. Return it to draft and save it again to update it before approval.</>
+              : <>{loanCode(loan.refinance_of!)} is no longer open, so this loan cannot refinance it. Return it to draft or deny it.</>}
           </p>
         )}
         {refinancedBy && loan.status === 'approved' && (
@@ -250,13 +264,15 @@ export function LoanDetail() {
           <table className="num"><tbody>
             <tr><td>{t('loaned')}</td><td className="r"><b>{fmt(loan.amount, cur)}</b></td></tr>
             <tr><td>{t('collected')}</td><td className="r in"><b>{fmt(collected, cur)}</b></td></tr>
-            <tr><td>{t('remaining')}</td><td className="r"><b>{fmt(status.remaining, cur)}</b></td></tr>
+            {refinanced
+              ? <tr><td>Interest dropped at refinancing</td><td className="r"><b>{fmt(status.remaining, cur)}</b></td></tr>
+              : <tr><td>{t('remaining')}</td><td className="r"><b>{fmt(status.remaining, cur)}</b></td></tr>}
             {approved && status.lateFeeOutstanding > 0 && <tr><td>Late fee due</td><td className="r out"><b>{fmt(status.lateFeeOutstanding, cur)}</b></td></tr>}
           </tbody></table>
         </div>
         <div className="kv" style={{ marginTop: 14 }}>
           <div><span className="eyebrow">{t('start')}</span>{fmtD(loan.release_date)}</div>
-          <div><span className="eyebrow">{t('end')}</span>{fmtD(end)}{status.done ? '' : ' (expected)'}</div>
+          <div><span className="eyebrow">{t('end')}</span>{fmtD(end)}{status.done || refinanced ? '' : ' (expected)'}</div>
         </div>
       </section>
 
@@ -272,7 +288,7 @@ export function LoanDetail() {
               {status.lateFeePaid > 0 && <tr><td>Late fees</td><td className="r in">{fmt(status.lateFeePaid, cur)}</td><td /></tr>}
               <tr className="sum"><td>{t('balance')}</td><td colSpan={2} className={'r ' + (fee + collected + status.lateFeePaid - loan.amount < 0 ? 'out' : 'in')}>{fmt(fee + collected + status.lateFeePaid - loan.amount, cur)}</td></tr>
               <tr className="gap"><td colSpan={3} /></tr>
-              <tr><td>{t('tbc')}</td><td className="r in">{fmt(status.remaining, cur)}</td><td /></tr>
+              <tr><td>{t('tbc')}</td><td className="r in">{fmt(refinanced ? 0 : status.remaining, cur)}</td><td /></tr>
               <tr className="sum"><td>{t('ugl')}</td><td colSpan={2} className={'r ' + (gain < 0 ? 'out' : 'in')}>{gain >= 0 ? '+' : ''}{fmt(gain, cur)}</td></tr>
             </tbody>
           </table>

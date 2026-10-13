@@ -239,3 +239,61 @@ export function previewLoan(t: LoanTerms) {
     interestPct: t.amount ? Math.round((interest / t.amount) * 100) : 0,
   }
 }
+
+/* ------------------------------------------------------------- refinancing */
+
+/** The payment recorded on a loan when a new loan paid it off (refinancing). */
+export const isPayoff = (p: { note: string }) => p.note.startsWith('Refinanced into')
+
+/**
+ * What it takes to pay off a loan on `asOf` (the refinancing loan's release date): everything due by then
+ * (principal and interest), the principal of installments not yet due (their interest is dropped), and the
+ * late fee owed by then. `total` includes `lateFee`.
+ */
+export function payoffAmount(t: LoanTerms, payments: PaymentLike[], asOf: string) {
+  const st = scheduleStatus(t, payments, asOf)
+  let owed = 0
+  for (const r of st.rows) {
+    if (r.state === 'paid') continue
+    const left = r.total - r.paidAmount
+    // payments go to interest first, so what is left of a row not yet due is at most its principal
+    owed += r.due <= asOf ? left : Math.min(r.principal, left)
+  }
+  const lateFee = st.lateFeeOutstanding
+  return { lateFee, total: roundMoney(owed + lateFee, t.currency) }
+}
+
+interface SplitPayment { id: number; amount: number; late_fee: number; paid_on: string; note: string }
+const cents = (n: number) => Math.round(n * 100) / 100
+
+/**
+ * How much of each payment went to principal and how much to interest (interest first, oldest installment first).
+ * Late fee is separate. A refinancing payoff pays only the principal of installments not yet due (their interest
+ * was dropped), so none of it counts as interest for those.
+ */
+export function splitPayments(terms: LoanTerms, payments: SplitPayment[]) {
+  const rows = buildSchedule(terms)
+  const ordered = [...payments].sort((a, b) => (a.paid_on < b.paid_on ? -1 : a.paid_on > b.paid_on ? 1 : 0))
+  const out = new Map<number, { principal: number; interest: number }>()
+  let idx = 0
+  let used = 0
+  for (const p of ordered) {
+    let left = p.amount - p.late_fee
+    let principal = 0
+    let interest = 0
+    const payoff = isPayoff(p)
+    while (left > EPS && idx < rows.length) {
+      const r = rows[idx]
+      if (payoff && r.due > p.paid_on && used < r.interest) used = r.interest // dropped interest: skip it
+      const take = Math.min(left, r.total - used)
+      const toInterest = Math.min(take, Math.max(r.interest - used, 0))
+      interest += toInterest
+      principal += take - toInterest
+      used += take
+      left -= take
+      if (used >= r.total - EPS) { idx++; used = 0 }
+    }
+    out.set(p.id, { principal: cents(principal + Math.max(left, 0)), interest: cents(interest) })
+  }
+  return out
+}

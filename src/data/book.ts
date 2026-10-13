@@ -81,7 +81,9 @@ export function useLoanViews(): { views: LoanView[]; voidedViews: LoanView[]; is
     const build = (loan: Loan): LoanView => {
       const payments = pays.get(loan.id) ?? []
       const terms = termsOf(loan)
-      const status = scheduleStatus(terms, payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), today)
+      // a refinanced loan stopped on the day it was paid off: nothing falls due or accrues late fees after that
+      const asOf = loan.status === 'refinanced' ? payments.reduce((d, p) => (p.paid_on > d ? p.paid_on : d), loan.release_date) : today
+      const status = scheduleStatus(terms, payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), asOf)
       const approved = loan.status === 'approved'
       return { loan, borrower: bor.get(loan.borrower_id), payments, terms, status, done: (approved && status.done) || loan.status === 'refinanced', active: approved && !status.done }
     }
