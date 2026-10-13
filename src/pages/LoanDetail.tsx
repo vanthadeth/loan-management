@@ -22,6 +22,7 @@ import { LateFeeBreakdown } from './loans/LateFee'
 import { findings, Insight } from './loans/Insight'
 import { CollectLateFee } from './loans/CollectLateFee'
 import { EarlyPayoff } from './loans/EarlyPayoff'
+import { ActionMenu, type MenuAction } from '../ui/ActionMenu'
 import { useLoanSnapshots, useReconcile } from '../data/audit'
 
 const STEPS: LoanStatus[] = ['drafted', 'requested', 'approved']
@@ -114,6 +115,20 @@ export function LoanDetail() {
     const before = list.find((x) => x.seq === s.seq - 1)
     return `Principal left ${before ? fmt(before.principal_outstanding, cur) + ' → ' : ''}${fmt(s.principal_outstanding, cur)} · interest left ${fmt(s.interest_outstanding, cur)}`
   }
+  // every action on the loan, in one menu at the top right of the header
+  const menuActions: MenuAction[] = [
+    ...(mine ? [
+      { key: 'submit', label: 'Submit request', icon: 'check', onClick: () => setDialog('submit') },
+      { key: 'edit', label: 'Edit draft', icon: 'edit', onClick: () => nav(`/loans/new?draft=${loan.id}`) },
+    ] : []),
+    ...(canReturn ? [{ key: 'draft', label: 'Draft', icon: 'back', onClick: () => setDialog('return') }] : []),
+    ...(canEarly ? [{ key: 'early', label: 'Early payoff', icon: 'coin', onClick: () => setDialog('early') }] : []),
+    ...(canRefinance ? [{ key: 'refi', label: 'Refinance', icon: 'refresh', onClick: () => nav(`/loans/new?refinance=${loan.id}`) }] : []),
+    ...(canReset ? [{ key: 'reset', label: 'Reset approval', icon: 'refresh', onClick: () => setDialog('reset') }] : []),
+    ...(mine ? [{ key: 'delete', label: 'Delete draft', icon: 'trash', danger: true, onClick: () => setDialog('delete') }] : []),
+    ...(canWriteOff ? [{ key: 'writeoff', label: 'Write off', icon: 'alert', danger: true, onClick: () => { setReason(''); setDialog('writeoff') } }] : []),
+    ...(canVoid ? [{ key: 'void', label: loan.status === 'approved' ? 'Undo refinancing' : 'Void', icon: 'ban', danger: true, onClick: () => { setReason(''); setDialog('void') } }] : []),
+  ]
   const move = (to: LoanStatus, done: string) => async () => {
     try {
       await actions.setStatus(loan.id, loan.status, to)
@@ -140,7 +155,10 @@ export function LoanDetail() {
       <section className="card">
         <div className="row between" style={{ flexWrap: 'wrap' }}>
           <div><div className="eyebrow">{loanCode(loan.id)}</div><h1>{can('borrowers.view') ? <Link to={`/borrowers/${loan.borrower_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{name}</Link> : name}</h1></div>
-          <b className="num" style={{ fontSize: 20, fontFamily: 'var(--display)' }}>{fmt(loan.amount, cur)}</b>
+          <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'nowrap' }}>
+            <b className="num" style={{ fontSize: 20, fontFamily: 'var(--display)' }}>{fmt(loan.amount, cur)}</b>
+            <ActionMenu actions={menuActions} label="Loan actions" />
+          </div>
         </div>
         {loan.status === 'refinanced'
           ? <div style={{ margin: '14px 0' }}><span className="chip approved">Refinanced</span>{refinancedBy && <p style={{ margin: '8px 0 0' }}>Paid off by <Link to={`/loans/${refinancedBy.loan.id}`}>{loanCode(refinancedBy.loan.id)}</Link>.</p>}</div>
@@ -173,27 +191,6 @@ export function LoanDetail() {
           <p className="small" style={{ margin: '0 0 12px' }}>
             Being refinanced by <Link to={`/loans/${refinancedBy.loan.id}`}>{loanCode(refinancedBy.loan.id)}</Link> ({t(refinancedBy.loan.status)}). It is paid off when that loan is approved.
           </p>
-        )}
-        {(mine || canReturn || canEarly || canRefinance) && (
-          <div className="ctas">
-            {mine && (
-              <>
-                <button type="button" className="btn primary" onClick={() => setDialog('submit')}>Submit request</button>
-                <button type="button" className="btn" onClick={() => nav(`/loans/new?draft=${loan.id}`)}>Edit draft</button>
-                <button type="button" className="btn danger" onClick={() => setDialog('delete')}>Delete draft</button>
-              </>
-            )}
-            {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Draft</button>}
-            {canEarly && <button type="button" className="btn" onClick={() => setDialog('early')}>Early payoff</button>}
-            {canRefinance && <button type="button" className="btn" onClick={() => nav(`/loans/new?refinance=${loan.id}`)}>Refinance</button>}
-          </div>
-        )}
-        {(canReset || canWriteOff || canVoid) && (
-          <div className="row minor" style={{ marginTop: 10 }}>
-            {canReset && <button type="button" className="linkbtn quiet" onClick={() => setDialog('reset')}>Reset approval</button>}
-            {canWriteOff && <button type="button" className="linkbtn danger-text" onClick={() => { setReason(''); setDialog('writeoff') }}>Write off</button>}
-            {canVoid && <button type="button" className="linkbtn danger-text" onClick={() => { setReason(''); setDialog('void') }}>{loan.status === 'approved' ? 'Undo refinancing' : 'Void'}</button>}
-          </div>
         )}
       </section>
 

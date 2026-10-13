@@ -52,7 +52,7 @@ export function Seg({ id, label, options, value, onChange, cls = '' }: {
  * layer that catches outside taps (they only close the popup and never reach the page). The darkening mask is for
  * menus, sheets and dialogs, not for these.
  */
-function Floating({ anchor, onClose, align = 'left', fit = false, children }: {
+export function Floating({ anchor, onClose, align = 'left', fit = false, children }: {
   anchor: RefObject<HTMLElement | null>; onClose: () => void; align?: 'left' | 'right'; fit?: boolean; children: ReactNode
 }) {
   const box = useRef<HTMLDivElement>(null)
