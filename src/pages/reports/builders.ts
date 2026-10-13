@@ -49,7 +49,7 @@ export function buildReport(name: ReportName, { data, cur, lang, inRange }: Ctx)
         rows: released.map((v, i) => [
           loanCode(v.loan.id), borrowerName(v.borrower, lang), amt(nums[i][0]), amt(nums[i][1]), amt(nums[i][2]), amt(nums[i][3]),
           `${Math.round((v.status.paidCount / v.loan.occurrences) * 100)}%`,
-          v.done ? 'Completed' : v.status.rows.some((r) => r.state === 'overdue') ? 'Overdue' : 'Active',
+          v.loan.status === 'refinanced' ? 'Refinanced' : v.done ? 'Completed' : v.status.rows.some((r) => r.state === 'overdue') ? 'Overdue' : 'Active',
         ]),
         foot: ['Total', '', total(nums, 0), total(nums, 1), total(nums, 2), total(nums, 3), '', ''],
       }

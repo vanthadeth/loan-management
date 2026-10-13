@@ -58,7 +58,10 @@ export function LoanDetail() {
   const canApprove = !voided && loan.status === 'requested' && can('loans.approve')
   const canReturn = !voided && (loan.status === 'requested' || loan.status === 'rejected') && (can('loans.create') || can('loans.approve'))
   const canVoid = !voided && can('loans.void')
-  const canReset = !voided && loan.status === 'approved' && can('loans.approve') && payments.length === 0
+  const canReset = !voided && loan.status === 'approved' && can('loans.approve') && payments.length === 0 && !loan.refinance_of
+  // refinance: an approved loan still collecting, with no other refinancing loan in progress
+  const refinancedBy = [...views, ...voidedViews].find((x) => x.loan.refinance_of === loan.id && !x.loan.voided_at && x.loan.status !== 'rejected')
+  const canRefinance = !voided && v.active && !refinancedBy && can('loans.create')
   const next = approved && !voided ? status.rows.find((r) => r.state !== 'paid') : undefined
   const phone = (borrower?.phone ?? '').replace(/[^\d+]/g, '')
   const pct = Math.round((status.paidCount / loan.occurrences) * 100)
@@ -94,7 +97,9 @@ export function LoanDetail() {
           <div><div className="eyebrow">{loanCode(loan.id)}</div><h1>{name}</h1></div>
           <b className="num" style={{ fontSize: 20, fontFamily: 'var(--display)' }}>{fmt(loan.amount, cur)}</b>
         </div>
-        {loan.status === 'rejected'
+        {loan.status === 'refinanced'
+          ? <div style={{ margin: '14px 0' }}><span className="chip approved">Refinanced</span>{refinancedBy && <p style={{ margin: '8px 0 0' }}>Paid off by <Link to={`/loans/${refinancedBy.loan.id}`}>{loanCode(refinancedBy.loan.id)}</Link>.</p>}</div>
+          : loan.status === 'rejected'
           ? <div style={{ margin: '14px 0' }}><span className="chip overdue">Denied</span>{loan.reject_reason && <p style={{ margin: '8px 0 0' }}>Reason: {loan.reject_reason}</p>}</div>
           : (
             <div className="stepper" style={{ margin: '14px 0' }}>
@@ -106,7 +111,18 @@ export function LoanDetail() {
               ))}
             </div>
           )}
-        {(mine || canReturn || canReset || canVoid) && (
+        {loan.refinance_of && (
+          <p className="small" style={{ margin: '0 0 12px' }}>
+            Refinances <Link to={`/loans/${loan.refinance_of}`}>{loanCode(loan.refinance_of)}</Link>: {fmt(Number(loan.carried_amount ?? 0), cur)} of this loan is the balance carried over
+            {Number(loan.carried_late_fee ?? 0) > 0 ? ` (incl. ${fmt(Number(loan.carried_late_fee), cur)} late fee)` : ''}; the borrower receives {fmt(net, cur)}.
+          </p>
+        )}
+        {refinancedBy && loan.status === 'approved' && (
+          <p className="small" style={{ margin: '0 0 12px' }}>
+            Being refinanced by <Link to={`/loans/${refinancedBy.loan.id}`}>{loanCode(refinancedBy.loan.id)}</Link> ({t(refinancedBy.loan.status)}). It is paid off when that loan is approved.
+          </p>
+        )}
+        {(mine || canReturn || canReset || canVoid || canRefinance) && (
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             {mine && (
               <>
@@ -117,6 +133,7 @@ export function LoanDetail() {
             )}
             {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Draft</button>}
             {canReset && <button type="button" className="btn" onClick={() => setDialog('reset')}>Reset approval</button>}
+            {canRefinance && <button type="button" className="btn" onClick={() => nav(`/loans/new?refinance=${loan.id}`)}>Refinance</button>}
             {canVoid && <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('void') }}>Void</button>}
           </div>
         )}

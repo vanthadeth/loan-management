@@ -35,7 +35,7 @@ export function useBook() {
       // numeric columns can arrive as strings; normalise them
       const num = <T extends object>(rows: T[], keys: (keyof T)[]): T[] =>
         rows.map((r) => { const o = { ...r }; keys.forEach((k) => { if (o[k] != null) o[k] = Number(o[k]) as T[keyof T] }); return o })
-      const allLoans = num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_pct', 'rate_pct'])
+      const allLoans = num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_pct', 'rate_pct', 'carried_amount', 'carried_late_fee'])
       const allPayments = num(must(p) as Payment[], ['amount', 'late_fee', 'late_fee_waived'])
       const voidedIds = new Set(allLoans.filter((x) => x.voided_at).map((x) => x.id))
       return {
@@ -54,6 +54,7 @@ const termsOf = (l: Loan): LoanTerms => ({
   amount: l.amount, currency: l.currency, feePct: l.fee_pct, ratePct: l.rate_pct, rateBasis: l.rate_basis,
   occurrences: l.occurrences, frequency: l.frequency, intervalDays: l.interval_days, mode: l.mode, releaseDate: l.release_date,
   lateFeePct: l.late_fee_pct,
+  carried: Number(l.carried_amount ?? 0),
 })
 
 /** A loan joined with its borrower, payments and live schedule status. */
@@ -63,7 +64,7 @@ export interface LoanView {
   payments: Payment[]
   terms: LoanTerms
   status: ReturnType<typeof scheduleStatus>
-  /** approved and fully repaid */
+  /** approved and fully repaid, or paid off by a refinancing loan */
   done: boolean
   /** approved and still collecting */
   active: boolean
@@ -82,7 +83,7 @@ export function useLoanViews(): { views: LoanView[]; voidedViews: LoanView[]; is
       const terms = termsOf(loan)
       const status = scheduleStatus(terms, payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), today)
       const approved = loan.status === 'approved'
-      return { loan, borrower: bor.get(loan.borrower_id), payments, terms, status, done: approved && status.done, active: approved && !status.done }
+      return { loan, borrower: bor.get(loan.borrower_id), payments, terms, status, done: (approved && status.done) || loan.status === 'refinanced', active: approved && !status.done }
     }
     return { views: book.loans.map(build), voidedViews: book.voidedLoans.map(build) }
   }, [book])

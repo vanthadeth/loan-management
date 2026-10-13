@@ -32,7 +32,7 @@ export function LoanHistory() {
       {error && <p className="muted">{error}</p>}
       <div className="eyebrow">{rows.length} completed {rows.length === 1 ? 'loan' : 'loans'}</div>
       <div className="lcard">
-        {rows.map((v) => <LoanRow key={v.loan.id} v={v} doneLabel={'Completed ' + fmtD(completedOn(v))} />)}
+        {rows.map((v) => <LoanRow key={v.loan.id} v={v} doneLabel={(v.loan.status === 'refinanced' ? 'Refinanced ' : 'Completed ') + fmtD(completedOn(v))} />)}
         {!rows.length && <p className="muted">{loading ? 'Loading…' : 'No completed loans match.'}</p>}
       </div>
     </>

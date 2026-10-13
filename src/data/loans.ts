@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { fileUrl, must, uploadFile, useInvalidate, useRoles, useTeam } from './core'
 import { useBook, useLoanViews, type LoanView } from './book'
+import { roundMoney } from '../lib/calc'
 import type { Loan, LoanAttachment, LoanCollateral, LoanStatus } from '../lib/types'
 
 /** Readable text for any failure (RLS and DB triggers raise plain sentences). */
@@ -15,7 +16,25 @@ export function useLoans() {
 }
 
 /** The date a fully repaid loan was settled. */
-export const completedOn = (v: LoanView) => v.status.rows[v.status.rows.length - 1].paidOn ?? v.loan.release_date
+export const completedOn = (v: LoanView) =>
+  v.loan.status === 'refinanced'
+    ? v.payments.reduce((d, p) => (p.paid_on > d ? p.paid_on : d), v.loan.release_date)
+    : v.status.rows[v.status.rows.length - 1].paidOn ?? v.loan.release_date
+
+/**
+ * What it takes to pay off an ongoing loan today, for refinancing: everything already due (principal and interest),
+ * the principal not yet due (interest not yet due is dropped), and the late fee still owed.
+ */
+export function payoffOf(v: LoanView, today: string) {
+  let owed = 0
+  for (const r of v.status.rows) {
+    if (r.state === 'paid') continue
+    const left = r.total - r.paidAmount
+    owed += r.due <= today ? left : Math.min(r.principal, left)
+  }
+  const lateFee = v.status.lateFeeOutstanding
+  return { lateFee, total: roundMoney(owed + lateFee, v.loan.currency) }
+}
 
 /** Signed URL for a private file; null while loading or when there is no file. */
 export function useFileUrl(path: string | null | undefined) {
@@ -58,7 +77,7 @@ export function useSupervisors() {
 }
 
 export type NewLoanFields = Pick<Loan,
-  'borrower_id' | 'supervisor_id' | 'collector_id' | 'currency' | 'amount' | 'fee_pct' | 'late_fee_pct' | 'rate_pct' | 'rate_basis'
+  'borrower_id' | 'supervisor_id' | 'collector_id' | 'refinance_of' | 'carried_amount' | 'carried_late_fee' | 'currency' | 'amount' | 'fee_pct' | 'late_fee_pct' | 'rate_pct' | 'rate_basis'
   | 'frequency' | 'interval_days' | 'occurrences' | 'mode' | 'release_date' | 'pay_method' | 'bank_account_id' | 'pay_remarks'>
 
 export interface NewLoanInput {

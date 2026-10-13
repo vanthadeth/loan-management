@@ -7,13 +7,13 @@ import { useToast } from '../ui/Toast'
 import { usePageTitle } from '../app/Layout'
 import { useAuth } from '../app/auth'
 import { useI18n } from '../app/i18n'
-import { useBook, useLateFeeDefault } from '../data/book'
+import { useBook, useLateFeeDefault, useLoanViews } from '../data/book'
 import { bname } from '../data/borrowers'
 import { dn, useBanks, useSettings } from '../data/core'
 import { useContractTemplates } from '../data/contract'
-import { errMsg, useCollectors, useLoanActions, useSupervisors } from '../data/loans'
+import { errMsg, payoffOf, useCollectors, useLoanActions, useSupervisors } from '../data/loans'
 import { addDays, previewLoan, todayIso, type Currency, type LoanTerms, type PayMode, type RateBasis } from '../lib/calc'
-import { fmt, fmtD, initials } from '../lib/format'
+import { fmt, fmtD, initials, loanCode } from '../lib/format'
 import type { BankAccount, Loan } from '../lib/types'
 import { TierChip } from './borrowers/parts'
 import { BorrowerSheet } from './borrowers/BorrowerSheet'
@@ -67,7 +67,13 @@ export function NewLoan() {
   const collectors = useCollectors()
   const actions = useLoanActions()
   const draftId = Number(params.get('draft')) || null
-  usePageTitle(draftId ? 'Edit draft' : t('newLoan'))
+  const { views } = useLoanViews()
+  // refinancing: this loan pays off an ongoing one; the amount typed in is the new cash on top of its balance
+  const [refiOf, setRefiOf] = useState<number | null>(Number(params.get('refinance')) || null)
+  const refi = views.find((v) => v.loan.id === refiOf && v.active)
+  const payoff = refi ? payoffOf(refi, todayIso()) : null
+  const carried = payoff?.total ?? 0
+  usePageTitle(refiOf ? `Refinance ${loanCode(refiOf)}` : draftId ? 'Edit draft' : t('newLoan'))
 
   const [step, setStep] = useState(0)
   const [registering, setRegistering] = useState(false)
@@ -104,13 +110,29 @@ export function NewLoan() {
     if (!d) return
     const b = book.borrowers.find((x) => x.id === d.borrower_id)
     setBorrowerId(d.borrower_id); setQuery(b ? bname(b) : ''); setCurrency(d.currency)
-    setAmount(group(String(d.amount))); setFee(String(d.fee_pct)); setRelease(d.release_date)
+    setRefiOf(d.refinance_of)
+    setAmount(group(String(d.amount - (d.refinance_of ? Number(d.carried_amount ?? 0) : 0)))); setFee(String(d.fee_pct)); setRelease(d.release_date)
     setRate(String(d.rate_pct)); setBasis(d.rate_basis); setOcc(String(d.occurrences))
     setFreq(({ daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', custom: 'Custom' } as const)[d.frequency])
     setDays(String(d.interval_days)); setMode(d.mode); setSupervisor(d.supervisor_id ?? ''); setCollector(d.collector_id ?? '')
     setLate(String(d.late_fee_pct)); setMethod(d.pay_method); setBankId(d.bank_account_id ? String(d.bank_account_id) : '')
     setRemarks(d.pay_remarks); setStep(4)
   }, [book, draftId])
+
+  // refinancing: start from the old loan's borrower, currency and terms; the new cash starts at 0
+  const refiLoaded = useRef(false)
+  useEffect(() => {
+    if (!refi || draftId || refiLoaded.current || !book) return
+    refiLoaded.current = true
+    const o = refi.loan
+    const b = book.borrowers.find((x) => x.id === o.borrower_id)
+    setBorrowerId(o.borrower_id); setQuery(b ? bname(b) : ''); setCurrency(o.currency); setAmount('0')
+    setRate(String(o.rate_pct)); setBasis(o.rate_basis); setOcc(String(o.occurrences))
+    setFreq(({ daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', custom: 'Custom' } as const)[o.frequency])
+    setDays(String(o.interval_days)); setMode(o.mode); setSupervisor(o.supervisor_id ?? ''); setCollector(o.collector_id ?? '')
+    setLate(String(o.late_fee_pct)); setMethod(o.pay_method); setBankId(o.bank_account_id ? String(o.bank_account_id) : '')
+    setRemarks(o.pay_remarks); setStep(1)
+  }, [refi, draftId, book])
 
   // a borrower chosen on the borrower page: skip the first step
   const preselect = useRef(params.get('borrower'))
@@ -136,7 +158,7 @@ export function NewLoan() {
   const intervalDays = freq === 'Custom' ? Math.max(1, Math.round(num(days)) || 1) : FREQ[freq][0]
   const unit = freq === 'Custom' ? `${intervalDays} days` : FREQ[freq][1]
   const terms: LoanTerms = {
-    amount: num(amount), currency, feePct: num(feeText), ratePct: num(rate), rateBasis: basis, occurrences: n,
+    amount: num(amount) + carried, carried, currency, feePct: num(feeText), ratePct: num(rate), rateBasis: basis, occurrences: n,
     frequency: freq.toLowerCase() as Loan['frequency'], intervalDays, mode, releaseDate: release || todayIso(), lateFeePct: num(lateText),
   }
   const p = previewLoan(terms)
@@ -156,6 +178,7 @@ export function NewLoan() {
   /** The message to show when a step is not ready, or null. */
   const problem = (s: number) => {
     if (s === 0 && !borrower) return 'Select a borrower first'
+    if (refiOf && !refi) return 'The loan being refinanced is no longer open'
     if (s === 1 && !(terms.amount > 0)) return 'Enter a loan amount'
     if (s === 1 && !(terms.feePct >= 0 && terms.feePct < 100)) return 'The service fee must be between 0 and 100%'
     if (s === 1 && !release) return 'Choose a release date'
@@ -170,7 +193,7 @@ export function NewLoan() {
   }
 
   const switchCurrency = (c: string) => {
-    if (c === currency) return
+    if (c === currency || refiOf) return
     const raw = Number(amount.replace(/\D/g, ''))
     if (c === 'USD' && raw >= 10000) setAmount(group(String(Math.round(raw / khrPerUsd))))
     else if (c === 'KHR' && raw > 0 && raw < 10000) setAmount(group(String(raw * khrPerUsd)))
@@ -197,6 +220,7 @@ export function NewLoan() {
       const input = {
         loan: {
           borrower_id: borrower.id, supervisor_id: scoped ? (me?.id ?? null) : supervisor || null, collector_id: collector || null, currency, amount: terms.amount,
+          refinance_of: refi ? refi.loan.id : null, carried_amount: carried, carried_late_fee: payoff?.lateFee ?? 0,
           fee_pct: terms.feePct, late_fee_pct: terms.lateFeePct, rate_pct: terms.ratePct, rate_basis: basis,
           frequency: freq.toLowerCase() as Loan['frequency'], interval_days: intervalDays, occurrences: n, mode, release_date: terms.releaseDate,
           pay_method: effMethod, bank_account_id: effMethod === 'bank' && bank ? bank.id : null, pay_remarks: effMethod === 'other' ? remarks.trim() : '',
@@ -223,6 +247,8 @@ export function NewLoan() {
 
   const breakdown = (
     <div className="ls-t">
+      {refi && <Lr k={`Carried over from ${loanCode(refi.loan.id)}`} v={fmt(carried, currency)} />}
+      {refi && <Lr k="New cash" v={fmt(terms.amount - carried, currency)} cls="sub" />}
       <Lr k="Loan amount" v={fmt(terms.amount, currency)} />
       <Lr k={feeLabel} v={'−' + fmt(p.fee, currency)} />
       <Lr k="Borrower receives" v={fmt(p.net, currency)} cls="strong" />
@@ -280,13 +306,24 @@ export function NewLoan() {
         {step === 1 && (
           <div className="wz-step">
             <h2>How much?</h2>
+            {refi && payoff && (
+              <div className="card" style={{ margin: '0 0 14px' }}>
+                <div className="eyebrow">Refinancing {loanCode(refi.loan.id)}</div>
+                <b className="num" style={{ fontSize: 18 }}>{fmt(payoff.total, currency)} carried over</b>
+                <p className="small muted" style={{ margin: '4px 0 0' }}>
+                  What is due today plus the principal not yet due{payoff.lateFee > 0 ? `, including ${fmt(payoff.lateFee, currency)} late fee` : ''}.
+                  Interest not yet due is dropped. When this loan is approved, {loanCode(refi.loan.id)} is paid off and closed.
+                  No service fee is charged on the carried-over balance.
+                </p>
+              </div>
+            )}
             <div className="form wz-1col">
               <div className="wz-amtrow">
                 <div className="field">
-                  <label htmlFor="la">Loan amount</label>
+                  <label htmlFor="la">{refi ? 'New cash to the borrower' : 'Loan amount'}</label>
                   <div className="wz-amt"><input id="la" inputMode="numeric" value={amount} onChange={(e) => setAmount(group(e.target.value))} autoComplete="off" /><span id="lsym">{sym}</span></div>
                 </div>
-                <Seg id="lc" label="Currency" options={['KHR', 'USD']} value={currency} onChange={switchCurrency} />
+                {!refi && <Seg id="lc" label="Currency" options={['KHR', 'USD']} value={currency} onChange={switchCurrency} />}
               </div>
               <div className="field">
                 <label htmlFor="lf">Service fee (deducted upfront)</label>
@@ -407,7 +444,7 @@ export function NewLoan() {
               )}
               <Section title="Loan" step={1} onEdit={setStep}>
                 <div className="wz-bento">
-                  <Tile k="Loan amount" v={fmt(terms.amount, currency)} cls="big" />
+                  <Tile k="Loan amount" v={fmt(terms.amount, currency)} cls="big" sub={refi ? `incl. ${fmt(carried, currency)} carried over from ${loanCode(refi.loan.id)}` : undefined} />
                   <Tile k={equal ? 'Installment' : 'Interest payment'} v={fmt(installment, currency)} cls="inst" sub={`per ${unit} × ${n}`} />
                   <Tile k="Release date" v={fmtD(release)} cls="wide" />
                   <Tile k="How they pay" v={equal ? 'Interest and principal' : 'Interest only'} cls="wide" />
@@ -429,7 +466,7 @@ export function NewLoan() {
         )}
       </form>
       <div className="wz-bar">
-        <button type="button" className="btn" onClick={() => (step === 0 ? setDialog('cancel') : setStep(step - 1))}>{step === 0 ? t('cancel') : t('back')}</button>
+        <button type="button" className="btn" onClick={() => (step === 0 || (refiOf && step === 1) ? setDialog('cancel') : setStep(step - 1))}>{step === 0 || (refiOf && step === 1) ? t('cancel') : t('back')}</button>
         {step === STEPS.length - 1 && <button type="button" className="btn" onClick={() => { const m = [0, 1, 2].map(problem).find(Boolean); if (m) toast(m); else void submit(true) }}>Save draft</button>}
         <button type="button" className="btn primary" onClick={next}>{step === STEPS.length - 1 ? 'Submit request' : 'Next'}</button>
       </div>
