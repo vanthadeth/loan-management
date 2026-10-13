@@ -6,6 +6,7 @@ contracts filled from Google Doc templates (Khmer or English). React + Vite + Ty
 
 - Loan flow: drafted → requested → approved or denied; an approval can be reset, a request or denial returned to draft
 - Supervisors and collectors only see the loans assigned to them
+- `docs/finance-rules.md` the finance rules (principal protection, stored schedule, payments, late fee, refinance, audit)
 - `src/` app (design system CSS in `src/styles.css`, loan maths in `src/lib/calc.ts`, contract filling in
   `src/lib/contract.ts`, both with tests)
 - `supabase/migrations/` schema and row level security; `supabase/functions/admin-users/` user management;
