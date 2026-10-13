@@ -1223,3 +1223,9 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 
 /* trust level: bad */
 .chip.bad{background:transparent;color:var(--late);border:1px solid var(--late)}
+
+/* late fee breakdown */
+.lfee td{padding:8px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+.lfee td.r{text-align:right;white-space:nowrap;padding-left:12px}
+.lfee tr.sum td{border-bottom:1px solid var(--line);font-weight:600}
+.lfee tr:last-child td{border-bottom:0}

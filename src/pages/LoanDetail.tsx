@@ -17,6 +17,7 @@ import type { LoanStatus } from '../lib/types'
 import { FileView } from './loans/FileView'
 import { Bar, Ring } from './loans/parts'
 import { SupervisorSheet } from './loans/SupervisorSheet'
+import { LateFeeBreakdown } from './loans/LateFee'
 
 const STEPS: LoanStatus[] = ['drafted', 'requested', 'approved']
 type Dialog = 'submit' | 'delete' | 'return' | 'reset' | 'approve' | 'reject' | 'supervisor' | 'collector' | 'void' | 'restore' | null
@@ -219,6 +220,21 @@ export function LoanDetail() {
             {can('payments.record') && <button type="button" className="btn primary" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>Record payment</button>}
             {phone && <a className="btn" href={'tel:' + phone}><Icon name="phone" size={16} />Call</a>}
           </div>
+        </section>
+      )}
+      {(approved || refinanced) && !voided && status.lateLines.length > 0 && (
+        <section className="card">
+          <div className="row between" style={{ alignItems: 'flex-start', gap: 12 }}>
+            <div>
+              <div className="eyebrow">Late fee due</div>
+              <b className={'num ' + (status.lateFeeOutstanding > 0 ? 'out' : '')} style={{ fontSize: 22 }}>{fmt(status.lateFeeOutstanding, cur)}</b>
+              <p className="small muted" style={{ margin: '2px 0 0' }}>{lateRate} of everything still owed, for every {lateUnit} a payment is late.</p>
+            </div>
+            {approved && status.lateFeeOutstanding > 0 && can('payments.record') && (
+              <button type="button" className="btn" onClick={() => nav(`/cashflow/pay?loan=${loan.id}&late=1`)}>Collect late fee</button>
+            )}
+          </div>
+          <LateFeeBreakdown status={status} cur={cur} />
         </section>
       )}
       <details className="card sec">

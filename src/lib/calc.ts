@@ -133,6 +133,9 @@ export function lateOccurrences(t: Pick<LoanTerms, 'frequency' | 'intervalDays'>
   return Math.ceil(days / Math.max(1, t.intervalDays))
 }
 
+/** One late period: from `from`, installment `installment` was the oldest overdue; `pct` % of `owed` is `fee`. */
+export interface LateFeeLine { from: string; installment: number; owed: number; pct: number; fee: number }
+
 /** Start of late period `k` (0-based) that began on `start`: same day of the month, or every `intervalDays` days. */
 const periodStart = (t: Pick<LoanTerms, 'frequency' | 'intervalDays'>, start: string, k: number) =>
   t.frequency === 'monthly' ? addMonths(start, k) : addDays(start, k * Math.max(1, t.intervalDays))
@@ -180,14 +183,18 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
     if (last && r.due < last[1]) last[1] = end > last[1] ? end : last[1]
     else stretches.push([r.due, end])
   }
+  // one line per late period, for showing how the late fee was worked out
+  const lateLines: LateFeeLine[] = []
   for (const [start, end] of stretches) {
     for (let k = 0; ; k++) {
       const at = periodStart(t, start, k)
       if (at >= end) break
-      const fee = roundMoney((Math.max(owedOn(at), 0) * t.lateFeePct) / 100, t.currency)
+      const owed = Math.max(owedOn(at), 0)
+      const fee = roundMoney((owed * t.lateFeePct) / 100, t.currency)
       const row = status.find((r) => r.due <= at && (r.paidOn === null || r.paidOn > at)) ?? status[0]
       row.lateFee += fee
       row.lateOccurrences++
+      lateLines.push({ from: at, installment: row.i, owed, pct: t.lateFeePct, fee })
     }
   }
 
@@ -205,6 +212,7 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
     lateFeePaid,
     lateFeeWaived,
     lateFeeOutstanding: Math.max(lateFeeAccrued - lateFeePaid - lateFeeWaived, 0),
+    lateLines,
     done: applied >= total - EPS,
   }
 }

@@ -148,3 +148,13 @@ describe('refinancing', () => {
     expect(t.net).toBe(485_000) // what the borrower receives
   })
 })
+
+describe('late fee lines', () => {
+  it('lists every late period with the balance it was charged on', () => {
+    const s = scheduleStatus(base, [{ amount: 1_000_000, lateFee: 0, paidOn: '2026-08-20' }], '2026-09-10')
+    expect(s.lateLines).toEqual([
+      { from: '2026-08-01', installment: 1, owed: 3_360_000, pct: 5, fee: 168_000 },
+      { from: '2026-09-01', installment: 2, owed: 2_360_000, pct: 5, fee: 118_000 },
+    ])
+  })
+})

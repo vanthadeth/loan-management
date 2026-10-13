@@ -8,7 +8,8 @@ import { useToast } from '../../ui/Toast'
 import { useBanks } from '../../data/core'
 import type { LoanView } from '../../data/book'
 import { amountText, amountToText, borrowerName, dueParts, openLoans, parseAmount, symbol, useMoneyData, useRecordPayment } from '../../data/money'
-import { allocatePayment, todayIso } from '../../lib/calc'
+import { allocatePayment, scheduleStatus, todayIso } from '../../lib/calc'
+import { LateFeeBreakdown } from '../loans/LateFee'
 import { fmt, fmtD, initials, loanCode } from '../../lib/format'
 import type { BankAccount } from '../../lib/types'
 
@@ -36,6 +37,8 @@ export function PayWizard() {
   const open = useMemo(() => openLoans(data), [data])
 
   const first = Number(params.get('loan')) || null
+  // "Collect late fee" on a loan: the amount starts at the late fee due, so the payment settles only that
+  const lateOnly = params.get('late') === '1'
   const [step, setStep] = useState(first ? 1 : 0)
   const [loanId, setLoanId] = useState<number | null>(first)
   const [q, setQ] = useState('')
@@ -57,15 +60,17 @@ export function PayWizard() {
   const view = open.find((v) => v.loan.id === loanId)
   const at = view ? step : 0
   const cur = view?.loan.currency ?? 'KHR'
-  const amountValue = amount ?? (view ? amountToText(owedNow(view), cur) : '')
+  const history = useMemo(() => (view?.payments ?? []).map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), [view])
+  // the loan as it stands on the payment date: the late fee due then, and how it was worked out
+  const before = useMemo(() => (view ? scheduleStatus(view.terms, history, paidOn) : null), [view, history, paidOn])
+  const lateDue = before?.lateFeeOutstanding ?? 0
+  const amountValue = amount ?? (view ? amountToText(lateOnly && lateDue > 0 ? lateDue : owedNow(view), cur) : '')
   const bankValue = bank ?? (view?.loan.bank_account_id ? String(view.loan.bank_account_id) : '')
   const bankOptions = [{ value: '', label: CASH }, ...(banks.data ?? []).map((b) => ({ value: String(b.id), label: bankLabel(b) }))]
   const bankText = bankOptions.find((o) => o.value === bankValue)?.label ?? CASH
   const value = parseAmount(amountValue)
 
-  const history = useMemo(() => (view?.payments ?? []).map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), [view])
-  // late fee due on the payment date; the collector may take anything from 0 to all of it, the rest is forgiven
-  const lateDue = useMemo(() => (view ? allocatePayment(view.terms, history, 0, paidOn).lateFeeDue : 0), [view, history, paidOn])
+  // the collector may take anything from 0 to all of the late fee due; the rest is forgiven
   const lateCap = Math.min(lateDue, value)
   const lateValue = lateText === null ? lateCap : Math.min(parseAmount(lateText), lateCap)
   const alloc = useMemo(() => {
@@ -145,6 +150,7 @@ export function PayWizard() {
                     Late fee due {fmt(lateDue, cur)}. Take anything from 0 up to that; the rest is forgiven.
                     {lateValue < lateDue && <> <b>{fmt(lateDue - lateValue, cur)} forgiven.</b></>}
                   </p>
+                  {before && <LateFeeBreakdown status={before} cur={cur} />}
                 </div>
               )}
               <div className="field">
