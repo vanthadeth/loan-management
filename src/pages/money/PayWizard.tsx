@@ -186,7 +186,7 @@ function hint(v: LoanView) {
   const r = nextRow(v)
   if (!r) return ''
   const lf = v.status.lateFeeOutstanding
-  return `Installment ${fmt(dueParts(r).remaining, v.loan.currency)}. Partial and early payments are allowed.`
+  return `Installment ${fmt(dueParts(r).remaining, v.loan.currency)}. Partial and early payments are allowed, up to what the loan still owes.`
     + (lf > 0 ? ` Late fee ${fmt(lf, v.loan.currency)} is collected separately, from the loan page.` : '')
 }
 

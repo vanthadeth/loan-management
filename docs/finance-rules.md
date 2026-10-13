@@ -168,3 +168,10 @@ waivers (R-PAY-5); a reason on every waiver, void and write-off; permissions sta
 3. Guardrails: overpayment block, backdating, maker-checker, grace days and cap, prepayment and its fee waiver approval,
    no hard deletes.
 4. PAR and aging, reconciliation check, APR, write-off.
+
+## 14. Regression test
+
+`supabase/tests/finance-rules.sql` checks the rules end to end in the database (stored schedule, allocation order, overpayment,
+dates, void and restore, early payoff, refinance and its undo, write-off and recovery, snapshots, reconciliation, permissions).
+Run it in the Supabase SQL editor; it rolls back everything it creates and prints PASS/FAIL per rule. Run it after any change
+to a finance function or trigger.
