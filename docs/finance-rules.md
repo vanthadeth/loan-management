@@ -141,7 +141,8 @@ waivers (R-PAY-5); a reason on every waiver, void and write-off; permissions sta
 - Paid and overdue are derived on every load, so they follow the code and terms of the day. No snapshots exist.
 - Refinance posts a payoff payment (`apply_refinance`, migration `20261025000000`) and flips the old loan to `refinanced`, but
   individual installments are not locked.
-- There is no backdating limit, and the creator of a loan can approve it. (Overpayment is blocked since step 3.)
+- Backdating limit (R-PAY-4) and four-eyes approval (R-LOAN-2, a setting, off by default) are enforced since step 4
+  (migration `20261031000000`). Overpayment is blocked since step 3.
 - Paying everything early means paying every installment including all flat interest. There is no payoff quote, no
   prepayment fee and no admin-approved waiver. Only refinancing drops future interest.
 - Late fee is settled separately (`settleLateFee`) but has no grace days or cap, and a forgiven fee is stored as a number on the

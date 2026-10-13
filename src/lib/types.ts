@@ -41,7 +41,7 @@ export interface Payment {
   voided_at: string | null; voided_by: string | null; void_reason: string | null
 }
 export interface FundTransaction { id: number; kind: 'add' | 'withdraw'; currency: Currency; amount: number; txn_date: string; note: string; created_at: string }
-export interface AppSettings { id: 1; service_fee_pct: number; late_fee_pct: number; khr_per_usd: number }
+export interface AppSettings { id: 1; service_fee_pct: number; late_fee_pct: number; khr_per_usd: number; backdate_days: number; four_eyes: boolean }
 export interface Message { id: number; kind: string; loan_id: number | null; actor: string | null; created_at: string }
 
 export interface ContractTemplate { id: number; name: string; url: string; lang: 'km' | 'en'; kind: 'contract' | 'schedule'; is_default: boolean; created_at: string }

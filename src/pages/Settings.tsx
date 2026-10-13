@@ -23,9 +23,11 @@ function SettingsSheet({ s, onClose }: { s: AppSettings; onClose: () => void }) 
   const save = useSaveSettings()
   const [fee, setFee] = useState(String(s.service_fee_pct))
   const [late, setLate] = useState(String(s.late_fee_pct))
+  const [back, setBack] = useState(String(s.backdate_days))
+  const [eyes, setEyes] = useState(s.four_eyes ? 'on' : 'off')
   const submit = async () => {
-    const patch = { service_fee_pct: num(fee), late_fee_pct: num(late) }
-    if (!(patch.service_fee_pct >= 0 && patch.service_fee_pct < 100) || !(patch.late_fee_pct >= 0 && patch.late_fee_pct <= 100)) {
+    const patch = { service_fee_pct: num(fee), late_fee_pct: num(late), backdate_days: Math.round(num(back)), four_eyes: eyes === 'on' }
+    if (!(patch.service_fee_pct >= 0 && patch.service_fee_pct < 100) || !(patch.late_fee_pct >= 0 && patch.late_fee_pct <= 100) || !(patch.backdate_days >= 0 && patch.backdate_days <= 365)) {
       toast('Check the numbers')
       return
     }
@@ -36,7 +38,9 @@ function SettingsSheet({ s, onClose }: { s: AppSettings; onClose: () => void }) 
       <div className="form wz-1col">
         <Field id="sf" label="Service fee (%)" value={fee} onChange={setFee} inputMode="decimal" />
         <Field id="sk" label="Late fee (% of the unpaid principal, per late payment period)" value={late} onChange={setLate} inputMode="decimal" />
-        <p className="small muted" style={{ margin: 0 }}>Applies to new loans and to late fees from now on.</p>
+        <Field id="sb" label="Payments can be dated up to this many days back (more needs the backdate permission)" value={back} onChange={setBack} inputMode="numeric" />
+        <Seg id="s4" label="Whoever requested a loan cannot approve it" options={[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]} value={eyes} onChange={setEyes} />
+        <p className="small muted" style={{ margin: 0 }}>The fees apply to new loans and to late fees from now on.</p>
       </div>
     </Sheet>
   )

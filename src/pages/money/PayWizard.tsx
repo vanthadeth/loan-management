@@ -8,7 +8,9 @@ import { useToast } from '../../ui/Toast'
 import { useBanks } from '../../data/core'
 import type { LoanView } from '../../data/book'
 import { amountText, amountToText, borrowerName, dueParts, openLoans, parseAmount, symbol, useMoneyData, useRecordPayment } from '../../data/money'
-import { allocatePayment, todayIso } from '../../lib/calc'
+import { allocatePayment, diffDays, todayIso } from '../../lib/calc'
+import { useAuth } from '../../app/auth'
+import { useSettings } from '../../data/core'
 import { fmt, fmtD, initials, loanCode } from '../../lib/format'
 import type { BankAccount } from '../../lib/types'
 
@@ -29,6 +31,8 @@ export function PayWizard() {
   const { t, lang } = useI18n()
   const nav = useNavigate()
   const toast = useToast()
+  const { can } = useAuth()
+  const settings = useSettings()
   const [params] = useSearchParams()
   const data = useMoneyData()
   const banks = useBanks()
@@ -81,6 +85,7 @@ export function PayWizard() {
       if (value > view.status.remaining + 0.005) { toast(`More than the loan still owes (${fmt(view.status.remaining, cur)}). Hand the extra back to the borrower.`); return false }
       if (!paidOn) { toast('Select the date paid'); return false }
       if (paidOn > todayIso()) { toast('The payment date cannot be in the future'); return false }
+      if (diffDays(paidOn, todayIso()) > (settings.data?.backdate_days ?? 7) && !can('payments.backdate')) { toast(`Payments can only be dated up to ${settings.data?.backdate_days ?? 7} days back. Ask an admin to record it.`); return false }
       if (paidOn < view.loan.release_date) { toast('The payment date is before the loan was released'); return false }
     }
     return true
