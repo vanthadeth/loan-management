@@ -243,27 +243,28 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
 }
 
 /**
- * What a new payment settles: late fee first, then installments oldest first.
- * `collectLateFee` is how much late fee the collector actually took (0 up to what is due); the rest of the
- * late fee due is forgiven. Left out, the full late fee is collected as far as the amount covers it.
+ * What a new payment settles: installments, oldest first. Late fee is never taken from a payment; it is
+ * settled on its own (see `settleLateFee`).
  */
-export function allocatePayment(t: LoanTerms, payments: PaymentLike[], amount: number, paidOn: string, collectLateFee?: number) {
+export function allocatePayment(t: LoanTerms, payments: PaymentLike[], amount: number, paidOn: string) {
   const before = scheduleStatus(t, payments, paidOn)
-  const due = before.lateFeeOutstanding
-  const lateFee = Math.max(0, Math.min(collectLateFee ?? due, due, amount))
-  const lateFeeWaived = roundMoney(Math.max(due - lateFee, 0), t.currency)
-  const after = scheduleStatus(t, [...payments, { amount, lateFee, lateFeeWaived, paidOn }], paidOn)
-  const toInstallments = amount - lateFee
+  const after = scheduleStatus(t, [...payments, { amount, lateFee: 0, paidOn }], paidOn)
   return {
-    lateFeeDue: due,
-    lateFee,
-    lateFeeWaived,
-    toInstallments,
-    above: Math.max(toInstallments - before.remaining, 0),
+    above: Math.max(amount - before.remaining, 0),
     balanceAfter: after.remaining,
     before,
     after,
   }
+}
+
+/**
+ * Settling the late fee on `paidOn`: the collector takes `collect` (anything from 0 up to what is due) and the
+ * rest of the fee due is forgiven.
+ */
+export function settleLateFee(t: LoanTerms, payments: PaymentLike[], collect: number, paidOn: string) {
+  const due = scheduleStatus(t, payments, paidOn).lateFeeOutstanding
+  const lateFee = roundMoney(Math.max(0, Math.min(collect, due)), t.currency)
+  return { due, lateFee, lateFeeWaived: roundMoney(Math.max(due - lateFee, 0), t.currency) }
 }
 
 /** Live numbers for the new-loan wizard. */

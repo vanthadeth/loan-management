@@ -8,8 +8,7 @@ import { useToast } from '../../ui/Toast'
 import { useBanks } from '../../data/core'
 import type { LoanView } from '../../data/book'
 import { amountText, amountToText, borrowerName, dueParts, openLoans, parseAmount, symbol, useMoneyData, useRecordPayment } from '../../data/money'
-import { allocatePayment, scheduleStatus, todayIso } from '../../lib/calc'
-import { LateFeeBreakdown } from '../loans/LateFee'
+import { allocatePayment, todayIso } from '../../lib/calc'
 import { fmt, fmtD, initials, loanCode } from '../../lib/format'
 import type { BankAccount } from '../../lib/types'
 
@@ -18,10 +17,10 @@ const CASH = 'Cash (no bank account)'
 const bankLabel = (b: BankAccount) => `${b.bank} · ${b.account_no} · ${b.account_name}`
 
 const nextRow = (v: LoanView) => v.status.rows.find((r) => r.state !== 'paid')
-/** Next installment plus the late fee still owed on the contract. */
+/** What the next installment still needs; late fee is collected separately. */
 const owedNow = (v: LoanView) => {
   const r = nextRow(v)
-  return (r ? dueParts(r).remaining : 0) + v.status.lateFeeOutstanding
+  return r ? dueParts(r).remaining : 0
 }
 
 type Dialog = null | 'cancel' | 'confirm'
@@ -37,14 +36,11 @@ export function PayWizard() {
   const open = useMemo(() => openLoans(data), [data])
 
   const first = Number(params.get('loan')) || null
-  // "Collect late fee" on a loan: the amount starts at the late fee due, so the payment settles only that
-  const lateOnly = params.get('late') === '1'
   const [step, setStep] = useState(first ? 1 : 0)
   const [loanId, setLoanId] = useState<number | null>(first)
   const [q, setQ] = useState('')
   const [bank, setBank] = useState<string | null>(null)
   const [amount, setAmount] = useState<string | null>(null)
-  const [lateText, setLateText] = useState<string | null>(null)
   const [paidOn, setPaidOn] = useState(todayIso())
   const [photo, setPhotoState] = useState<{ file: File; url: string } | null>(null)
   const urlRef = useRef<string | null>(null)
@@ -61,25 +57,19 @@ export function PayWizard() {
   const at = view ? step : 0
   const cur = view?.loan.currency ?? 'KHR'
   const history = useMemo(() => (view?.payments ?? []).map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), [view])
-  // the loan as it stands on the payment date: the late fee due then, and how it was worked out
-  const before = useMemo(() => (view ? scheduleStatus(view.terms, history, paidOn) : null), [view, history, paidOn])
-  const lateDue = before?.lateFeeOutstanding ?? 0
-  const amountValue = amount ?? (view ? amountToText(lateOnly && lateDue > 0 ? lateDue : owedNow(view), cur) : '')
+  const amountValue = amount ?? (view ? amountToText(owedNow(view), cur) : '')
   const bankValue = bank ?? (view?.loan.bank_account_id ? String(view.loan.bank_account_id) : '')
   const bankOptions = [{ value: '', label: CASH }, ...(banks.data ?? []).map((b) => ({ value: String(b.id), label: bankLabel(b) }))]
   const bankText = bankOptions.find((o) => o.value === bankValue)?.label ?? CASH
   const value = parseAmount(amountValue)
 
-  // the collector may take anything from 0 to all of the late fee due; the rest is forgiven
-  const lateCap = Math.min(lateDue, value)
-  const lateValue = lateText === null ? lateCap : Math.min(parseAmount(lateText), lateCap)
   const alloc = useMemo(() => {
     if (!view || !(value > 0)) return null
-    return allocatePayment(view.terms, history, value, paidOn, lateValue)
-  }, [view, history, value, paidOn, lateValue])
+    return allocatePayment(view.terms, history, value, paidOn)
+  }, [view, history, value, paidOn])
 
   const pick = (id: number) => {
-    if (id !== loanId) { setPhoto(null); setAmount(null); setBank(null); setLateText(null) }
+    if (id !== loanId) { setPhoto(null); setAmount(null); setBank(null) }
     setLoanId(id)
     setStep(1)
   }
@@ -107,7 +97,7 @@ export function PayWizard() {
     try {
       await rec.mutateAsync({
         loan_id: view.loan.id, bank_account_id: bankValue ? Number(bankValue) : null, amount: value,
-        late_fee: alloc.lateFee, late_fee_waived: alloc.lateFeeWaived, paid_on: paidOn, photo: photo?.file ?? null,
+        late_fee: 0, late_fee_waived: 0, paid_on: paidOn, photo: photo?.file ?? null,
       })
       toast('Payment recorded')
       nav('/cashflow')
@@ -139,20 +129,6 @@ export function PayWizard() {
                 <p className="small muted">{hint(view)}</p>
               </div>
               <DateField id="pyd" label="Paid on" value={paidOn} onChange={setPaidOn} />
-              {lateDue > 0 && (
-                <div className="field">
-                  <label htmlFor="pl">Late fee collected</label>
-                  <div className="wz-amt">
-                    <input id="pl" inputMode="decimal" autoComplete="off" value={lateText ?? amountToText(lateValue, cur)} onChange={(e) => setLateText(amountText(e.target.value, cur))} />
-                    <span>{symbol(cur)}</span>
-                  </div>
-                  <p className="small muted">
-                    Late fee due {fmt(lateDue, cur)}. Take anything from 0 up to that; the rest is forgiven.
-                    {lateValue < lateDue && <> <b>{fmt(lateDue - lateValue, cur)} forgiven.</b></>}
-                  </p>
-                  {before && <LateFeeBreakdown status={before} cur={cur} />}
-                </div>
-              )}
               <div className="field">
                 <label>Photo of payment transaction (optional)</label>
                 <div className="drop">
@@ -203,11 +179,9 @@ export function PayWizard() {
 function hint(v: LoanView) {
   const r = nextRow(v)
   if (!r) return ''
-  const cur = v.loan.currency
-  const inst = dueParts(r).remaining
   const lf = v.status.lateFeeOutstanding
-  return `Installment ${fmt(inst, cur)}` + (lf > 0 ? ` + late fee ${fmt(lf, cur)} (${r.lateDays} days)` : '')
-    + ` = ${fmt(inst + lf, cur)}. Partial and early payments are allowed.`
+  return `Installment ${fmt(dueParts(r).remaining, v.loan.currency)}. Partial and early payments are allowed.`
+    + (lf > 0 ? ` Late fee ${fmt(lf, v.loan.currency)} is collected separately, from the loan page.` : '')
 }
 
 function Contracts({ open, q, onQ, selected, onPick, loading, today, lang }: {
@@ -257,7 +231,7 @@ function Review({ view, alloc, amount, paidOn, bankText, photo, onEdit, lang }: 
   photo: { name: string; url: string } | null; onEdit: (step: number) => void; lang: string
 }) {
   const cur = view.loan.currency
-  const applied = alloc.toInstallments - alloc.above
+  const applied = amount - alloc.above
   const row = (k: string, v: string, x = '') => <div className={'lr ' + x}><span>{k}</span><b className="num">{v}</b></div>
   return (
     <>
@@ -268,8 +242,6 @@ function Review({ view, alloc, amount, paidOn, bankText, photo, onEdit, lang }: 
           {row('Receiving account', bankText)}
           {row('Paid on', fmtD(paidOn))}
           {row('Amount received', fmt(amount, cur), 'strong')}
-          {alloc.lateFee > 0 && row('Late fee collected', fmt(alloc.lateFee, cur), 'sub')}
-          {alloc.lateFeeWaived > 0 && row('Late fee forgiven', fmt(alloc.lateFeeWaived, cur), 'sub')}
           {row('Applied to installments', fmt(applied, cur), 'sub')}
           {alloc.above > 0.005 && row('Above the contract balance', fmt(alloc.above, cur), 'sub')}
           {row('Balance after payment', fmt(Math.max(alloc.balanceAfter, 0), cur), 'strong')}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allocatePayment, buildSchedule, loanTotals, payoffAmount, scheduleStatus, splitPayments, type LoanTerms } from './calc'
+import { allocatePayment, buildSchedule, loanTotals, payoffAmount, scheduleStatus, settleLateFee, splitPayments, type LoanTerms } from './calc'
 
 const base: LoanTerms = {
   amount: 3_000_000, currency: 'KHR', feePct: 3, ratePct: 2, rateBasis: 'month',
@@ -66,20 +66,21 @@ describe('payments', () => {
     expect(s.rows[0].state).toBe('paid')
     expect(s.rows[1]).toMatchObject({ state: 'partial', paidAmount: 140_000 })
   })
-  it('settles late fee before installments', () => {
+  it('applies a payment to installments only, never to late fee', () => {
     const a = allocatePayment(base, [], 800_000, '2026-08-11')
-    expect(a.lateFee).toBe(150_000) // 5% of the 3,000,000 principal for the first late month
-    expect(a.lateFeeWaived).toBe(0)
-    expect(a.toInstallments).toBe(650_000)
     expect(a.after.rows[0].state).toBe('paid')
+    expect(a.after.rows[1].paidAmount).toBe(240_000)
+    expect(a.after.lateFeeOutstanding).toBe(150_000) // 5% of the 3,000,000 principal for the first late month, still due
   })
-  it('forgives the late fee the collector did not take', () => {
-    const a = allocatePayment(base, [], 600_000, '2026-08-11', 50_000)
-    expect(a).toMatchObject({ lateFeeDue: 150_000, lateFee: 50_000, lateFeeWaived: 100_000, toInstallments: 550_000 })
-    expect(a.after.lateFeeOutstanding).toBe(0)
-    const none = allocatePayment(base, [], 600_000, '2026-08-11', 0)
-    expect(none).toMatchObject({ lateFee: 0, lateFeeWaived: 150_000, toInstallments: 600_000 })
-    expect(none.after.rows[0].state).toBe('paid')
+  it('collects part of the late fee on its own and forgives the rest', () => {
+    expect(settleLateFee(base, [], 50_000, '2026-08-11')).toEqual({ due: 150_000, lateFee: 50_000, lateFeeWaived: 100_000 })
+    expect(settleLateFee(base, [], 0, '2026-08-11')).toEqual({ due: 150_000, lateFee: 0, lateFeeWaived: 150_000 })
+    expect(settleLateFee(base, [], 999_999, '2026-08-11')).toEqual({ due: 150_000, lateFee: 150_000, lateFeeWaived: 0 })
+    // the settlement is its own record: it adds nothing to the installments
+    const rec = { amount: 50_000, lateFee: 50_000, lateFeeWaived: 100_000, paidOn: '2026-08-11' }
+    const s = scheduleStatus(base, [rec], '2026-08-11')
+    expect(s).toMatchObject({ collected: 0, lateFeeOutstanding: 0, lateFeePaid: 50_000, lateFeeWaived: 100_000 })
+    expect(scheduleStatus(base, [{ ...rec, amount: 0, lateFee: 0, lateFeeWaived: 150_000 }], '2026-08-11').lateFeeOutstanding).toBe(0)
   })
   it('stops charging once nothing is overdue', () => {
     const pays = [{ amount: 710_000, lateFee: 150_000, paidOn: '2026-08-11' }]

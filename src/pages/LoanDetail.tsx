@@ -18,9 +18,10 @@ import { FileView } from './loans/FileView'
 import { Bar, Ring } from './loans/parts'
 import { SupervisorSheet } from './loans/SupervisorSheet'
 import { LateFeeBreakdown } from './loans/LateFee'
+import { CollectLateFee } from './loans/CollectLateFee'
 
 const STEPS: LoanStatus[] = ['drafted', 'requested', 'approved']
-type Dialog = 'submit' | 'delete' | 'return' | 'reset' | 'approve' | 'reject' | 'supervisor' | 'collector' | 'void' | 'restore' | null
+type Dialog = 'submit' | 'delete' | 'return' | 'reset' | 'approve' | 'reject' | 'supervisor' | 'collector' | 'void' | 'restore' | 'latefee' | null
 
 export function LoanDetail() {
   const loanId = Number(useParams().id)
@@ -212,10 +213,10 @@ export function LoanDetail() {
         <section className="card">
           <div className="eyebrow">Next installment</div>
           <div className="row between" style={{ alignItems: 'center', margin: '4px 0' }}>
-            <b className="num" style={{ fontSize: 18 }}>#{next.i} · {fmt(dueParts(next).remaining + status.lateFeeOutstanding, cur)}</b>
+            <b className="num" style={{ fontSize: 18 }}>#{next.i} · {fmt(dueParts(next).remaining, cur)}</b>
             <span className={'chip ' + (next.state === 'overdue' ? 'overdue' : '')}>{next.state === 'overdue' ? `${next.lateDays}d late` : fmtD(next.due)}</span>
           </div>
-          {status.lateFeeOutstanding > 0 && <p className="small muted" style={{ margin: 0 }}>Includes late fees of {fmt(status.lateFeeOutstanding, cur)} ({lateRate} of the unpaid principal, per late {lateUnit}).</p>}
+          {status.lateFeeOutstanding > 0 && <p className="small muted" style={{ margin: 0 }}>A late fee of {fmt(status.lateFeeOutstanding, cur)} is due; it is collected separately.</p>}
           <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
             {can('payments.record') && <button type="button" className="btn primary" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>Record payment</button>}
             {phone && <a className="btn" href={'tel:' + phone}><Icon name="phone" size={16} />Call</a>}
@@ -231,7 +232,7 @@ export function LoanDetail() {
               <p className="small muted" style={{ margin: '2px 0 0' }}>{lateRate} of the unpaid principal, for every {lateUnit} a payment is late.</p>
             </div>
             {approved && status.lateFeeOutstanding > 0 && can('payments.record') && (
-              <button type="button" className="btn" onClick={() => nav(`/cashflow/pay?loan=${loan.id}&late=1`)}>Collect late fee</button>
+              <button type="button" className="btn" onClick={() => setDialog('latefee')}>Collect late fee</button>
             )}
           </div>
           <LateFeeBreakdown status={status} cur={cur} />
@@ -368,11 +369,11 @@ export function LoanDetail() {
           {[...payments].reverse().map((p) => (
             <div className="item" style={{ cursor: 'default' }} key={p.id}>
               <span className="grow">
-                <b>{fmtD(p.paid_on)}</b>
-                {(p.late_fee > 0 || p.late_fee_waived > 0 || p.note) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee > 0 ? `incl. ${fmt(p.late_fee, cur)} late fee` : '', p.late_fee_waived > 0 ? `${fmt(p.late_fee_waived, cur)} late fee forgiven` : '', p.note].filter(Boolean).join(' · ')}</span>}
+                <b>{fmtD(p.paid_on)}{p.late_fee > 0 || p.late_fee_waived > 0 ? ' · Late fee' : ''}</b>
+                {(p.late_fee_waived > 0 || p.note) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee_waived > 0 ? `${fmt(p.late_fee_waived, cur)} forgiven` : '', p.note].filter(Boolean).join(' · ')}</span>}
               </span>
               {p.photo_path && <FileView path={p.photo_path} label="Photo" />}
-              <b className="num in">+{fmt(p.amount, cur)}</b>
+              <b className="num in">{p.amount > 0 ? '+' : ''}{fmt(p.amount, cur)}</b>
             </div>
           ))}
           {!payments.length && <p className="muted">No payments yet.</p>}
@@ -389,6 +390,7 @@ export function LoanDetail() {
         </>
       )}
 
+      {dialog === 'latefee' && <CollectLateFee view={v} onClose={() => setDialog(null)} />}
       {dialog === 'void' && (
         <Sheet title="Void this loan?" onClose={() => setDialog(null)} action={{
           label: 'Void loan', cls: 'danger', disabled: !reason.trim(),

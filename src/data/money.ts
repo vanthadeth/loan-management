@@ -138,12 +138,15 @@ export function useMoneyData(): MoneyData {
         repaid += s.principal
         // a refinancing payoff is dated on the new loan's release day: like the release, it counts from that day
         if (isPayoff(p) && p.paid_on > today) continue
+        if (p.amount <= 0) continue // a late fee forgiven in full: no money moved
         entries.push({
           ...blank, id: `p${p.id}`, date: p.paid_on, ord: p.created_at + '0', kind: 'payment', type: 'in', direction: 'in',
           currency: loan.currency, amount: p.amount, borrower, loanId: loan.id, principal: s.principal, interest: s.interest,
           lateFee: p.late_fee,
-          detail: (isPayoff(p) ? `Paid off by refinancing · ${code} · ${p.note.replace('Refinanced into ', 'into ')}, no cash` : `Payment · ${code}`)
-            + (p.late_fee > 0 ? ` · incl. late fee ${fmt(p.late_fee, loan.currency)}` : ''),
+          detail: isPayoff(p) ? `Paid off by refinancing · ${code} · ${p.note.replace('Refinanced into ', 'into ')}, no cash`
+            : p.late_fee > 0 && p.late_fee === p.amount ? `Late fee · ${code}`
+            : p.late_fee > 0 ? `Payment · ${code} · incl. late fee ${fmt(p.late_fee, loan.currency)}`
+            : `Payment · ${code}`,
         })
       }
       principalPaid.set(loan.id, repaid)
