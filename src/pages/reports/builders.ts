@@ -51,7 +51,7 @@ export function buildReport(name: ReportName, { data, cur, lang, inRange }: Ctx)
         rows: released.map((v, i) => [
           loanCode(v.loan.id), borrowerName(v.borrower, lang), amt(nums[i][0]), amt(nums[i][1]), amt(nums[i][2]), amt(nums[i][3]),
           `${Math.round((v.status.paidCount / v.loan.occurrences) * 100)}%`,
-          v.loan.status === 'refinanced' ? 'Refinanced' : v.done ? 'Completed' : v.status.rows.some((r) => r.state === 'overdue') ? 'Overdue' : 'Active',
+          v.loan.status === 'refinanced' ? 'Refinanced' : v.loan.written_off_at ? 'Written off' : v.done ? 'Completed' : v.status.rows.some((r) => r.state === 'overdue') ? 'Overdue' : 'Active',
         ]),
         foot: ['Total', '', total(nums, 0), total(nums, 1), total(nums, 2), total(nums, 3), '', ''],
       }
@@ -79,6 +79,7 @@ export function buildReport(name: ReportName, { data, cur, lang, inRange }: Ctx)
       // as of today, over every loan still being repaid (not limited to the date range)
       const risk = openLoans(data, cur).map((v) => ({ dpd: daysPastDue(v.status.rows), principal: v.status.remainingPrincipal }))
       const par = portfolioAtRisk(risk)
+      const writtenOff = openLoans(data, cur).filter((v) => v.loan.written_off_at).map((v) => ({ principal: v.status.remainingPrincipal }))
       const pct = (n: number) => (n * 100).toFixed(1) + '%'
       const share = (n: number) => pct(par.total > 0 ? n / par.total : 0)
       return {
@@ -86,6 +87,7 @@ export function buildReport(name: ReportName, { data, cur, lang, inRange }: Ctx)
         right: [1, 2, 3],
         rows: [
           ...par.buckets.map((b) => [b.label, String(b.loans), amt(b.principal), share(b.principal)] as Cell[]),
+          ['of which written off', String(writtenOff.length), amt(writtenOff.reduce((s, l) => s + l.principal, 0)), share(writtenOff.reduce((s, l) => s + l.principal, 0))],
           ['PAR1 (1+ days late)', String(risk.filter((l) => l.dpd >= 1).length), amt(par.par1Amount), pct(par.par1)],
           ['PAR30 (31+ days late)', String(risk.filter((l) => l.dpd >= 31).length), amt(par.par30Amount), pct(par.par30)],
         ],

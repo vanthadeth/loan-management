@@ -134,6 +134,19 @@ export function useLoanActions() {
       await refresh()
     },
 
+    /** Writes off an overdue loan (admin): it stays in the portfolio and the risk figures; money received afterwards is a recovery. */
+    async writeOff(id: number, reason: string) {
+      const { error } = await supabase.rpc('write_off_loan', { p_loan: id, p_reason: reason })
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+
+    async reverseWriteOff(id: number, reason: string) {
+      const { error } = await supabase.rpc('reverse_write_off', { p_loan: id, p_reason: reason })
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+
     async addAttachments(loanId: number, files: File[]) {
       for (const f of files) {
         const file_path = await uploadFile('loans', f)

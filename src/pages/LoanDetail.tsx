@@ -25,7 +25,7 @@ import { useLoanSnapshots, useReconcile } from '../data/audit'
 
 const STEPS: LoanStatus[] = ['drafted', 'requested', 'approved']
 type Tab = 'main' | 'schedule' | 'contract' | 'insight'
-type Dialog = 'submit' | 'delete' | 'return' | 'reset' | 'approve' | 'reject' | 'supervisor' | 'collector' | 'void' | 'restore' | 'latefee' | 'early' | null
+type Dialog = 'submit' | 'delete' | 'return' | 'reset' | 'approve' | 'reject' | 'supervisor' | 'collector' | 'void' | 'restore' | 'latefee' | 'early' | 'writeoff' | 'unwriteoff' | null
 
 export function LoanDetail() {
   const loanId = Number(useParams().id)
@@ -87,8 +87,11 @@ export function LoanDetail() {
   const canReset = !voided && loan.status === 'approved' && can('loans.approve') && payments.length === 0 && !loan.refinance_of
   // refinance: an approved loan still collecting, with no other refinancing loan in progress
   const refinancedBy = [...views, ...voidedViews].find((x) => x.loan.refinance_of === loan.id && !x.loan.voided_at && x.loan.status !== 'rejected')
-  const canEarly = !voided && v.active && !refinancedBy && can('payments.record')
-  const canRefinance = !voided && v.active && !refinancedBy && can('loans.create')
+  const writtenOff = !!loan.written_off_at
+  const canEarly = !voided && v.active && !refinancedBy && !writtenOff && can('payments.record')
+  const canWriteOff = !voided && v.active && !writtenOff && can('loans.write_off') && status.rows.some((r) => r.state === 'overdue')
+  const canUnWriteOff = !voided && writtenOff && can('loans.write_off')
+  const canRefinance = !voided && v.active && !refinancedBy && !writtenOff && can('loans.create')
   const next = approved && !voided ? status.rows.find((r) => r.state !== 'paid') : undefined
   const phone = (borrower?.phone ?? '').replace(/[^\d+]/g, '')
   const pct = Math.round((status.paidCount / loan.occurrences) * 100)
@@ -165,7 +168,7 @@ export function LoanDetail() {
             Being refinanced by <Link to={`/loans/${refinancedBy.loan.id}`}>{loanCode(refinancedBy.loan.id)}</Link> ({t(refinancedBy.loan.status)}). It is paid off when that loan is approved.
           </p>
         )}
-        {(mine || canReturn || canReset || canVoid || canRefinance || canEarly) && (
+        {(mine || canReturn || canReset || canVoid || canRefinance || canEarly || canWriteOff) && (
           <div className="ctas">
             {mine && (
               <>
@@ -177,11 +180,27 @@ export function LoanDetail() {
             {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Draft</button>}
             {canReset && <button type="button" className="btn" onClick={() => setDialog('reset')}>Reset approval</button>}
             {canEarly && <button type="button" className="btn" onClick={() => setDialog('early')}>Early payoff</button>}
+            {canWriteOff && <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('writeoff') }}>Write off</button>}
             {canRefinance && <button type="button" className="btn" onClick={() => nav(`/loans/new?refinance=${loan.id}`)}>Refinance</button>}
             {canVoid && <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('void') }}>Void</button>}
           </div>
         )}
       </section>
+
+      {writtenOff && !voided && (
+        <section className="card" style={{ borderColor: 'var(--late)' }}>
+          <div className="row between" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <div>
+              <b style={{ color: 'var(--late)' }}>Written off</b>
+              <p className="small muted" style={{ margin: '2px 0 0' }}>
+                {fmtD(loan.written_off_at?.slice(0, 10))}{who(loan.written_off_by) ? ` by ${who(loan.written_off_by)}` : ''}. Still counted in the portfolio and the risk figures; money received now is recorded as a recovery.
+              </p>
+              {loan.write_off_reason && <p style={{ margin: '6px 0 0' }}>Reason: {loan.write_off_reason}</p>}
+            </div>
+            {canUnWriteOff && <button type="button" className="btn" onClick={() => { setReason(''); setDialog('unwriteoff') }}>Reverse</button>}
+          </div>
+        </section>
+      )}
 
       {voided && (
         <section className="card" style={{ borderColor: 'var(--late)' }}>
@@ -458,6 +477,24 @@ export function LoanDetail() {
             {payTarget.restore ? 'It counts again: the balance and the schedule go back to include it.' : <>The {fmt(payTarget.p.amount, cur)} payment of {fmtD(payTarget.p.paid_on)} stops counting: the balance, the schedule and the cashflow are recalculated without it. It stays on record.</>}
           </p>
           {!payTarget.restore && <TextArea id="vpr" label="Reason (required)" value={reason} onChange={setReason} />}
+        </Sheet>
+      )}
+      {dialog === 'writeoff' && (
+        <Sheet title="Write off this loan?" onClose={() => setDialog(null)} action={{
+          label: 'Write off', cls: 'danger', disabled: !reason.trim(),
+          onClick: async () => { try { await actions.writeOff(loan.id, reason.trim()); toast('Loan written off'); setDialog(null) } catch (e) { toast(errMsg(e)) } },
+        }}>
+          <p style={{ margin: '0 0 10px' }}>Give up collecting <b>{loanCode(loan.id)}</b> ({name}). {fmt(status.remainingPrincipal, cur)} of principal is still owed. The loan stays on record and in the portfolio and risk figures, and anything the borrower pays later is recorded as a recovery. You can reverse it.</p>
+          <TextArea id="wor" label="Reason (required)" value={reason} onChange={setReason} />
+        </Sheet>
+      )}
+      {dialog === 'unwriteoff' && (
+        <Sheet title="Reverse the write-off?" onClose={() => setDialog(null)} action={{
+          label: 'Reverse write-off', disabled: !reason.trim(),
+          onClick: async () => { try { await actions.reverseWriteOff(loan.id, reason.trim()); toast('Write-off reversed'); setDialog(null) } catch (e) { toast(errMsg(e)) } },
+        }}>
+          <p style={{ margin: '0 0 10px' }}>{loanCode(loan.id)} goes back to being an ordinary loan. Recoveries already recorded stay as they are.</p>
+          <TextArea id="uwr" label="Reason (required)" value={reason} onChange={setReason} />
         </Sheet>
       )}
       {dialog === 'early' && <EarlyPayoff view={v} onClose={() => setDialog(null)} />}

@@ -145,6 +145,7 @@ export function useMoneyData(): MoneyData {
           // late fee and prepayment fee are both penalties on top of principal and interest
           lateFee: p.late_fee + (p.prepay_fee ?? 0),
           detail: isPayoff(p) ? `Paid off by refinancing · ${code} · ${p.note.replace('Refinanced into ', 'into ')}, no cash`
+            : p.note.startsWith('Recovery') ? `Recovery · ${code} (written-off loan)`
             : isEarlyPayoff(p) ? `Early payoff · ${code}` + ((p.prepay_fee ?? 0) > 0 ? ` · incl. prepayment fee ${fmt(p.prepay_fee ?? 0, loan.currency)}` : '')
             : p.late_fee > 0 && p.late_fee === p.amount ? `Late fee · ${code}`
             : p.late_fee > 0 ? `Payment · ${code} · incl. late fee ${fmt(p.late_fee, loan.currency)}`

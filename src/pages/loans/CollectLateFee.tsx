@@ -29,7 +29,7 @@ export function CollectLateFee({ view, onClose }: { view: LoanView; onClose: () 
     try {
       await rec.mutateAsync({
         loan_id: loan.id, bank_account_id: s.lateFee > 0 && bank ? Number(bank) : null, amount: s.lateFee,
-        late_fee: s.lateFee, late_fee_waived: s.lateFeeWaived, paid_on: today, photo: null,
+        late_fee: s.lateFee, late_fee_waived: s.lateFeeWaived, paid_on: today, photo: null, note: loan.written_off_at ? 'Recovery' : undefined,
       })
       toast(s.lateFee > 0 ? 'Late fee collected' : 'Late fee forgiven')
       onClose()

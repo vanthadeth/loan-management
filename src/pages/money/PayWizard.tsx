@@ -103,7 +103,7 @@ export function PayWizard() {
     try {
       await rec.mutateAsync({
         loan_id: view.loan.id, bank_account_id: bankValue ? Number(bankValue) : null, amount: value,
-        late_fee: 0, late_fee_waived: 0, paid_on: paidOn, photo: photo?.file ?? null,
+        late_fee: 0, late_fee_waived: 0, paid_on: paidOn, note: view.loan.written_off_at ? 'Recovery' : undefined, photo: photo?.file ?? null,
       })
       toast('Payment recorded')
       nav('/cashflow')

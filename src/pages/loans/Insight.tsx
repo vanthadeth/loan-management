@@ -20,7 +20,8 @@ export function findings(v: LoanView, all: LoanView[], gain: number, books?: Dis
 
   if (loan.status === 'approved') {
     const late = status.rows.filter((r) => r.state === 'overdue')
-    if (status.done) add('ok', 'Fully repaid', 'Every installment has been collected.')
+    if (loan.written_off_at) add('bad', 'Written off', `${loan.write_off_reason ?? ''} Money received now is a recovery.`.trim())
+    else if (status.done) add('ok', 'Fully repaid', 'Every installment has been collected.')
     else if (late.length) {
       const days = Math.max(...late.map((r) => r.lateDays))
       add(days >= 7 ? 'bad' : 'warn', `${late.length} installment${late.length > 1 ? 's' : ''} overdue`, `Oldest is ${days} day${days === 1 ? '' : 's'} late. Call the borrower or send the collector.`)
@@ -41,6 +42,8 @@ export function findings(v: LoanView, all: LoanView[], gain: number, books?: Dis
     if (borrower.status === 'banned') addB('bad', 'Borrower is banned', 'Think twice before collecting or lending more.')
     else if (borrower.tier === 'bad') addB('bad', 'Rated Bad', 'Trust level is the lowest.')
     else if (borrower.tier === 'gold' || borrower.tier === 'silver') addB('ok', `Rated ${borrower.tier === 'gold' ? 'Gold' : 'Silver'}`, 'A trusted borrower.')
+    const offs = all.filter((x) => x.loan.borrower_id === loan.borrower_id && x.loan.id !== loan.id && x.loan.written_off_at)
+    if (offs.length) addB('bad', 'Has a written-off loan', `${offs.map((x) => loanCode(x.loan.id)).join(', ')} was written off.`)
     const mine = all.filter((x) => x.loan.borrower_id === loan.borrower_id && !x.loan.voided_at && (x.loan.status === 'approved' || x.loan.status === 'refinanced'))
     const others = mine.filter((x) => x.loan.id !== loan.id && x.active)
     const lateOthers = others.filter((x) => x.status.rows.some((r) => r.state === 'overdue'))

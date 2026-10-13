@@ -105,7 +105,7 @@ number, photo, note, and `reverses_id` when it is a reversal.
 - **R-FIX-1** Voiding a payment posts a reversal linked to the original, reverses its allocations, recomputes the installments
   and writes a new snapshot. The original stays visible, struck through. Admin permission and a reason are required.
 - **R-FIX-2** No hard deletes on money tables. Only a draft with no transactions may be deleted.
-- **R-FIX-3** A write-off is admin-only with a reason. Money received afterwards is a `recovery`, never a normal payment.
+- **R-FIX-3** A write-off is admin-only with a reason. Money received afterwards is a `recovery`, never a normal payment. The loan stays in the portfolio and in the risk figures; the write-off can be reversed by an admin.
 
 ## 9. Snapshots and audit
 
@@ -156,7 +156,9 @@ waivers (R-PAY-5); a reason on every waiver, void and write-off; permissions sta
   "Books agree" in a loan's Insight, admin only); the payment history shows the balance before and after each payment from
   the snapshots (R-SNAP-2). Step 8b added the Portfolio at risk report (`src/lib/risk.ts`: buckets, PAR1 = 1+ days late, PAR30 = more than 30
   days late, shown in Reports) and the effective annual rate (`effectiveRate` in `src/lib/calc.ts`, on the new-loan screen,
-  the loan information and the contract placeholder `{{apr}}`). Still missing: write-off.
+  the loan information and the contract placeholder `{{apr}}`). Step 9 (migration `20261036000000`) added write-off (R-FIX-3): admin only, reason, overdue loans only; a written-off
+  loan stays in the portfolio and the PAR figures (owner's decision), money after it is a `Recovery`, and an admin can
+  reverse it. Nothing from the roadmap is left except the loose ends below.
 
 ## 13. Roadmap
 

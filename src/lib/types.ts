@@ -25,7 +25,7 @@ export interface Loan {
   id: number; borrower_id: number; supervisor_id: string | null; collector_id: string | null;
   /** the ongoing loan this one pays off, and the balance carried over from it (part of `amount`) */
   refinance_of: number | null; carried_amount: number | null; carried_late_fee: number | null; reject_reason: string; currency: Currency; amount: number; fee_pct: number
-  late_fee_pct: number; late_grace_days: number | null; late_cap_pct: number | null; prepay_fee_pct: number | null; rate_pct: number; rate_basis: RateBasis; frequency: 'daily' | 'weekly' | 'monthly' | 'custom'
+  late_fee_pct: number; late_grace_days: number | null; late_cap_pct: number | null; prepay_fee_pct: number | null; written_off_at: string | null; written_off_by: string | null; write_off_reason: string | null; rate_pct: number; rate_basis: RateBasis; frequency: 'daily' | 'weekly' | 'monthly' | 'custom'
   interval_days: number; occurrences: number; mode: PayMode; release_date: string; status: LoanStatus
   pay_method: 'cash' | 'bank' | 'other'; bank_account_id: number | null; pay_remarks: string
   requested_by: string | null; verified_by: string | null; approved_by: string | null
