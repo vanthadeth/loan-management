@@ -381,8 +381,8 @@ export function LoanDetail() {
                 </span>
                 {!gone && p.photo_path && <FileView path={p.photo_path} label="Photo" />}
                 <b className={'num' + (gone ? '' : ' in')} style={gone ? { textDecoration: 'line-through' } : undefined}>{!gone && p.amount > 0 ? '+' : ''}{fmt(p.amount, cur)}</b>
-                {canVoidPay && !gone && !isPayoff(p) && <button type="button" className="btn sm" onClick={() => { setReason(''); setPayTarget({ p, restore: false }) }}>Void</button>}
-                {canVoidPay && gone && <button type="button" className="btn sm" onClick={() => setPayTarget({ p, restore: true })}>Restore</button>}
+                {canVoidPay && !gone && !isPayoff(p) && <button type="button" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Void payment" title="Void payment" onClick={() => { setReason(''); setPayTarget({ p, restore: false }) }}><Icon name="ban" size={17} /></button>}
+                {canVoidPay && gone && <button type="button" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Restore payment" title="Restore payment" onClick={() => setPayTarget({ p, restore: true })}><Icon name="refresh" size={17} /></button>}
               </div>
             )
           })}
