@@ -1261,3 +1261,10 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 .prog tr.head td{padding-top:12px}
 .prog tr.head:first-child td{padding-top:6px}
 .prog tr.sub.total td{border-top:1px dashed var(--line);font-weight:600;color:var(--ink)}
+/* loan details: start and completed date as two rows on small screens */
+@media (max-width:599px){
+  .kv.dates{grid-template-columns:1fr;gap:0}
+  .kv.dates>div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .kv.dates>div:last-child{border-bottom:0;padding-bottom:0}
+  .kv.dates .eyebrow{margin:0}
+}

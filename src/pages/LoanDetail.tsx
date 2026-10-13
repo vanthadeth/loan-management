@@ -305,7 +305,7 @@ export function LoanDetail() {
             {approved && status.lateFeeOutstanding > 0 && <tr className="head"><td>Late fee due</td><td className="r out"><b>{fmt(status.lateFeeOutstanding, cur)}</b></td></tr>}
           </tbody></table>
         </div>
-        <div className="kv" style={{ marginTop: 14 }}>
+        <div className="kv dates" style={{ marginTop: 14 }}>
           <div><span className="eyebrow">{t('start')}</span>{fmtD(loan.release_date)}</div>
           <div><span className="eyebrow">{t('end')}</span>{fmtD(end)}{status.done || refinanced ? '' : ' (expected)'}</div>
         </div>
