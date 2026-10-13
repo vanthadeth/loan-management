@@ -78,6 +78,7 @@ export function PayWizard() {
     if (n === 0 && !view) { toast('Select a contract first'); return false }
     if (n === 1 && view) {
       if (!(value > 0)) { toast('Enter the amount received'); return false }
+      if (value > view.status.remaining + 0.005) { toast(`More than the loan still owes (${fmt(view.status.remaining, cur)}). Hand the extra back to the borrower.`); return false }
       if (!paidOn) { toast('Select the date paid'); return false }
       if (paidOn > todayIso()) { toast('The payment date cannot be in the future'); return false }
       if (paidOn < view.loan.release_date) { toast('The payment date is before the loan was released'); return false }
@@ -243,7 +244,6 @@ function Review({ view, alloc, amount, paidOn, bankText, photo, onEdit, lang }: 
           {row('Paid on', fmtD(paidOn))}
           {row('Amount received', fmt(amount, cur), 'strong')}
           {row('Applied to installments', fmt(applied, cur), 'sub')}
-          {alloc.above > 0.005 && row('Above the contract balance', fmt(alloc.above, cur), 'sub')}
           {row('Balance after payment', fmt(Math.max(alloc.balanceAfter, 0), cur), 'strong')}
         </div>
         {photo && <div className="py-ph" style={{ marginTop: 12 }}><img src={photo.url} alt="Payment transaction" /><span className="grow small ell">{photo.name}</span></div>}

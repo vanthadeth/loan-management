@@ -135,13 +135,13 @@ waivers (R-PAY-5); a reason on every waiver, void and write-off; permissions sta
 
 - The schedule is stored at approval (`loan_installments`, migration `20261028000000`, roadmap step 1) and payments are linked
   to its installments (`payment_allocations`, `private.reallocate_loan`, migration `20261029000000`, step 2): paid and
-  partial are set by the database. The app still shows the recomputed schedule from `src/lib/calc.ts`, and allocation is a
-  replay of the payments that count, not yet an append-only record with snapshots (step 3).
+  partial are set by the database. Step 3 (migration `20261030000000`) added immutable `loan_snapshots` on every event and
+  blocks overpayment (R-PAY-3) in the database. The app still shows the recomputed schedule from `src/lib/calc.ts`, and the
+  allocation itself is a replay of the payments that count.
 - Paid and overdue are derived on every load, so they follow the code and terms of the day. No snapshots exist.
 - Refinance posts a payoff payment (`apply_refinance`, migration `20261025000000`) and flips the old loan to `refinanced`, but
   individual installments are not locked.
-- Overpayment is allowed ("above the contract balance" is shown), there is no backdating limit, and the creator of a loan can
-  approve it.
+- There is no backdating limit, and the creator of a loan can approve it. (Overpayment is blocked since step 3.)
 - Paying everything early means paying every installment including all flat interest. There is no payoff quote, no
   prepayment fee and no admin-approved waiver. Only refinancing drops future interest.
 - Late fee is settled separately (`settleLateFee`) but has no grace days or cap, and a forgiven fee is stored as a number on the
