@@ -152,7 +152,9 @@ waivers (R-PAY-5); a reason on every waiver, void and write-off; permissions sta
   (migration `20261032000000`, `scheduleStatus`); a forgiven fee is still a number on the settlement row, not a charge.
 - Voiding a payment (`private.payments_void_guard`) sets flags on the row; it is not a reversal transaction. `loans` still
   has a delete policy.
-- No PAR or aging buckets, no reconciliation check, no APR.
+- The reconciliation check (R-SNAP-4) exists since step 8a (`public.reconcile_books`, migration `20261035000000`, shown as
+  "Books agree" in a loan's Insight, admin only); the payment history shows the balance before and after each payment from
+  the snapshots (R-SNAP-2). Still missing: PAR and aging buckets, APR, write-off.
 
 ## 13. Roadmap
 

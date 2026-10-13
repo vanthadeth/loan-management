@@ -21,6 +21,7 @@ import { LateFeeBreakdown } from './loans/LateFee'
 import { findings, Insight } from './loans/Insight'
 import { CollectLateFee } from './loans/CollectLateFee'
 import { EarlyPayoff } from './loans/EarlyPayoff'
+import { useLoanSnapshots, useReconcile } from '../data/audit'
 
 const STEPS: LoanStatus[] = ['drafted', 'requested', 'approved']
 type Tab = 'main' | 'schedule' | 'contract' | 'insight'
@@ -41,6 +42,9 @@ export function LoanDetail() {
   const [reason, setReason] = useState('')
   const [payTarget, setPayTarget] = useState<{ p: Payment; restore: boolean } | null>(null)
   const voidPay = useVoidPayment()
+  const snaps = useLoanSnapshots(loanId)
+  const isAdminRole = !!role?.locked
+  const books = useReconcile(loanId, isAdminRole)
   const [params, setParams] = useSearchParams()
   usePageTitle(Number.isFinite(loanId) ? loanCode(loanId) : 'Loan')
 
@@ -93,6 +97,14 @@ export function LoanDetail() {
   const lateUnit = loan.frequency === 'daily' ? 'day' : loan.frequency === 'weekly' ? 'week' : loan.frequency === 'monthly' ? 'month' : `${loan.interval_days}-day period`
   const end = refinanced ? completedOn(v) : status.done ? status.rows[status.rows.length - 1].paidOn : status.rows[status.rows.length - 1].due
 
+  // what the loan looked like right after a payment, from its snapshot: remaining principal before to after
+  const balanceLine = (paymentId: number) => {
+    const list = snaps.data ?? []
+    const s = list.find((x) => x.event_id === paymentId && x.event_type !== 'void' && x.event_type !== 'restore')
+    if (!s) return ''
+    const before = list.find((x) => x.seq === s.seq - 1)
+    return `Principal left ${before ? fmt(before.principal_outstanding, cur) + ' → ' : ''}${fmt(s.principal_outstanding, cur)} · interest left ${fmt(s.interest_outstanding, cur)}`
+  }
   const move = (to: LoanStatus, done: string) => async () => {
     try {
       await actions.setStatus(loan.id, loan.status, to)
@@ -280,6 +292,7 @@ export function LoanDetail() {
               <div className="item" style={{ cursor: 'default', opacity: gone ? 0.65 : 1 }} key={p.id}>
                 <span className="grow">
                   <b style={gone ? { textDecoration: 'line-through' } : undefined}>{fmtD(p.paid_on)}{p.late_fee > 0 || p.late_fee_waived > 0 ? ' · Late fee' : ''}{isEarlyPayoff(p) ? ' · Early payoff' : ''}</b>
+                  {!gone && balanceLine(p.id) && <span className="small muted" style={{ display: 'block' }}>{balanceLine(p.id)}</span>}
                   {gone
                     ? <span className="small muted" style={{ display: 'block' }}>Voided {fmtD(p.voided_at?.slice(0, 10))}{who(p.voided_by) ? ` by ${who(p.voided_by)}` : ''}: {p.void_reason}</span>
                     : (p.late_fee_waived > 0 || p.note || (p.prepay_fee ?? 0) > 0) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee_waived > 0 ? `${fmt(p.late_fee_waived, cur)} forgiven` : '', (p.prepay_fee ?? 0) > 0 ? `incl. ${fmt(p.prepay_fee ?? 0, cur)} prepayment fee` : '', (p.prepay_fee_waived ?? 0) > 0 ? `${fmt(p.prepay_fee_waived ?? 0, cur)} fee waived: ${p.waive_reason}` : '', isEarlyPayoff(p) ? '' : p.note].filter(Boolean).join(' · ')}</span>}
@@ -401,7 +414,7 @@ export function LoanDetail() {
       </section>
       </>}
       {tab === 'insight' && isAdmin && <>
-        <Insight items={findings(v, views, gain)} borrowerName={name} />
+        <Insight items={findings(v, views, gain, books.data)} borrowerName={name} />
       <section className="card">
         <h2>{t('summary')}</h2>
         <div className="tblwrap">

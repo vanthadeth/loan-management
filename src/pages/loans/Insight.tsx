@@ -1,4 +1,5 @@
 import type { LoanView } from '../../data/book'
+import type { Discrepancy } from '../../data/audit'
 import { fmt, loanCode } from '../../lib/format'
 import { diffDays, todayIso } from '../../lib/calc'
 
@@ -9,7 +10,7 @@ interface Finding { scope: Scope; level: Level; title: string; detail: string }
 const RANK: Record<Level, number> = { bad: 0, warn: 1, ok: 2 }
 
 /** What an admin should know about this loan, worst first. Each finding is a traffic light: green, amber, red. */
-export function findings(v: LoanView, all: LoanView[], gain: number): Finding[] {
+export function findings(v: LoanView, all: LoanView[], gain: number, books?: Discrepancy[]): Finding[] {
   const { loan, status, borrower, payments, voided } = v
   const cur = loan.currency
   const out: Finding[] = []
@@ -57,6 +58,11 @@ export function findings(v: LoanView, all: LoanView[], gain: number): Finding[] 
     if (owed.size) addB('ok', 'Owes in total', [...owed].map(([c, n]) => fmt(n, c as typeof cur)).join(' + ') + ' left to collect across the open loans.')
   }
 
+  // the database's own records checked against each other (R-SNAP-4); undefined while loading or not available
+  if (books) {
+    if (books.length === 0) add('ok', 'Books agree', 'Schedule, payments, allocations and snapshots match.')
+    else add('bad', 'Books do not agree', books.map((b) => `${b.check_name}: expected ${b.expected}, found ${b.actual}`).join('; '))
+  }
   if (voided.length) add('warn', `${voided.length} payment${voided.length > 1 ? 's' : ''} voided`, 'Check the payment history to see why.')
   if (loan.refinance_of) add('ok', `Refinances ${loanCode(loan.refinance_of)}`, 'The old balance was paid off by this loan.')
   if (loan.status === 'approved' || loan.status === 'refinanced') {
