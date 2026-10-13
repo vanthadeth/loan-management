@@ -89,12 +89,21 @@ export function totalInterest(t: Pick<LoanTerms, 'amount' | 'ratePct' | 'rateBas
   return t.amount * r * (t.frequency === 'monthly' ? t.occurrences : (t.occurrences * t.intervalDays) / 30)
 }
 
+/**
+ * Installments: interest and principal split evenly, each rounded (riel to 100, dollars to the cent). The last
+ * installment takes the rounding difference, so the principal adds up to exactly the loan amount and the interest
+ * to exactly the total interest (1,000,000 over 60 is 59 × 16,700 + 14,700, not 60 × 16,700 = 1,002,000).
+ */
 export function buildSchedule(t: LoanTerms): Installment[] {
-  const I = totalInterest(t)
+  const n = t.occurrences
+  const interestTotal = roundMoney(totalInterest(t), t.currency)
+  const interestEach = roundMoney(interestTotal / n, t.currency)
+  const principalEach = t.mode === 'equal' ? roundMoney(t.amount / n, t.currency) : 0
   const rows: Installment[] = []
-  for (let i = 1; i <= t.occurrences; i++) {
-    const interest = roundMoney(I / t.occurrences, t.currency)
-    const principal = t.mode === 'equal' ? roundMoney(t.amount / t.occurrences, t.currency) : i === t.occurrences ? t.amount : 0
+  for (let i = 1; i <= n; i++) {
+    const last = i === n
+    const interest = last ? roundMoney(interestTotal - interestEach * (n - 1), t.currency) : interestEach
+    const principal = last ? roundMoney(t.amount - principalEach * (n - 1), t.currency) : principalEach
     rows.push({ i, due: dueDate(t, i), interest, principal, total: interest + principal })
   }
   return rows

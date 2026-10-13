@@ -102,6 +102,22 @@ describe('payments', () => {
   })
 })
 
+describe('rounding', () => {
+  it('makes the principal add up to the loan amount and the interest to the total interest', () => {
+    // 1,000,000 riel over 60 days at 17% per contract: 16,666.67 a day rounds to 16,700
+    const t: LoanTerms = { ...base, amount: 1_000_000, ratePct: 17, rateBasis: 'contract', occurrences: 60, frequency: 'daily', intervalDays: 1, mode: 'equal' }
+    const rows = buildSchedule(t)
+    expect(rows.reduce((s, r) => s + r.principal, 0)).toBe(1_000_000)
+    expect(rows.reduce((s, r) => s + r.interest, 0)).toBe(170_000)
+    expect(rows[0]).toMatchObject({ principal: 16_700, interest: 2_800 })
+    expect(rows[59]).toMatchObject({ principal: 14_700, interest: 4_800 })
+    // nothing collected yet, nothing due: refinancing carries over exactly the loan amount
+    expect(payoffAmount(t, [], t.releaseDate).total).toBe(1_000_000)
+    const thirds = buildSchedule({ ...t, occurrences: 3, frequency: 'monthly', intervalDays: 30 })
+    expect(thirds.map((r) => r.principal)).toEqual([333_300, 333_300, 333_400])
+  })
+})
+
 describe('refinancing', () => {
   const first = { amount: 560_000, lateFee: 0, paidOn: '2026-08-01' }
   it('pays off what is due plus the principal not yet due', () => {
