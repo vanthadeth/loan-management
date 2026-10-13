@@ -25,7 +25,7 @@ export interface Loan {
   id: number; borrower_id: number; supervisor_id: string | null; collector_id: string | null;
   /** the ongoing loan this one pays off, and the balance carried over from it (part of `amount`) */
   refinance_of: number | null; carried_amount: number | null; carried_late_fee: number | null; reject_reason: string; currency: Currency; amount: number; fee_pct: number
-  late_fee_pct: number; rate_pct: number; rate_basis: RateBasis; frequency: 'daily' | 'weekly' | 'monthly' | 'custom'
+  late_fee_pct: number; late_grace_days: number | null; late_cap_pct: number | null; rate_pct: number; rate_basis: RateBasis; frequency: 'daily' | 'weekly' | 'monthly' | 'custom'
   interval_days: number; occurrences: number; mode: PayMode; release_date: string; status: LoanStatus
   pay_method: 'cash' | 'bank' | 'other'; bank_account_id: number | null; pay_remarks: string
   requested_by: string | null; verified_by: string | null; approved_by: string | null
@@ -41,7 +41,7 @@ export interface Payment {
   voided_at: string | null; voided_by: string | null; void_reason: string | null
 }
 export interface FundTransaction { id: number; kind: 'add' | 'withdraw'; currency: Currency; amount: number; txn_date: string; note: string; created_at: string }
-export interface AppSettings { id: 1; service_fee_pct: number; late_fee_pct: number; khr_per_usd: number; backdate_days: number; four_eyes: boolean }
+export interface AppSettings { id: 1; service_fee_pct: number; late_fee_pct: number; khr_per_usd: number; backdate_days: number; four_eyes: boolean; late_grace_days: number; late_cap_pct: number | null }
 export interface Message { id: number; kind: string; loan_id: number | null; actor: string | null; created_at: string }
 
 export interface ContractTemplate { id: number; name: string; url: string; lang: 'km' | 'en'; kind: 'contract' | 'schedule'; is_default: boolean; created_at: string }

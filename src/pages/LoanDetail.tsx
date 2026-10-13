@@ -86,6 +86,7 @@ export function LoanDetail() {
   const phone = (borrower?.phone ?? '').replace(/[^\d+]/g, '')
   const pct = Math.round((status.paidCount / loan.occurrences) * 100)
   const lateRate = `${Number(loan.late_fee_pct)}%`
+  const lateExtra = (loan.late_grace_days ? `, after ${loan.late_grace_days} grace day${loan.late_grace_days > 1 ? 's' : ''}` : '') + (loan.late_cap_pct ? `, capped at ${Number(loan.late_cap_pct)}% of the loan` : '')
   const lateUnit = loan.frequency === 'daily' ? 'day' : loan.frequency === 'weekly' ? 'week' : loan.frequency === 'monthly' ? 'month' : `${loan.interval_days}-day period`
   const end = refinanced ? completedOn(v) : status.done ? status.rows[status.rows.length - 1].paidOn : status.rows[status.rows.length - 1].due
 
@@ -218,7 +219,7 @@ export function LoanDetail() {
             <section className="card" style={{ borderColor: 'var(--late)' }}>
               <div className="eyebrow">Late fee due</div>
               <b className="num out" style={{ fontSize: 22, fontFamily: 'var(--display)', display: 'block', margin: '4px 0' }}>{fmt(status.lateFeeOutstanding, cur)}</b>
-              <p className="small muted" style={{ margin: 0 }}>{lateRate} of the unpaid principal, per late {lateUnit}. Collected separately from payments.</p>
+              <p className="small muted" style={{ margin: 0 }}>{lateRate} of the unpaid principal, per late {lateUnit}{lateExtra}. Collected separately from payments.</p>
               {approved && can('payments.record') && (
                 <div className="ctas" style={{ marginTop: 10 }}><button type="button" className="btn" onClick={() => setDialog('latefee')}>Collect late fee</button></div>
               )}
@@ -363,7 +364,7 @@ export function LoanDetail() {
               </div>
             ))}
           </div>
-          <div><span className="eyebrow">Late fee</span>{lateRate} per late {lateUnit}</div>
+          <div><span className="eyebrow">Late fee</span>{lateRate} per late {lateUnit}{lateExtra}</div>
           <div><span className="eyebrow">Borrower pays by</span>{payText}</div>
           <div><span className="eyebrow">Collateral</span>{collaterals.length ? collaterals.map((c) => c.description).join(', ') : 'None'}</div>
         </div>      </section>

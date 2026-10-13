@@ -106,7 +106,7 @@ export function useUploadPhoto() {
 
 /* ---------------------------------------------------------------- settings */
 
-export type SettingsPatch = Pick<AppSettings, 'service_fee_pct' | 'late_fee_pct' | 'backdate_days' | 'four_eyes'>
+export type SettingsPatch = Pick<AppSettings, 'service_fee_pct' | 'late_fee_pct' | 'backdate_days' | 'four_eyes' | 'late_grace_days' | 'late_cap_pct'>
 
 export function useSaveSettings() {
   const inv = useInvalidate()

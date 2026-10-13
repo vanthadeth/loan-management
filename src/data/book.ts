@@ -35,7 +35,7 @@ export function useBook() {
       // numeric columns can arrive as strings; normalise them
       const num = <T extends object>(rows: T[], keys: (keyof T)[]): T[] =>
         rows.map((r) => { const o = { ...r }; keys.forEach((k) => { if (o[k] != null) o[k] = Number(o[k]) as T[keyof T] }); return o })
-      const allLoans = num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_pct', 'rate_pct', 'carried_amount', 'carried_late_fee'])
+      const allLoans = num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_pct', 'late_cap_pct', 'rate_pct', 'carried_amount', 'carried_late_fee'])
       const allPayments = num(must(p) as Payment[], ['amount', 'late_fee', 'late_fee_waived'])
       const voidedIds = new Set(allLoans.filter((x) => x.voided_at).map((x) => x.id))
       return {
@@ -54,6 +54,8 @@ const termsOf = (l: Loan): LoanTerms => ({
   amount: l.amount, currency: l.currency, feePct: l.fee_pct, ratePct: l.rate_pct, rateBasis: l.rate_basis,
   occurrences: l.occurrences, frequency: l.frequency, intervalDays: l.interval_days, mode: l.mode, releaseDate: l.release_date,
   lateFeePct: l.late_fee_pct,
+  lateGraceDays: l.late_grace_days ?? 0,
+  lateCapPct: l.late_cap_pct,
   carried: Number(l.carried_amount ?? 0),
 })
 

@@ -145,8 +145,8 @@ waivers (R-PAY-5); a reason on every waiver, void and write-off; permissions sta
   (migration `20261031000000`). Overpayment is blocked since step 3.
 - Paying everything early means paying every installment including all flat interest. There is no payoff quote, no
   prepayment fee and no admin-approved waiver. Only refinancing drops future interest.
-- Late fee is settled separately (`settleLateFee`) but has no grace days or cap, and a forgiven fee is stored as a number on the
-  settlement row, not as a charge.
+- Late fee is settled separately (`settleLateFee`). Grace days and the cap (R-LATE-2) are in the loan terms since step 5
+  (migration `20261032000000`, `scheduleStatus`); a forgiven fee is still a number on the settlement row, not a charge.
 - Voiding a payment (`private.payments_void_guard`) sets flags on the row; it is not a reversal transaction. `loans` still
   has a delete policy.
 - No PAR or aging buckets, no reconciliation check, no APR.

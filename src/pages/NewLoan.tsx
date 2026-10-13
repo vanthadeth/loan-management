@@ -92,6 +92,8 @@ export function NewLoan() {
   const [supervisor, setSupervisor] = useState('')
   const [collector, setCollector] = useState('')
   const [late, setLate] = useState<string | null>(null)
+  const [grace, setGrace] = useState<string | null>(null)
+  const [cap, setCap] = useState<string | null>(null)
   const [method, setMethod] = useState<Method | null>(null)
   const [bankId, setBankId] = useState('')
   const [remarks, setRemarks] = useState('')
@@ -113,7 +115,7 @@ export function NewLoan() {
     setRate(String(d.rate_pct)); setBasis(d.rate_basis); setOcc(String(d.occurrences))
     setFreq(({ daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', custom: 'Custom' } as const)[d.frequency])
     setDays(String(d.interval_days)); setMode(d.mode); setSupervisor(d.supervisor_id ?? ''); setCollector(d.collector_id ?? '')
-    setLate(String(d.late_fee_pct)); setMethod(d.pay_method); setBankId(d.bank_account_id ? String(d.bank_account_id) : '')
+    setLate(String(d.late_fee_pct)); setGrace(String(d.late_grace_days ?? 0)); setCap(d.late_cap_pct != null ? String(d.late_cap_pct) : ''); setMethod(d.pay_method); setBankId(d.bank_account_id ? String(d.bank_account_id) : '')
     setRemarks(d.pay_remarks); setStep(4)
   }, [book, draftId])
 
@@ -128,7 +130,7 @@ export function NewLoan() {
     setRate(String(o.rate_pct)); setBasis(o.rate_basis); setOcc(String(o.occurrences))
     setFreq(({ daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', custom: 'Custom' } as const)[o.frequency])
     setDays(String(o.interval_days)); setMode(o.mode); setSupervisor(o.supervisor_id ?? ''); setCollector(o.collector_id ?? '')
-    setLate(String(o.late_fee_pct)); setMethod(o.pay_method); setBankId(o.bank_account_id ? String(o.bank_account_id) : '')
+    setLate(String(o.late_fee_pct)); setGrace(String(o.late_grace_days ?? 0)); setCap(o.late_cap_pct != null ? String(o.late_cap_pct) : ''); setMethod(o.pay_method); setBankId(o.bank_account_id ? String(o.bank_account_id) : '')
     setRemarks(o.pay_remarks); setStep(1)
   }, [refi, draftId, book])
 
@@ -146,6 +148,8 @@ export function NewLoan() {
 
   const borrower = book?.borrowers.find((b) => b.id === borrowerId)
   const feeText = fee ?? (settings ? String(Number(settings.service_fee_pct)) : '')
+  const graceText = grace ?? String(settings?.late_grace_days ?? 0)
+  const capText = cap ?? (settings?.late_cap_pct != null ? String(settings.late_cap_pct) : '')
   const lateText = late ?? lateDefault.toLocaleString('en-US', { maximumFractionDigits: 2 })
   const effMethod: Method = method ?? (banks.length ? 'bank' : 'cash')
   const bank = banks.find((b) => String(b.id) === bankId) ?? banks[0]
@@ -162,9 +166,11 @@ export function NewLoan() {
   const terms: LoanTerms = {
     amount: num(amount) + carried, carried, currency, feePct: num(feeText), ratePct: num(rate), rateBasis: basis, occurrences: n,
     frequency: freq.toLowerCase() as Loan['frequency'], intervalDays, mode, releaseDate: release || todayIso(), lateFeePct: num(lateText),
+    lateGraceDays: Math.round(num(graceText)), lateCapPct: capText.trim() ? num(capText) : null,
   }
   const p = previewLoan(terms)
   const lateLabel = `${terms.lateFeePct}% per late ${freq === 'Custom' ? `${intervalDays}-day period` : freq === 'Daily' ? 'day' : freq === 'Weekly' ? 'week' : 'month'}`
+    + (terms.lateGraceDays ? `, after ${terms.lateGraceDays} grace day${terms.lateGraceDays > 1 ? 's' : ''}` : '') + (terms.lateCapPct ? `, capped at ${terms.lateCapPct}% of the loan` : '')
   const equal = mode === 'equal'
   const first = p.rows[0]
   const installment = equal ? first.total : first.interest
@@ -223,7 +229,7 @@ export function NewLoan() {
         loan: {
           borrower_id: borrower.id, supervisor_id: scoped ? (me?.id ?? null) : supervisor || null, collector_id: collector || null, currency, amount: terms.amount,
           refinance_of: refi ? refi.loan.id : null, carried_amount: carried, carried_late_fee: payoff?.lateFee ?? 0,
-          fee_pct: terms.feePct, late_fee_pct: terms.lateFeePct, rate_pct: terms.ratePct, rate_basis: basis,
+          fee_pct: terms.feePct, late_fee_pct: terms.lateFeePct, late_grace_days: terms.lateGraceDays ?? 0, late_cap_pct: terms.lateCapPct ?? null, rate_pct: terms.ratePct, rate_basis: basis,
           frequency: freq.toLowerCase() as Loan['frequency'], interval_days: intervalDays, occurrences: n, mode, release_date: terms.releaseDate,
           pay_method: effMethod, bank_account_id: effMethod === 'bank' && bank ? bank.id : null, pay_remarks: effMethod === 'other' ? remarks.trim() : '',
         },
@@ -368,6 +374,16 @@ export function NewLoan() {
                 <label htmlFor="llf">Late fee (%)</label>
                 <div className="wz-amt"><input id="llf" inputMode="decimal" value={lateText} onChange={(e) => setLate(e.target.value)} autoComplete="off" /><span id="llfs">%</span></div>
                 <p className="small muted">Percent of the unpaid principal, charged for every payment period a payment is late. Defaults from Settings; change it for this contract.</p>
+              </div>
+              <div className="field">
+                <label htmlFor="lgr">Grace days</label>
+                <input id="lgr" inputMode="numeric" value={graceText} onChange={(e) => setGrace(e.target.value)} autoComplete="off" />
+                <p className="small muted">A payment made within this many days after its due date is not late.</p>
+              </div>
+              <div className="field">
+                <label htmlFor="lcp">Late fee cap (% of the loan)</label>
+                <div className="wz-amt"><input id="lcp" inputMode="decimal" value={capText} onChange={(e) => setCap(e.target.value)} autoComplete="off" placeholder="No cap" /><span>%</span></div>
+                <p className="small muted">The most late fee this loan can ever charge, as a % of the loan amount. Leave empty for no cap.</p>
               </div>
             </div>
             <div className="wz-bento" id="linst">

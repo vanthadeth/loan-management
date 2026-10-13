@@ -20,6 +20,10 @@ export interface LoanTerms {
   releaseDate: string
   /** Percent of the unpaid principal, charged for every payment period the loan is late. */
   lateFeePct: number
+  /** Days after the due date before a payment counts as late (0 = late from the first day). */
+  lateGraceDays?: number
+  /** Most late fee the loan can ever charge, as a % of the loan amount (null/undefined = no cap). */
+  lateCapPct?: number | null
   /** Balance carried over from a loan this one refinances: part of `amount`, but no service fee and not paid out. */
   carried?: number
 }
@@ -200,19 +204,24 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
   const stretches: [string, string][] = []
   for (const r of status) {
     const end = r.paidOn ?? today
-    if (end <= r.due) continue
+    if (end <= addDays(r.due, t.lateGraceDays ?? 0)) continue
     const last = stretches[stretches.length - 1]
     if (last && r.due < last[1]) last[1] = end > last[1] ? end : last[1]
     else stretches.push([r.due, end])
   }
   // one line per late period, for showing how the late fee was worked out
   const lateLines: LateFeeLine[] = []
+  const capTotal = t.lateCapPct != null && t.lateCapPct > 0 ? roundMoney((t.amount * t.lateCapPct) / 100, t.currency) : null
+  let charged = 0
   for (const [start, end] of stretches) {
     for (let k = 0; ; k++) {
       const at = periodStart(t, start, k)
       if (at >= end) break
       const owed = Math.max(owedOn(at), 0)
-      const fee = roundMoney((owed * t.lateFeePct) / 100, t.currency)
+      // the cap is on everything the loan can ever charge, so later periods get what is left
+      const fee = Math.min(roundMoney((owed * t.lateFeePct) / 100, t.currency), capTotal === null ? Infinity : Math.max(capTotal - charged, 0))
+      if (capTotal !== null && fee <= 0) continue
+      charged += fee
       const row = status.find((r) => r.due <= at && (r.paidOn === null || r.paidOn > at)) ?? status[0]
       row.lateFee += fee
       row.lateOccurrences++

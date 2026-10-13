@@ -190,3 +190,22 @@ describe('stored schedule', () => {
     expect(buildSchedule(daily)[59]).toMatchObject({ principal: 14_700, interest: 4_800 })
   })
 })
+
+describe('late fee grace and cap', () => {
+  it('does not count a payment made within the grace days as late', () => {
+    const t = { ...base, lateGraceDays: 3 }
+    const on = scheduleStatus(t, [{ amount: 560_000, lateFee: 0, paidOn: '2026-08-04' }], '2026-08-10') // 3 days after 08-01
+    expect(on.lateFeeAccrued).toBe(0)
+    const over = scheduleStatus(t, [{ amount: 560_000, lateFee: 0, paidOn: '2026-08-05' }], '2026-08-10') // 4 days: late
+    expect(over.lateFeeAccrued).toBe(150_000)
+    // still unpaid inside the grace window: nothing is due yet
+    expect(scheduleStatus(t, [], '2026-08-03').lateFeeOutstanding).toBe(0)
+  })
+  it('stops charging at the cap, as a % of the loan amount, across all periods', () => {
+    const t = { ...base, lateCapPct: 6 } // 6% of 3,000,000 = 180,000
+    const s = scheduleStatus(t, [], '2026-10-02') // three periods would be 150,000 each = 450,000
+    expect(s.lateFeeAccrued).toBe(180_000)
+    expect(s.lateLines.map((l) => l.fee)).toEqual([150_000, 30_000])
+    expect(scheduleStatus({ ...base, lateCapPct: null }, [], '2026-10-02').lateFeeAccrued).toBe(450_000)
+  })
+})

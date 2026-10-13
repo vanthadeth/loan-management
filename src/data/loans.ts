@@ -66,7 +66,7 @@ export function useSupervisors() {
 }
 
 export type NewLoanFields = Pick<Loan,
-  'borrower_id' | 'supervisor_id' | 'collector_id' | 'refinance_of' | 'carried_amount' | 'carried_late_fee' | 'currency' | 'amount' | 'fee_pct' | 'late_fee_pct' | 'rate_pct' | 'rate_basis'
+  'borrower_id' | 'supervisor_id' | 'collector_id' | 'refinance_of' | 'carried_amount' | 'carried_late_fee' | 'currency' | 'amount' | 'fee_pct' | 'late_fee_pct' | 'late_grace_days' | 'late_cap_pct' | 'rate_pct' | 'rate_basis'
   | 'frequency' | 'interval_days' | 'occurrences' | 'mode' | 'release_date' | 'pay_method' | 'bank_account_id' | 'pay_remarks'>
 
 export interface NewLoanInput {
