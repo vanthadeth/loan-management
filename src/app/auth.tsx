@@ -56,6 +56,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe()
   }, [load])
 
+  // "Last active" on the users page: note the time when the app opens, comes back to the screen, and every 5 minutes in use
+  const uid = session?.user.id
+  useEffect(() => {
+    if (!uid) return
+    const touch = () => { if (!document.hidden) void supabase.rpc('touch_last_seen') }
+    touch()
+    const timer = setInterval(touch, 5 * 60_000)
+    document.addEventListener('visibilitychange', touch)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', touch) }
+  }, [uid])
+
   const value = useMemo<Auth>(() => {
     const active = me?.status === 'active'
     return {
