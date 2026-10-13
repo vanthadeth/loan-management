@@ -1256,3 +1256,8 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 /* new loan: Back and Save draft are icon-only squares, Next is an icon on a wide primary button */
 .wz-bar .btn.ico{min-width:48px;width:48px;padding-inline:0;flex:0 0 auto}
 .wz-bar .btn.wide{flex:1 1 auto;min-width:140px;gap:8px}
+
+/* loan details: progress blocks (On contract, Collected, Remaining) */
+.prog tr.head td{padding-top:12px}
+.prog tr.head:first-child td{padding-top:6px}
+.prog tr.sub.total td{border-top:1px dashed var(--line);font-weight:600;color:var(--ink)}

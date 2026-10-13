@@ -1,4 +1,5 @@
 import { Fragment, useState, type ChangeEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { Sheet } from '../ui/Sheet'
@@ -10,7 +11,7 @@ import { useI18n } from '../app/i18n'
 import { dn, useBanks, useTeam } from '../data/core'
 import { bname } from '../data/borrowers'
 import { completedOn, errMsg, payoffOf, useLoanActions, useLoanFiles, useLoans } from '../data/loans'
-import { effectiveRate, isEarlyPayoff, isPayoff, loanTotals, todayIso } from '../lib/calc'
+import { effectiveRate, isEarlyPayoff, isPayoff, loanTotals, splitPayments, todayIso } from '../lib/calc'
 import { dueParts, useVoidPayment } from '../data/money'
 import { fmt, fmtD, loanCode } from '../lib/format'
 import type { LoanStatus, Payment } from '../lib/types'
@@ -62,6 +63,10 @@ export function LoanDetail() {
   const refinanced = loan.status === 'refinanced'
   // a refinanced loan only earns what was collected up to the payoff; its interest not yet due was dropped
   const paidEarly = status.interestWaived > 0
+  // money received for the installments, by what it paid (principal / interest), and the fees on top
+  const cash = Array.from(splitPayments(terms, payments).values()).reduce((o, x) => ({ principal: o.principal + x.principal, interest: o.interest + x.interest }), { principal: 0, interest: 0 })
+  const serviceFeeIn = (approved || refinanced) && loan.release_date <= todayIso() ? fee : 0
+  const feesIn = serviceFeeIn + status.lateFeePaid + status.prepayFeePaid
   const gain = fee + (refinanced || paidEarly ? status.collected + status.lateFeePaid + status.prepayFeePaid : status.total) - loan.amount
   const bank = (banks.data ?? []).find((b) => b.id === loan.bank_account_id)
   const payText = loan.pay_method === 'bank' ? 'Bank' + (bank ? ` · ${bank.bank} ${bank.account_no}` : '')
@@ -278,19 +283,26 @@ export function LoanDetail() {
         </div>
         <div className="tblwrap" style={{ marginTop: 14 }}>
           <table className="num prog"><tbody>
-            <tr><td>{t('loaned')}</td><td className="r"><b>{fmt(loan.amount, cur)}</b></td></tr>
-            <tr><td>{t('collected')}</td><td className="r in"><b>{fmt(collected, cur)}</b></td></tr>
+            <tr className="head"><td>On contract</td><td className="r"><b>{fmt(status.total, cur)}</b></td></tr>
+            <tr className="sub"><td>Principal</td><td className="r">{fmt(loan.amount, cur)}</td></tr>
+            <tr className="sub"><td>Interest</td><td className="r">{fmt(status.total - loan.amount, cur)}</td></tr>
+            <tr className="head"><td>{t('collected')}</td><td className="r in"><b>{fmt(cash.principal + cash.interest, cur)}</b></td></tr>
+            <tr className="sub"><td>Principal</td><td className="r">{fmt(cash.principal, cur)}</td></tr>
+            <tr className="sub"><td>Interest</td><td className="r">{fmt(cash.interest, cur)}</td></tr>
+            {serviceFeeIn > 0 && <tr className="sub"><td>Service fee</td><td className="r">{fmt(serviceFeeIn, cur)}</td></tr>}
+            {status.lateFeePaid > 0 && <tr className="sub"><td>Late fee</td><td className="r">{fmt(status.lateFeePaid, cur)}</td></tr>}
+            {status.prepayFeePaid > 0 && <tr className="sub"><td>Other fee (prepayment)</td><td className="r">{fmt(status.prepayFeePaid, cur)}</td></tr>}
+            {feesIn > 0 && <tr className="sub total"><td>Received with fees</td><td className="r">{fmt(cash.principal + cash.interest + feesIn, cur)}</td></tr>}
             {refinanced
-              ? <tr><td>Interest dropped at refinancing</td><td className="r"><b>{fmt(status.remaining, cur)}</b></td></tr>
+              ? <tr className="head"><td>Interest dropped at refinancing</td><td className="r"><b>{fmt(status.remaining, cur)}</b></td></tr>
               : (
                 <>
-                  <tr><td>{t('remaining')}</td><td className="r"><b>{fmt(status.remaining, cur)}</b></td></tr>
+                  <tr className="head"><td>{t('remaining')}</td><td className="r"><b>{fmt(status.remaining, cur)}</b></td></tr>
                   <tr className="sub"><td>Principal</td><td className="r">{fmt(status.remainingPrincipal, cur)}</td></tr>
                   <tr className="sub"><td>Interest</td><td className="r">{fmt(status.remainingInterest, cur)}</td></tr>
                 </>
               )}
-            {status.lateFeePaid > 0 && <tr><td>Late fees collected</td><td className="r in"><b>{fmt(status.lateFeePaid, cur)}</b></td></tr>}
-            {approved && status.lateFeeOutstanding > 0 && <tr><td>Late fee due</td><td className="r out"><b>{fmt(status.lateFeeOutstanding, cur)}</b></td></tr>}
+            {approved && status.lateFeeOutstanding > 0 && <tr className="head"><td>Late fee due</td><td className="r out"><b>{fmt(status.lateFeeOutstanding, cur)}</b></td></tr>}
           </tbody></table>
         </div>
         <div className="kv" style={{ marginTop: 14 }}>
@@ -459,10 +471,13 @@ export function LoanDetail() {
       {canApprove && (
         <>
           <div style={{ height: 72 }} aria-hidden="true" />
-          <div className="fbar" role="group" aria-label="Approval">
-            <button type="button" className="btn primary" onClick={() => setDialog('approve')}>Approve</button>
-            <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('reject') }}>Deny</button>
-          </div>
+          {createPortal(
+            <div className="fbar" role="group" aria-label="Approval">
+              <button type="button" className="btn primary" onClick={() => setDialog('approve')}>Approve</button>
+              <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('reject') }}>Deny</button>
+            </div>,
+            document.body,
+          )}
         </>
       )}
 
