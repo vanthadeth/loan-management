@@ -506,8 +506,8 @@ export function NewLoan() {
             onClick={() => { const m = [0, 1, 2].map(problem).find(Boolean); if (m) toast(m); else void submit(true) }}><Icon name="save" size={22} /></button>
         )}
         {step === STEPS.length - 1
-          ? <button type="button" className="btn primary" onClick={next}>Submit request</button>
-          : <button type="button" className="btn primary ico wide" aria-label="Next" title="Next" onClick={next}><Icon name="chev" size={22} /></button>}
+          ? <button type="button" className="btn primary wide" onClick={next}><Icon name="check" size={20} />Submit request</button>
+          : <button type="button" className="btn primary wide" onClick={next}>Next<Icon name="chev" size={20} /></button>}
       </div>
 
       {dialog === 'cancel' && (

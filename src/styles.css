@@ -1255,4 +1255,4 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 @media (max-width:899.98px){#view>.tabs.ltabs{top:-12px}.app.bars-hidden #view>.tabs.ltabs{top:calc((var(--top-h,70px) + 12px)*-1)}}
 /* new loan: Back and Save draft are icon-only squares, Next is an icon on a wide primary button */
 .wz-bar .btn.ico{min-width:48px;width:48px;padding-inline:0;flex:0 0 auto}
-.wz-bar .btn.ico.wide{width:auto;min-width:120px;flex:1 1 auto}
+.wz-bar .btn.wide{flex:1 1 auto;min-width:140px;gap:8px}
