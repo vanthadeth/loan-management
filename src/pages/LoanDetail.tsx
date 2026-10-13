@@ -369,28 +369,24 @@ export function LoanDetail() {
           </div>
         )}
         <div className="list" style={{ marginTop: 6 }}>
-          {[...payments].reverse().map((p) => (
-            <div className="item" style={{ cursor: 'default' }} key={p.id}>
-              <span className="grow">
-                <b>{fmtD(p.paid_on)}{p.late_fee > 0 || p.late_fee_waived > 0 ? ' · Late fee' : ''}</b>
-                {(p.late_fee_waived > 0 || p.note) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee_waived > 0 ? `${fmt(p.late_fee_waived, cur)} forgiven` : '', p.note].filter(Boolean).join(' · ')}</span>}
-              </span>
-              {p.photo_path && <FileView path={p.photo_path} label="Photo" />}
-              <b className="num in">{p.amount > 0 ? '+' : ''}{fmt(p.amount, cur)}</b>
-              {canVoidPay && !isPayoff(p) && <button type="button" className="btn sm" onClick={() => { setReason(''); setPayTarget({ p, restore: false }) }}>Void</button>}
-            </div>
-          ))}
+          {[...payments, ...v.voided].sort((x, y) => (x.paid_on === y.paid_on ? y.id - x.id : x.paid_on < y.paid_on ? 1 : -1)).map((p) => {
+            const gone = !!p.voided_at
+            return (
+              <div className="item" style={{ cursor: 'default', opacity: gone ? 0.65 : 1 }} key={p.id}>
+                <span className="grow">
+                  <b style={gone ? { textDecoration: 'line-through' } : undefined}>{fmtD(p.paid_on)}{p.late_fee > 0 || p.late_fee_waived > 0 ? ' · Late fee' : ''}</b>
+                  {gone
+                    ? <span className="small muted" style={{ display: 'block' }}>Voided {fmtD(p.voided_at?.slice(0, 10))}{who(p.voided_by) ? ` by ${who(p.voided_by)}` : ''}: {p.void_reason}</span>
+                    : (p.late_fee_waived > 0 || p.note) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee_waived > 0 ? `${fmt(p.late_fee_waived, cur)} forgiven` : '', p.note].filter(Boolean).join(' · ')}</span>}
+                </span>
+                {!gone && p.photo_path && <FileView path={p.photo_path} label="Photo" />}
+                <b className={'num' + (gone ? '' : ' in')} style={gone ? { textDecoration: 'line-through' } : undefined}>{!gone && p.amount > 0 ? '+' : ''}{fmt(p.amount, cur)}</b>
+                {canVoidPay && !gone && !isPayoff(p) && <button type="button" className="btn sm" onClick={() => { setReason(''); setPayTarget({ p, restore: false }) }}>Void</button>}
+                {canVoidPay && gone && <button type="button" className="btn sm" onClick={() => setPayTarget({ p, restore: true })}>Restore</button>}
+              </div>
+            )
+          })}
           {!payments.length && !v.voided.length && <p className="muted">No payments yet.</p>}
-          {v.voided.map((p) => (
-            <div className="item" style={{ cursor: 'default', opacity: 0.65 }} key={p.id}>
-              <span className="grow">
-                <b style={{ textDecoration: 'line-through' }}>{fmtD(p.paid_on)}{p.late_fee > 0 || p.late_fee_waived > 0 ? ' · Late fee' : ''}</b>
-                <span className="small muted" style={{ display: 'block' }}>Voided {fmtD(p.voided_at?.slice(0, 10))}{who(p.voided_by) ? ` by ${who(p.voided_by)}` : ''}: {p.void_reason}</span>
-              </span>
-              <b className="num" style={{ textDecoration: 'line-through' }}>{fmt(p.amount, cur)}</b>
-              {canVoidPay && approved && <button type="button" className="btn sm" onClick={() => setPayTarget({ p, restore: true })}>Restore</button>}
-            </div>
-          ))}
         </div>
       </details>
 
