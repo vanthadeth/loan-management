@@ -1238,7 +1238,7 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 .qa2{display:grid;grid-template-columns:1fr;gap:12px}
 .qa2>.card{margin:0}
 @media (min-width:760px){.qa2{grid-template-columns:1fr 1fr}.qa2>.card:only-child{grid-column:1/-1}}
-.ltabs{position:sticky;top:0;z-index:5;background:var(--bg);padding-top:6px;padding-bottom:6px}
+.ltabs{padding-top:6px;padding-bottom:6px}
 .ltabs .tab{flex:1;text-align:center}
 .light{margin:6px;width:34px;height:34px;border-radius:50%;flex:none;box-shadow:0 0 0 6px color-mix(in srgb,currentColor 18%,transparent)}
 .light.ok,.dot.ok{background:var(--paid);color:var(--paid)}
@@ -1249,3 +1249,12 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 .dot{width:12px;height:12px;border-radius:50%;flex:none;margin-top:5px}
 .ctas{display:flex;gap:8px;flex-wrap:wrap}
 .ctas>.btn{flex:1 1 110px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-align:center}
+
+/* loan details: the top section stays pinned and shrinks to its title row */
+:root{--hd-top:0px}
+.hd{position:sticky;top:var(--hd-top);z-index:6;transition:top .2s var(--ease,ease)}
+#view>.tabs.ltabs{top:calc(var(--hd-top) + var(--hd-h,0px) - 1px)}
+@media (max-width:899.98px){.app{--hd-top:-12px}.app.bars-hidden{--hd-top:calc((var(--top-h,70px) + 12px)*-1)}}
+.hd.compact{box-shadow:0 8px 18px -12px rgba(20,28,50,.35)!important;padding-block:12px}
+.hd-more{display:flow-root}
+.hd-more[hidden]{display:none}

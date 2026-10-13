@@ -3,7 +3,8 @@ import { fmt, loanCode } from '../../lib/format'
 import { diffDays, todayIso } from '../../lib/calc'
 
 type Level = 'ok' | 'warn' | 'bad'
-interface Finding { level: Level; title: string; detail: string }
+type Scope = 'loan' | 'borrower'
+interface Finding { scope: Scope; level: Level; title: string; detail: string }
 
 const RANK: Record<Level, number> = { bad: 0, warn: 1, ok: 2 }
 
@@ -12,7 +13,8 @@ export function findings(v: LoanView, all: LoanView[], gain: number): Finding[] 
   const { loan, status, borrower, payments, voided } = v
   const cur = loan.currency
   const out: Finding[] = []
-  const add = (level: Level, title: string, detail: string) => out.push({ level, title, detail })
+  const add = (level: Level, title: string, detail: string, scope: Scope = 'loan') => out.push({ scope, level, title, detail })
+  const addB = (level: Level, title: string, detail: string) => add(level, title, detail, 'borrower')
   const today = todayIso()
 
   if (loan.status === 'approved') {
@@ -35,13 +37,24 @@ export function findings(v: LoanView, all: LoanView[], gain: number): Finding[] 
   }
 
   if (borrower) {
-    if (borrower.status === 'banned') add('bad', 'Borrower is banned', 'Think twice before collecting or lending more.')
-    else if (borrower.tier === 'bad') add('bad', 'Borrower rated Bad', 'Trust level is the lowest.')
-    else if (borrower.tier === 'gold' || borrower.tier === 'silver') add('ok', `Borrower rated ${borrower.tier === 'gold' ? 'Gold' : 'Silver'}`, 'A trusted borrower.')
-    const others = all.filter((x) => x.loan.id !== loan.id && x.loan.borrower_id === loan.borrower_id && x.active)
+    if (borrower.status === 'banned') addB('bad', 'Borrower is banned', 'Think twice before collecting or lending more.')
+    else if (borrower.tier === 'bad') addB('bad', 'Rated Bad', 'Trust level is the lowest.')
+    else if (borrower.tier === 'gold' || borrower.tier === 'silver') addB('ok', `Rated ${borrower.tier === 'gold' ? 'Gold' : 'Silver'}`, 'A trusted borrower.')
+    const mine = all.filter((x) => x.loan.borrower_id === loan.borrower_id && !x.loan.voided_at && (x.loan.status === 'approved' || x.loan.status === 'refinanced'))
+    const others = mine.filter((x) => x.loan.id !== loan.id && x.active)
     const lateOthers = others.filter((x) => x.status.rows.some((r) => r.state === 'overdue'))
-    if (lateOthers.length) add('bad', 'Another loan is overdue', `${lateOthers.map((x) => loanCode(x.loan.id)).join(', ')} of the same borrower ${lateOthers.length > 1 ? 'are' : 'is'} late.`)
-    else if (others.length) add('ok', `${others.length} other open loan${others.length > 1 ? 's' : ''}`, `${others.map((x) => loanCode(x.loan.id)).join(', ')}, all on schedule.`)
+    if (lateOthers.length) addB('bad', 'Another loan is overdue', `${lateOthers.map((x) => loanCode(x.loan.id)).join(', ')} ${lateOthers.length > 1 ? 'are' : 'is'} late.`)
+    else if (others.length) addB('ok', `${others.length} other open loan${others.length > 1 ? 's' : ''}`, `${others.map((x) => loanCode(x.loan.id)).join(', ')}, all on schedule.`)
+    // track record over every loan of this borrower: installments that were paid after their due date
+    const rows = mine.flatMap((x) => x.status.rows).filter((r) => r.state === 'paid')
+    const lateRows = rows.filter((r) => r.lateDays > 0)
+    if (rows.length >= 3) {
+      const share = Math.round((lateRows.length / rows.length) * 100)
+      addB(share >= 50 ? 'bad' : share >= 25 ? 'warn' : 'ok', share >= 25 ? 'Often pays late' : 'Pays on time', `${lateRows.length} of ${rows.length} installments paid across ${mine.length} loan${mine.length > 1 ? 's' : ''} came after the due date.`)
+    }
+    const owed = new Map<string, number>()
+    others.concat(mine.filter((x) => x.loan.id === loan.id && x.active)).forEach((x) => owed.set(x.loan.currency, (owed.get(x.loan.currency) ?? 0) + x.status.remaining))
+    if (owed.size) addB('ok', 'Owes in total', [...owed].map(([c, n]) => fmt(n, c as typeof cur)).join(' + ') + ' left to collect across the open loans.')
   }
 
   if (voided.length) add('warn', `${voided.length} payment${voided.length > 1 ? 's' : ''} voided`, 'Check the payment history to see why.')
@@ -54,25 +67,30 @@ export function findings(v: LoanView, all: LoanView[], gain: number): Finding[] 
 
 const LABEL: Record<Level, string> = { ok: 'All good', warn: 'Needs a look', bad: 'Needs action' }
 
-/** Traffic light for the loan plus the findings: what to focus on first, then what is fine. */
-export function Insight({ items }: { items: Finding[] }) {
+/** Traffic light for this loan and this borrower, then each finding: what to focus on first, then what is fine. */
+export function Insight({ items, borrowerName }: { items: Finding[]; borrowerName: string }) {
   const worst: Level = items.reduce<Level>((w, f) => (RANK[f.level] < RANK[w] ? f.level : w), 'ok')
-  const focus = items.filter((f) => f.level !== 'ok')
-  const fine = items.filter((f) => f.level === 'ok')
   const row = (f: Finding) => (
     <div className="ins-row" key={f.title}>
       <i className={'dot ' + f.level} aria-hidden="true" />
       <span className="grow"><b style={{ display: 'block' }}>{f.title}</b><span className="small muted">{f.detail}</span></span>
     </div>
   )
+  const group = (scope: Scope, title: string) => {
+    const list = items.filter((f) => f.scope === scope)
+    return list.length > 0 && <section className="card"><h3 className="wz-cap" style={{ margin: '0 0 4px' }}>{title}</h3>{list.map(row)}</section>
+  }
   return (
-    <section className="card">
-      <div className="row" style={{ gap: 12, alignItems: 'center' }}>
-        <i className={'light ' + worst} aria-hidden="true" />
-        <div><div className="eyebrow">Insight</div><b style={{ fontSize: 18 }}>{LABEL[worst]}</b></div>
-      </div>
-      {focus.length > 0 && <><h3 className="wz-cap" style={{ margin: '14px 0 4px' }}>Focus on</h3>{focus.map(row)}</>}
-      {fine.length > 0 && <><h3 className="wz-cap" style={{ margin: '14px 0 4px' }}>Looking good</h3>{fine.map(row)}</>}
-    </section>
+    <>
+      <section className="card">
+        <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+          <i className={'light ' + worst} aria-hidden="true" />
+          <div><div className="eyebrow">Insight</div><b style={{ fontSize: 18 }}>{LABEL[worst]}</b></div>
+        </div>
+        <p className="small muted" style={{ margin: '8px 0 0' }}>This loan and {borrowerName}, nothing else. Worst first.</p>
+      </section>
+      {group('loan', 'This loan')}
+      {group('borrower', `Borrower · ${borrowerName}`)}
+    </>
   )
 }
