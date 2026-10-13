@@ -1,5 +1,5 @@
 import { Fragment, useState, type ChangeEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { Sheet } from '../ui/Sheet'
 import { TextArea } from '../ui/Controls'
@@ -18,15 +18,17 @@ import { FileView } from './loans/FileView'
 import { Bar, Ring } from './loans/parts'
 import { SupervisorSheet } from './loans/SupervisorSheet'
 import { LateFeeBreakdown } from './loans/LateFee'
+import { findings, Insight } from './loans/Insight'
 import { CollectLateFee } from './loans/CollectLateFee'
 
 const STEPS: LoanStatus[] = ['drafted', 'requested', 'approved']
+type Tab = 'main' | 'schedule' | 'contract' | 'insight'
 type Dialog = 'submit' | 'delete' | 'return' | 'reset' | 'approve' | 'reject' | 'supervisor' | 'collector' | 'void' | 'restore' | 'latefee' | null
 
 export function LoanDetail() {
   const loanId = Number(useParams().id)
   const { t, lang } = useI18n()
-  const { can, scoped, me } = useAuth()
+  const { can, scoped, me, role } = useAuth()
   const toast = useToast()
   const nav = useNavigate()
   const { views, voidedViews, loading, error } = useLoans()
@@ -38,6 +40,7 @@ export function LoanDetail() {
   const [reason, setReason] = useState('')
   const [payTarget, setPayTarget] = useState<{ p: Payment; restore: boolean } | null>(null)
   const voidPay = useVoidPayment()
+  const [params, setParams] = useSearchParams()
   usePageTitle(Number.isFinite(loanId) ? loanCode(loanId) : 'Loan')
 
   const v = views.find((x) => x.loan.id === loanId) ?? voidedViews.find((x) => x.loan.id === loanId)
@@ -68,6 +71,11 @@ export function LoanDetail() {
     && (!freshPayoff || Math.abs(freshPayoff.total - Number(loan.carried_amount ?? 0)) > 0.005)
   const canApprove = !voided && loan.status === 'requested' && can('loans.approve') && !stale
   const canReturn = !voided && (loan.status === 'requested' || loan.status === 'rejected') && (can('loans.create') || can('loans.approve'))
+  const isAdmin = !!role?.locked
+  const tabs: [Tab, string][] = [['main', 'Main'], ['schedule', 'Schedule'], ['contract', 'Contract'], ...(isAdmin ? [['insight', 'Insight'] as [Tab, string]] : [])]
+  const wanted = params.get('tab')
+  const tab: Tab = tabs.some(([k]) => k === wanted) ? (wanted as Tab) : 'main'
+  const setTab = (k: Tab) => setParams((q) => { const n = new URLSearchParams(q); if (k === 'main') n.delete('tab'); else n.set('tab', k); return n }, { replace: true })
   const canVoid = !voided && can('loans.void')
   const canVoidPay = approved && !voided && can('payments.void')
   const canReset = !voided && loan.status === 'approved' && can('loans.approve') && payments.length === 0 && !loan.refinance_of
@@ -106,7 +114,7 @@ export function LoanDetail() {
     <>
       <section className="card">
         <div className="row between" style={{ flexWrap: 'wrap' }}>
-          <div><div className="eyebrow">{loanCode(loan.id)}</div><h1>{name}</h1></div>
+          <div><div className="eyebrow">{loanCode(loan.id)}</div><h1>{can('borrowers.view') ? <Link to={`/borrowers/${loan.borrower_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{name}</Link> : name}</h1></div>
           <b className="num" style={{ fontSize: 20, fontFamily: 'var(--display)' }}>{fmt(loan.amount, cur)}</b>
         </div>
         {loan.status === 'refinanced'
@@ -156,39 +164,7 @@ export function LoanDetail() {
             {canVoid && <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('void') }}>Void</button>}
           </div>
         )}
-        <div className="kv one" style={{ marginTop: 14 }}>
-          <div style={{ gridColumn: '1/-1' }}>
-            <span className="eyebrow">Workflow</span>
-            <div className="people">
-              {([['Created by', who(loan.requested_by)], ['Approved', who(loan.approved_by)]] as const).map(([k, p]) => (
-                <div key={k} className={'person' + (p ? '' : ' empty')}>
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-4 3-6 7-6s7 2 7 6" /></svg>
-                  <span className="muted">{k}</span><b>{p ?? 'Pending'}</b>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div><span className="eyebrow">Repayment</span>{loan.frequency === 'custom' ? `Every ${loan.interval_days} days` : loan.frequency} × {loan.occurrences} · {loan.mode === 'equal' ? 'interest + principal ÷ n' : 'interest only, principal at end'}</div>
-          <div><span className="eyebrow">Interest</span>{loan.rate_pct}% per {loan.rate_basis} (flat)</div>
-          <div style={{ gridColumn: '1/-1', display: 'flex', flexDirection: 'row', gap: 16 }}>
-            {([
-              ['Supervisor', who(loan.supervisor_id), !scoped && can('loans.approve') && !voided, 'supervisor'],
-              ['Collector', who(loan.collector_id), can('loans.approve') && !voided, 'collector'],
-            ] as const).map(([k, p, canEdit, dlg]) => (
-              <div key={k} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ flex: 1, minWidth: 0 }}><span className="eyebrow">{k}</span><span className="ell" style={{ display: 'block' }}>{p ?? 'Not assigned'}</span></div>
-                {canEdit && (
-                  <button type="button" className="mcta" style={{ background: 'none', border: 0, cursor: 'pointer' }} aria-label={`Change ${k.toLowerCase()}`} title={`Change ${k.toLowerCase()}`} onClick={() => setDialog(dlg)}>
-                    <Icon name="edit" size={16} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          <div><span className="eyebrow">Late fee</span>{lateRate} per late {lateUnit}</div>
-          <div><span className="eyebrow">Borrower pays by</span>{payText}</div>
-          <div><span className="eyebrow">Collateral</span>{collaterals.length ? collaterals.map((c) => c.description).join(', ') : 'None'}</div>
-        </div>
+
       </section>
 
       {voided && (
@@ -206,66 +182,51 @@ export function LoanDetail() {
         </section>
       )}
 
-      <Link className="item" to={`/loans/${loan.id}/contract`} style={{ textDecoration: 'none' }}>
-        <span className="tic in"><Icon name="doc" size={17} /></span>
-        <span className="grow"><b className="ell" style={{ display: 'block' }}>Contract</b><span className="small muted">Make the printable contract (PDF)</span></span>
-        <Icon name="chev" size={16} />
-      </Link>
 
-      {next && (
-        <section className="card">
-          <div className="eyebrow">Next installment</div>
-          <div className="row between" style={{ alignItems: 'center', margin: '4px 0' }}>
-            <b className="num" style={{ fontSize: 18 }}>#{next.i} · {fmt(dueParts(next).remaining, cur)}</b>
-            <span className={'chip ' + (next.state === 'overdue' ? 'overdue' : '')}>{next.state === 'overdue' ? `${next.lateDays}d late` : fmtD(next.due)}</span>
-          </div>
-          {status.lateFeeOutstanding > 0 && <p className="small muted" style={{ margin: 0 }}>A late fee of {fmt(status.lateFeeOutstanding, cur)} is due; it is collected separately.</p>}
-          <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-            {can('payments.record') && <button type="button" className="btn primary" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>Record payment</button>}
-            {phone && <a className="btn" href={'tel:' + phone}><Icon name="phone" size={16} />Call</a>}
-          </div>
-        </section>
-      )}
-      {(approved || refinanced) && !voided && status.lateLines.length > 0 && (
-        <section className="card">
-          <div className="row between" style={{ alignItems: 'flex-start', gap: 12 }}>
-            <div>
-              <div className="eyebrow">Late fee due</div>
-              <b className={'num ' + (status.lateFeeOutstanding > 0 ? 'out' : '')} style={{ fontSize: 22 }}>{fmt(status.lateFeeOutstanding, cur)}</b>
-              <p className="small muted" style={{ margin: '2px 0 0' }}>{lateRate} of the unpaid principal, for every {lateUnit} a payment is late.</p>
-            </div>
-            {approved && status.lateFeeOutstanding > 0 && can('payments.record') && (
-              <button type="button" className="btn" onClick={() => setDialog('latefee')}>Collect late fee</button>
-            )}
-          </div>
-          <LateFeeBreakdown status={status} cur={cur} />
-        </section>
-      )}
-      <details className="card sec">
-        <summary><h2>Attachments</h2><span className="chev" aria-hidden="true">▾</span></summary>
-        {can('loans.create') && (
-          <div className="row" style={{ justifyContent: 'flex-end' }}>
-            <label className="btn sm" style={{ cursor: 'pointer' }}>+ Add<input type="file" accept="image/*,application/pdf" multiple hidden onChange={attach} /></label>
-          </div>
-        )}
-        <div className="att">
-          {attachments.map((a) => {
-            const col = collaterals.find((c) => c.id === a.collateral_id)
-            return (
-              <div className="afile" key={a.id}>
-                <span className="aico">{/\.pdf$/i.test(a.file_name || a.file_path) ? '▤' : '▣'}</span>
-                <span className="grow">
-                  <b className="ell" style={{ display: 'block' }}>{col ? 'Collateral: ' + col.description : 'Attachment'}</b>
-                  <span className="small muted ell" style={{ display: 'block' }}>{a.file_name || a.file_path.split('/').pop()}</span>
-                </span>
-                <FileView path={a.file_path} />
+      {!voided && (next || (approved && status.done) || status.lateFeeOutstanding > 0) && (
+        <div className="qa2">
+          {next ? (
+            <section className="card">
+              <div className="eyebrow">Next installment · {next.i} of {loan.occurrences}</div>
+              <div className="row between" style={{ alignItems: 'center', margin: '4px 0' }}>
+                <b className="num" style={{ fontSize: 22, fontFamily: 'var(--display)' }}>{fmt(dueParts(next).remaining, cur)}</b>
+                <span className={'chip ' + (next.state === 'overdue' ? 'overdue' : '')}>{next.state === 'overdue' ? `${next.lateDays}d late` : `Due ${fmtD(next.due)}`}</span>
               </div>
-            )
-          })}
-          {!attachments.length && <p className="muted">No attachments yet.</p>}
+              <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                {can('payments.record') && <button type="button" className="btn primary" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>Record payment</button>}
+                {phone && <a className="btn" style={{ textDecoration: 'none' }} href={'tel:' + phone}><Icon name="phone" size={16} />Call</a>}
+              </div>
+            </section>
+          ) : approved && status.done ? (
+            <section className="card">
+              <div className="eyebrow">Repaid</div>
+              <b style={{ fontSize: 18, color: 'var(--paid)' }}>Fully repaid</b>
+              <p className="small muted" style={{ margin: '4px 0 0' }}>Every installment has been collected{end ? ` (${fmtD(end)})` : ''}.</p>
+            </section>
+          ) : null}
+          {status.lateFeeOutstanding > 0 && (
+            <section className="card" style={{ borderColor: 'var(--late)' }}>
+              <div className="eyebrow">Late fee due</div>
+              <b className="num out" style={{ fontSize: 22, fontFamily: 'var(--display)', display: 'block', margin: '4px 0' }}>{fmt(status.lateFeeOutstanding, cur)}</b>
+              <p className="small muted" style={{ margin: 0 }}>{lateRate} of the unpaid principal, per late {lateUnit}. Collected separately from payments.</p>
+              {approved && can('payments.record') && (
+                <div className="row" style={{ marginTop: 10 }}><button type="button" className="btn" onClick={() => setDialog('latefee')}>Collect late fee</button></div>
+              )}
+            </section>
+          )}
         </div>
-      </details>
+      )}
 
+
+
+
+
+      <div className="tabs ltabs" role="tablist" aria-label="Loan sections">
+        {tabs.map(([k, label]) => (
+          <button type="button" role="tab" key={k} className="tab" aria-pressed={tab === k} aria-selected={tab === k} onClick={() => setTab(k)}>{label}</button>
+        ))}
+      </div>
+      {tab === 'main' && <>
       <section className="card">
         <div className="row between">
           <h2>{t('progress')}</h2>
@@ -293,6 +254,7 @@ export function LoanDetail() {
                   <tr className="sub"><td>Interest</td><td className="r">{fmt(status.remainingInterest, cur)}</td></tr>
                 </>
               )}
+            {status.lateFeePaid > 0 && <tr><td>Late fees collected</td><td className="r in"><b>{fmt(status.lateFeePaid, cur)}</b></td></tr>}
             {approved && status.lateFeeOutstanding > 0 && <tr><td>Late fee due</td><td className="r out"><b>{fmt(status.lateFeeOutstanding, cur)}</b></td></tr>}
           </tbody></table>
         </div>
@@ -300,30 +262,38 @@ export function LoanDetail() {
           <div><span className="eyebrow">{t('start')}</span>{fmtD(loan.release_date)}</div>
           <div><span className="eyebrow">{t('end')}</span>{fmtD(end)}{status.done || refinanced ? '' : ' (expected)'}</div>
         </div>
+        {(approved || refinanced) && !voided && <LateFeeBreakdown status={status} cur={cur} />}
       </section>
-
-      <details className="card sec">
-        <summary><h2>{t('summary')}</h2><span className="chev" aria-hidden="true">▾</span></summary>
-        <div className="tblwrap">
-          <table className="num">
-            <thead><tr><th>{t('desc')}</th><th className="r">{t('in')}</th><th className="r">{t('out')}</th></tr></thead>
-            <tbody>
-              <tr><td>{t('loaned')}</td><td /><td className="r out">{fmt(loan.amount, cur)}</td></tr>
-              <tr><td>{t('fee')} ({loan.fee_pct}%)</td><td className="r in">{fmt(fee, cur)}</td><td /></tr>
-              <tr><td>{t('collected')}</td><td className="r in">{fmt(collected, cur)}</td><td /></tr>
-              {status.lateFeePaid > 0 && <tr><td>Late fees</td><td className="r in">{fmt(status.lateFeePaid, cur)}</td><td /></tr>}
-              <tr className="sum"><td>{t('balance')}</td><td colSpan={2} className={'r ' + (fee + collected + status.lateFeePaid - loan.amount < 0 ? 'out' : 'in')}>{fmt(fee + collected + status.lateFeePaid - loan.amount, cur)}</td></tr>
-              <tr className="gap"><td colSpan={3} /></tr>
-              <tr><td>{t('tbc')}</td><td className="r in">{fmt(refinanced ? 0 : status.remaining, cur)}</td><td /></tr>
-              <tr className="sum"><td>{t('ugl')}</td><td colSpan={2} className={'r ' + (gain < 0 ? 'out' : 'in')}>{gain >= 0 ? '+' : ''}{fmt(gain, cur)}</td></tr>
-            </tbody>
-          </table>
+      <section className="card">
+        <div className="row between">
+          <h2>{t('payments')}</h2>
+          {approved && !voided && can('payments.record') && <button type="button" className="btn primary sm" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>+ {t('record')}</button>}
         </div>
-        <p className="small muted" style={{ margin: '8px 0 0' }}>Service fee is deducted at release: borrower receives {fmt(net, cur)}.</p>
-      </details>
-
-      <details className="card sec">
-        <summary><h2>{t('schedule')}</h2><span className="chev" aria-hidden="true">▾</span></summary>
+        <div className="list" style={{ marginTop: 6 }}>
+          {[...payments, ...v.voided].sort((x, y) => (x.paid_on === y.paid_on ? y.id - x.id : x.paid_on < y.paid_on ? 1 : -1)).map((p) => {
+            const gone = !!p.voided_at
+            return (
+              <div className="item" style={{ cursor: 'default', opacity: gone ? 0.65 : 1 }} key={p.id}>
+                <span className="grow">
+                  <b style={gone ? { textDecoration: 'line-through' } : undefined}>{fmtD(p.paid_on)}{p.late_fee > 0 || p.late_fee_waived > 0 ? ' · Late fee' : ''}</b>
+                  {gone
+                    ? <span className="small muted" style={{ display: 'block' }}>Voided {fmtD(p.voided_at?.slice(0, 10))}{who(p.voided_by) ? ` by ${who(p.voided_by)}` : ''}: {p.void_reason}</span>
+                    : (p.late_fee_waived > 0 || p.note) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee_waived > 0 ? `${fmt(p.late_fee_waived, cur)} forgiven` : '', p.note].filter(Boolean).join(' · ')}</span>}
+                </span>
+                {!gone && p.photo_path && <FileView path={p.photo_path} label="Photo" />}
+                <b className={'num' + (gone ? '' : ' in')} style={gone ? { textDecoration: 'line-through' } : undefined}>{!gone && p.amount > 0 ? '+' : ''}{fmt(p.amount, cur)}</b>
+                {canVoidPay && !gone && !isPayoff(p) && <button type="button" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Void payment" title="Void payment" onClick={() => { setReason(''); setPayTarget({ p, restore: false }) }}><Icon name="trash" size={17} /></button>}
+                {canVoidPay && gone && <button type="button" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Restore payment" title="Restore payment" onClick={() => setPayTarget({ p, restore: true })}><Icon name="refresh" size={17} /></button>}
+              </div>
+            )
+          })}
+          {!payments.length && !v.voided.length && <p className="muted">No payments yet.</p>}
+        </div>
+      </section>
+      </>}
+      {tab === 'schedule' && <>
+      <section className="card">
+        <h2>{t('schedule')}</h2>
         <div className="sched">
           {status.rows.map((r) => {
             const late = r.state === 'overdue'
@@ -359,36 +329,95 @@ export function LoanDetail() {
           })}
         </div>
         <p className="small muted" style={{ margin: '8px 0 0' }}>Late fee: {lateRate} of the unpaid principal, for every {lateUnit} a payment is late, as agreed in this contract.</p>
-      </details>
-
-      <details className="card sec">
-        <summary><h2>{t('payments')}</h2><span className="chev" aria-hidden="true">▾</span></summary>
-        {approved && !voided && can('payments.record') && (
-          <div className="row" style={{ justifyContent: 'flex-end' }}>
-            <button type="button" className="btn primary sm" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>+ {t('record')}</button>
+      </section>
+      </>}
+      {tab === 'contract' && <>
+      <section className="card">
+        <h2>Loan information</h2>
+        <div className="kv one" style={{ marginTop: 10 }}>
+          <div style={{ gridColumn: '1/-1' }}>
+            <span className="eyebrow">Workflow</span>
+            <div className="people">
+              {([['Created by', who(loan.requested_by)], ['Approved', who(loan.approved_by)]] as const).map(([k, p]) => (
+                <div key={k} className={'person' + (p ? '' : ' empty')}>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-4 3-6 7-6s7 2 7 6" /></svg>
+                  <span className="muted">{k}</span><b>{p ?? 'Pending'}</b>
+                </div>
+              ))}
+            </div>
           </div>
-        )}
-        <div className="list" style={{ marginTop: 6 }}>
-          {[...payments, ...v.voided].sort((x, y) => (x.paid_on === y.paid_on ? y.id - x.id : x.paid_on < y.paid_on ? 1 : -1)).map((p) => {
-            const gone = !!p.voided_at
+          <div><span className="eyebrow">Released</span>{fmtD(loan.release_date)} · service fee {loan.fee_pct}% ({fmt(fee, cur)}), borrower receives {fmt(net, cur)}</div>
+          <div><span className="eyebrow">Repayment</span>{loan.frequency === 'custom' ? `Every ${loan.interval_days} days` : loan.frequency} × {loan.occurrences} · {loan.mode === 'equal' ? 'interest + principal ÷ n' : 'interest only, principal at end'}</div>
+          <div><span className="eyebrow">Interest</span>{loan.rate_pct}% per {loan.rate_basis} (flat)</div>
+          <div style={{ gridColumn: '1/-1', display: 'flex', flexDirection: 'row', gap: 16 }}>
+            {([
+              ['Supervisor', who(loan.supervisor_id), !scoped && can('loans.approve') && !voided, 'supervisor'],
+              ['Collector', who(loan.collector_id), can('loans.approve') && !voided, 'collector'],
+            ] as const).map(([k, p, canEdit, dlg]) => (
+              <div key={k} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ flex: 1, minWidth: 0 }}><span className="eyebrow">{k}</span><span className="ell" style={{ display: 'block' }}>{p ?? 'Not assigned'}</span></div>
+                {canEdit && (
+                  <button type="button" className="mcta" style={{ background: 'none', border: 0, cursor: 'pointer' }} aria-label={`Change ${k.toLowerCase()}`} title={`Change ${k.toLowerCase()}`} onClick={() => setDialog(dlg)}>
+                    <Icon name="edit" size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div><span className="eyebrow">Late fee</span>{lateRate} per late {lateUnit}</div>
+          <div><span className="eyebrow">Borrower pays by</span>{payText}</div>
+          <div><span className="eyebrow">Collateral</span>{collaterals.length ? collaterals.map((c) => c.description).join(', ') : 'None'}</div>
+        </div>      </section>
+      <Link className="item" to={`/loans/${loan.id}/contract`} style={{ textDecoration: 'none', color: 'inherit' }}>
+        <span className="tic in"><Icon name="doc" size={17} /></span>
+        <span className="grow"><b className="ell" style={{ display: 'block' }}>Contract</b><span className="small muted">Make the printable contract (PDF)</span></span>
+        <Icon name="chev" size={16} />
+      </Link>
+      <section className="card">
+        <div className="row between">
+          <h2>Attachments</h2>
+          {can('loans.create') && <label className="btn sm" style={{ cursor: 'pointer' }}>+ Add<input type="file" accept="image/*,application/pdf" multiple hidden onChange={attach} /></label>}
+        </div>
+        <div className="att">
+          {attachments.map((a) => {
+            const col = collaterals.find((c) => c.id === a.collateral_id)
             return (
-              <div className="item" style={{ cursor: 'default', opacity: gone ? 0.65 : 1 }} key={p.id}>
+              <div className="afile" key={a.id}>
+                <span className="aico">{/\.pdf$/i.test(a.file_name || a.file_path) ? '▤' : '▣'}</span>
                 <span className="grow">
-                  <b style={gone ? { textDecoration: 'line-through' } : undefined}>{fmtD(p.paid_on)}{p.late_fee > 0 || p.late_fee_waived > 0 ? ' · Late fee' : ''}</b>
-                  {gone
-                    ? <span className="small muted" style={{ display: 'block' }}>Voided {fmtD(p.voided_at?.slice(0, 10))}{who(p.voided_by) ? ` by ${who(p.voided_by)}` : ''}: {p.void_reason}</span>
-                    : (p.late_fee_waived > 0 || p.note) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee_waived > 0 ? `${fmt(p.late_fee_waived, cur)} forgiven` : '', p.note].filter(Boolean).join(' · ')}</span>}
+                  <b className="ell" style={{ display: 'block' }}>{col ? 'Collateral: ' + col.description : 'Attachment'}</b>
+                  <span className="small muted ell" style={{ display: 'block' }}>{a.file_name || a.file_path.split('/').pop()}</span>
                 </span>
-                {!gone && p.photo_path && <FileView path={p.photo_path} label="Photo" />}
-                <b className={'num' + (gone ? '' : ' in')} style={gone ? { textDecoration: 'line-through' } : undefined}>{!gone && p.amount > 0 ? '+' : ''}{fmt(p.amount, cur)}</b>
-                {canVoidPay && !gone && !isPayoff(p) && <button type="button" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Void payment" title="Void payment" onClick={() => { setReason(''); setPayTarget({ p, restore: false }) }}><Icon name="trash" size={17} /></button>}
-                {canVoidPay && gone && <button type="button" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Restore payment" title="Restore payment" onClick={() => setPayTarget({ p, restore: true })}><Icon name="refresh" size={17} /></button>}
+                <FileView path={a.file_path} />
               </div>
             )
           })}
-          {!payments.length && !v.voided.length && <p className="muted">No payments yet.</p>}
+          {!attachments.length && <p className="muted">No attachments yet.</p>}
         </div>
-      </details>
+      </section>
+      </>}
+      {tab === 'insight' && isAdmin && <>
+        <Insight items={findings(v, [...views, ...voidedViews], gain)} />
+      <section className="card">
+        <h2>{t('summary')}</h2>
+        <div className="tblwrap">
+          <table className="num">
+            <thead><tr><th>{t('desc')}</th><th className="r">{t('in')}</th><th className="r">{t('out')}</th></tr></thead>
+            <tbody>
+              <tr><td>{t('loaned')}</td><td /><td className="r out">{fmt(loan.amount, cur)}</td></tr>
+              <tr><td>{t('fee')} ({loan.fee_pct}%)</td><td className="r in">{fmt(fee, cur)}</td><td /></tr>
+              <tr><td>{t('collected')}</td><td className="r in">{fmt(collected, cur)}</td><td /></tr>
+              {status.lateFeePaid > 0 && <tr><td>Late fees</td><td className="r in">{fmt(status.lateFeePaid, cur)}</td><td /></tr>}
+              <tr className="sum"><td>{t('balance')}</td><td colSpan={2} className={'r ' + (fee + collected + status.lateFeePaid - loan.amount < 0 ? 'out' : 'in')}>{fmt(fee + collected + status.lateFeePaid - loan.amount, cur)}</td></tr>
+              <tr className="gap"><td colSpan={3} /></tr>
+              <tr><td>{t('tbc')}</td><td className="r in">{fmt(refinanced ? 0 : status.remaining, cur)}</td><td /></tr>
+              <tr className="sum"><td>{t('ugl')}</td><td colSpan={2} className={'r ' + (gain < 0 ? 'out' : 'in')}>{gain >= 0 ? '+' : ''}{fmt(gain, cur)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="small muted" style={{ margin: '8px 0 0' }}>Service fee is deducted at release: borrower receives {fmt(net, cur)}.</p>
+      </section>
+      </>}
 
       {canApprove && (
         <>
