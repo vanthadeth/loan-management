@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { fileUrl, must, uploadFile, useInvalidate, useRoles, useTeam } from './core'
-import { useBook, useLoanViews, type LoanView } from './book'
+import { likeOf, useBook, useLoanViews, type LoanView } from './book'
 import { payoffAmount } from '../lib/calc'
 import type { Loan, LoanAttachment, LoanCollateral, LoanStatus } from '../lib/types'
 
@@ -23,7 +23,7 @@ export const completedOn = (v: LoanView) =>
 
 /** What it takes to pay off an ongoing loan on `asOf`; see payoffAmount. */
 export const payoffOf = (v: LoanView, asOf: string) =>
-  payoffAmount(v.terms, v.payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), asOf)
+  payoffAmount(v.terms, v.payments.map(likeOf), asOf)
 
 /** Signed URL for a private file; null while loading or when there is no file. */
 export function useFileUrl(path: string | null | undefined) {
@@ -66,7 +66,7 @@ export function useSupervisors() {
 }
 
 export type NewLoanFields = Pick<Loan,
-  'borrower_id' | 'supervisor_id' | 'collector_id' | 'refinance_of' | 'carried_amount' | 'carried_late_fee' | 'currency' | 'amount' | 'fee_pct' | 'late_fee_pct' | 'late_grace_days' | 'late_cap_pct' | 'rate_pct' | 'rate_basis'
+  'borrower_id' | 'supervisor_id' | 'collector_id' | 'refinance_of' | 'carried_amount' | 'carried_late_fee' | 'currency' | 'amount' | 'fee_pct' | 'late_fee_pct' | 'late_grace_days' | 'late_cap_pct' | 'prepay_fee_pct' | 'rate_pct' | 'rate_basis'
   | 'frequency' | 'interval_days' | 'occurrences' | 'mode' | 'release_date' | 'pay_method' | 'bank_account_id' | 'pay_remarks'>
 
 export interface NewLoanInput {

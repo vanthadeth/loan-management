@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { uploadFile } from './core'
 import { useLoanViews, type LoanView } from './book'
-import { addDays, isPayoff, roundMoney, splitPayments, todayIso, toIso, type Currency } from '../lib/calc'
+import { addDays, isEarlyPayoff, isPayoff, roundMoney, splitPayments, todayIso, toIso, type Currency } from '../lib/calc'
 import { fmt } from '../lib/format'
 import type { Borrower } from '../lib/types'
 
@@ -142,8 +142,10 @@ export function useMoneyData(): MoneyData {
         entries.push({
           ...blank, id: `p${p.id}`, date: p.paid_on, ord: p.created_at + '0', kind: 'payment', type: 'in', direction: 'in',
           currency: loan.currency, amount: p.amount, borrower, loanId: loan.id, principal: s.principal, interest: s.interest,
-          lateFee: p.late_fee,
+          // late fee and prepayment fee are both penalties on top of principal and interest
+          lateFee: p.late_fee + (p.prepay_fee ?? 0),
           detail: isPayoff(p) ? `Paid off by refinancing · ${code} · ${p.note.replace('Refinanced into ', 'into ')}, no cash`
+            : isEarlyPayoff(p) ? `Early payoff · ${code}` + ((p.prepay_fee ?? 0) > 0 ? ` · incl. prepayment fee ${fmt(p.prepay_fee ?? 0, loan.currency)}` : '')
             : p.late_fee > 0 && p.late_fee === p.amount ? `Late fee · ${code}`
             : p.late_fee > 0 ? `Payment · ${code} · incl. late fee ${fmt(p.late_fee, loan.currency)}`
             : `Payment · ${code}`,
@@ -316,6 +318,11 @@ export interface NewPayment {
   late_fee_waived: number
   paid_on: string
   photo: File | null
+  note?: string
+  prepay_fee?: number
+  prepay_fee_waived?: number
+  interest_waived?: number
+  waive_reason?: string
 }
 
 /** Voids a received payment (needs a reason) or restores it; it is kept on record but counts nowhere. */

@@ -31,7 +31,7 @@ function ReportsHome() {
       principal: sum(pays, (e) => e.principal),
       misc: [
         ['Service fees', fmt(sum(E.filter((e) => e.kind === 'fee')), cur)],
-        ['Late fees', fmt(sum(pays, (e) => e.lateFee), cur)],
+        ['Late and prepayment fees', fmt(sum(pays, (e) => e.lateFee), cur)],
         ['Loans released', fmt(sum(E.filter((e) => e.kind === 'release')), cur)],
         ['Fund added', fmt(sum(E.filter((e) => e.kind === 'add')), cur)],
         ['Fund withdrawn', fmt(sum(E.filter((e) => e.kind === 'withdraw')), cur)],

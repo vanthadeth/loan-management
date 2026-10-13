@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { must, useSettings } from './core'
-import { scheduleStatus, todayIso, type LoanTerms } from '../lib/calc'
+import { scheduleStatus, todayIso, type LoanTerms, type PaymentLike } from '../lib/calc'
 import type { Borrower, FundTransaction, Loan, Payment } from '../lib/types'
 
 export interface Book {
@@ -35,8 +35,8 @@ export function useBook() {
       // numeric columns can arrive as strings; normalise them
       const num = <T extends object>(rows: T[], keys: (keyof T)[]): T[] =>
         rows.map((r) => { const o = { ...r }; keys.forEach((k) => { if (o[k] != null) o[k] = Number(o[k]) as T[keyof T] }); return o })
-      const allLoans = num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_pct', 'late_cap_pct', 'rate_pct', 'carried_amount', 'carried_late_fee'])
-      const allPayments = num(must(p) as Payment[], ['amount', 'late_fee', 'late_fee_waived'])
+      const allLoans = num(must(l) as Loan[], ['amount', 'fee_pct', 'late_fee_pct', 'late_cap_pct', 'prepay_fee_pct', 'rate_pct', 'carried_amount', 'carried_late_fee'])
+      const allPayments = num(must(p) as Payment[], ['amount', 'late_fee', 'late_fee_waived', 'prepay_fee', 'prepay_fee_waived', 'interest_waived'])
       const voidedIds = new Set(allLoans.filter((x) => x.voided_at).map((x) => x.id))
       return {
         loans: allLoans.filter((x) => !x.voided_at),
@@ -49,6 +49,11 @@ export function useBook() {
     },
   })
 }
+
+/** A payment as the loan maths sees it. */
+export const likeOf = (p: Payment): PaymentLike => ({
+  amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, prepayFee: p.prepay_fee ?? 0, interestWaived: p.interest_waived ?? 0, paidOn: p.paid_on,
+})
 
 const termsOf = (l: Loan): LoanTerms => ({
   amount: l.amount, currency: l.currency, feePct: l.fee_pct, ratePct: l.rate_pct, rateBasis: l.rate_basis,
@@ -90,7 +95,7 @@ export function useLoanViews(): { views: LoanView[]; voidedViews: LoanView[]; is
       const terms = termsOf(loan)
       // a refinanced loan stopped on the day it was paid off: nothing falls due or accrues late fees after that
       const asOf = loan.status === 'refinanced' ? payments.reduce((d, p) => (p.paid_on > d ? p.paid_on : d), loan.release_date) : today
-      const status = scheduleStatus(terms, payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), asOf)
+      const status = scheduleStatus(terms, payments.map(likeOf), asOf)
       const approved = loan.status === 'approved'
       return { loan, borrower: bor.get(loan.borrower_id), payments, voided, terms, status, done: (approved && status.done) || loan.status === 'refinanced', active: approved && !status.done }
     }

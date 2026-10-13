@@ -3,7 +3,7 @@ import { Dropdown } from '../../ui/Controls'
 import { Sheet } from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
 import { useBanks } from '../../data/core'
-import type { LoanView } from '../../data/book'
+import { likeOf, type LoanView } from '../../data/book'
 import { amountText, amountToText, parseAmount, symbol, useRecordPayment } from '../../data/money'
 import { settleLateFee, todayIso } from '../../lib/calc'
 import { fmt } from '../../lib/format'
@@ -20,7 +20,7 @@ export function CollectLateFee({ view, onClose }: { view: LoanView; onClose: () 
   const due = status.lateFeeOutstanding
   const [text, setText] = useState(amountToText(due, cur))
   const [bank, setBank] = useState(loan.bank_account_id ? String(loan.bank_account_id) : '')
-  const history = payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on }))
+  const history = payments.map(likeOf)
   const s = settleLateFee(terms, history, parseAmount(text), today)
   const options = [{ value: '', label: 'Cash (no bank account)' }, ...(banks.data ?? []).map((b) => ({ value: String(b.id), label: `${b.bank} · ${b.account_no} · ${b.account_name}` }))]
 

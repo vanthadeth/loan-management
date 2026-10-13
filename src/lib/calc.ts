@@ -33,6 +33,10 @@ export interface PaymentLike {
   lateFee: number
   /** late fee that was due with this payment but forgiven */
   lateFeeWaived?: number
+  /** prepayment fee collected with an early payoff: not for the installments */
+  prepayFee?: number
+  /** interest not yet due that an early payoff drops: closes installments like cash, but is not money */
+  interestWaived?: number
   paidOn: string
 }
 
@@ -175,7 +179,7 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
   const cumulative: { total: number; on: string }[] = []
   let run = 0
   for (const p of ordered) {
-    run += p.amount - p.lateFee
+    run += p.amount - p.lateFee - (p.prepayFee ?? 0) + (p.interestWaived ?? 0)
     cumulative.push({ total: run, on: p.paidOn })
   }
   const applied = run
@@ -232,7 +236,10 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
   const lateFeeAccrued = status.reduce((s, r) => s + r.lateFee, 0)
   const lateFeePaid = payments.reduce((s, p) => s + p.lateFee, 0)
   const lateFeeWaived = payments.reduce((s, p) => s + (p.lateFeeWaived ?? 0), 0)
-  const collected = Math.min(applied, total)
+  const interestWaived = payments.reduce((s, p) => s + (p.interestWaived ?? 0), 0)
+  const prepayFeePaid = payments.reduce((s, p) => s + (p.prepayFee ?? 0), 0)
+  // money received for installments: what closed them minus the interest an early payoff dropped
+  const collected = Math.min(applied, total) - interestWaived
   return {
     rows: status,
     total,
@@ -244,6 +251,8 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
     paidCount: status.filter((r) => r.state === 'paid').length,
     lateFeeAccrued,
     lateFeePaid,
+    prepayFeePaid,
+    interestWaived,
     lateFeeWaived,
     lateFeeOutstanding: Math.max(lateFeeAccrued - lateFeePaid - lateFeeWaived, 0),
     lateLines,
@@ -296,6 +305,8 @@ export function previewLoan(t: LoanTerms) {
 
 /** The payment recorded on a loan when a new loan paid it off (refinancing). */
 export const isPayoff = (p: { note: string }) => p.note.startsWith('Refinanced into')
+/** The payment recorded when a borrower pays the loan off early (principal + prepayment fee). */
+export const isEarlyPayoff = (p: { note: string }) => p.note.startsWith('Early payoff')
 
 /**
  * What it takes to pay off a loan on `asOf` (the refinancing loan's release date): everything due by then
@@ -315,7 +326,7 @@ export function payoffAmount(t: LoanTerms, payments: PaymentLike[], asOf: string
   return { lateFee, total: roundMoney(owed + lateFee, t.currency) }
 }
 
-interface SplitPayment { id: number; amount: number; late_fee: number; paid_on: string; note: string }
+interface SplitPayment { id: number; amount: number; late_fee: number; prepay_fee?: number | null; paid_on: string; note: string }
 const cents = (n: number) => Math.round(n * 100) / 100
 
 /**
@@ -330,10 +341,10 @@ export function splitPayments(terms: LoanTerms, payments: SplitPayment[]) {
   let idx = 0
   let used = 0
   for (const p of ordered) {
-    let left = p.amount - p.late_fee
+    let left = p.amount - p.late_fee - (p.prepay_fee ?? 0)
     let principal = 0
     let interest = 0
-    const payoff = isPayoff(p)
+    const payoff = isPayoff(p) || isEarlyPayoff(p)
     while (left > EPS && idx < rows.length) {
       const r = rows[idx]
       if (payoff && r.due > p.paid_on && used < r.interest) used = r.interest // dropped interest: skip it
@@ -348,4 +359,20 @@ export function splitPayments(terms: LoanTerms, payments: SplitPayment[]) {
     out.set(p.id, { principal: cents(principal + Math.max(left, 0)), interest: cents(interest) })
   }
   return out
+}
+
+/**
+ * Paying a loan off early: the unpaid principal plus a prepayment fee; interest not yet due is not charged.
+ * Only valid when nothing is due or overdue and no late fee is outstanding (those are settled first).
+ */
+export function earlyPayoffQuote(t: LoanTerms, payments: PaymentLike[], asOf: string, feePct: number) {
+  const st = scheduleStatus(t, payments, asOf)
+  const due = st.rows.some((r) => r.state !== 'paid' && r.due <= asOf)
+  const principal = roundMoney(st.remainingPrincipal, t.currency)
+  const fee = roundMoney((principal * feePct) / 100, t.currency)
+  const reason = st.done ? 'The loan is already repaid.'
+    : due ? 'Pay the installments that are due first.'
+    : st.lateFeeOutstanding > 0 ? 'Collect or forgive the late fee first.'
+    : principal <= 0 ? 'Nothing is left to pay.' : ''
+  return { principal, interestDropped: roundMoney(st.remainingInterest, t.currency), feePct, fee, total: principal + fee, eligible: reason === '', reason }
 }

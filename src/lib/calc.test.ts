@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allocatePayment, buildSchedule, loanTotals, payoffAmount, scheduleStatus, settleLateFee, splitPayments, type LoanTerms } from './calc'
+import { allocatePayment, buildSchedule, earlyPayoffQuote, loanTotals, payoffAmount, scheduleStatus, settleLateFee, splitPayments, type LoanTerms } from './calc'
 
 const base: LoanTerms = {
   amount: 3_000_000, currency: 'KHR', feePct: 3, ratePct: 2, rateBasis: 'month',
@@ -207,5 +207,30 @@ describe('late fee grace and cap', () => {
     expect(s.lateFeeAccrued).toBe(180_000)
     expect(s.lateLines.map((l) => l.fee)).toEqual([150_000, 30_000])
     expect(scheduleStatus({ ...base, lateCapPct: null }, [], '2026-10-02').lateFeeAccrued).toBe(450_000)
+  })
+})
+
+describe('early payoff', () => {
+  const first = { amount: 560_000, lateFee: 0, paidOn: '2026-08-01' }
+  it('is the unpaid principal plus the prepayment fee, with no future interest', () => {
+    const q = earlyPayoffQuote(base, [first], '2026-08-15', 2)
+    expect(q).toMatchObject({ eligible: true, principal: 2_500_000, interestDropped: 300_000, fee: 50_000, total: 2_550_000 })
+  })
+  it('is not valid while an installment is due or a late fee is outstanding', () => {
+    expect(earlyPayoffQuote(base, [first], '2026-09-01', 2)).toMatchObject({ eligible: false, reason: 'Pay the installments that are due first.' })
+    expect(earlyPayoffQuote(base, [first], '2026-09-10', 2).eligible).toBe(false)
+    // overdue installment paid but its late fee not collected yet
+    const late = earlyPayoffQuote(base, [first, { amount: 560_000, lateFee: 0, paidOn: '2026-09-06' }], '2026-09-07', 2)
+    expect(late).toMatchObject({ eligible: false, reason: 'Collect or forgive the late fee first.' })
+  })
+  it('closes the loan: principal and fee in cash, the interest not yet due waived', () => {
+    const payoff = { amount: 2_550_000, lateFee: 0, prepayFee: 50_000, interestWaived: 300_000, paidOn: '2026-08-15' }
+    const s = scheduleStatus(base, [first, payoff], '2026-08-15')
+    expect(s).toMatchObject({ done: true, remaining: 0, collected: 3_060_000, prepayFeePaid: 50_000, interestWaived: 300_000 })
+    const split = splitPayments(base, [
+      { id: 1, amount: 560_000, late_fee: 0, paid_on: '2026-08-01', note: '' },
+      { id: 2, amount: 2_550_000, late_fee: 0, prepay_fee: 50_000, paid_on: '2026-08-15', note: 'Early payoff' },
+    ])
+    expect(split.get(2)).toEqual({ principal: 2_500_000, interest: 0 })
   })
 })

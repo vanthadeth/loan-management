@@ -57,7 +57,7 @@ export function buildReport(name: ReportName, { data, cur, lang, inRange }: Ctx)
     case 'Collections': {
       const pays = entries.filter((e) => e.kind === 'payment')
       return {
-        cols: ['Date', 'Loan', 'Borrower', 'Principal', 'Interest', 'Late fee', 'Total'],
+        cols: ['Date', 'Loan', 'Borrower', 'Principal', 'Interest', 'Fees', 'Total'],
         right: [3, 4, 5, 6],
         rows: pays.map((e) => [{ date: e.date }, loanCode(e.loanId ?? 0), who(e), amt(e.principal), amt(e.interest), amt(e.lateFee), amt(e.amount)]),
         foot: ['Total', '', '', amt(sum(pays, (e) => e.principal)), amt(sum(pays, (e) => e.interest)), amt(sum(pays, (e) => e.lateFee)), amt(sum(pays))],

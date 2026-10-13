@@ -143,8 +143,10 @@ waivers (R-PAY-5); a reason on every waiver, void and write-off; permissions sta
   individual installments are not locked.
 - Backdating limit (R-PAY-4) and four-eyes approval (R-LOAN-2, a setting, off by default) are enforced since step 4
   (migration `20261031000000`). Overpayment is blocked since step 3.
-- Paying everything early means paying every installment including all flat interest. There is no payoff quote, no
-  prepayment fee and no admin-approved waiver. Only refinancing drops future interest.
+- Early payoff (R-PAY-5) exists since step 6 (migration `20261033000000`, `EarlyPayoff` sheet, `earlyPayoffQuote`): the
+  database checks principal, fee, dropped interest and that nothing is due. "Approved by admin" is the permission
+  `payments.waive_fee` (an admin records the waiver), not a request queue. The outstanding late fee is checked by the app
+  only, because the late fee is not calculated in the database yet.
 - Late fee is settled separately (`settleLateFee`). Grace days and the cap (R-LATE-2) are in the loan terms since step 5
   (migration `20261032000000`, `scheduleStatus`); a forgiven fee is still a number on the settlement row, not a charge.
 - Voiding a payment (`private.payments_void_guard`) sets flags on the row; it is not a reversal transaction. `loans` still

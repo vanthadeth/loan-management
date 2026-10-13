@@ -10,7 +10,7 @@ import { useI18n } from '../app/i18n'
 import { dn, useBanks, useTeam } from '../data/core'
 import { bname } from '../data/borrowers'
 import { completedOn, errMsg, payoffOf, useLoanActions, useLoanFiles, useLoans } from '../data/loans'
-import { isPayoff, loanTotals, todayIso } from '../lib/calc'
+import { isEarlyPayoff, isPayoff, loanTotals, todayIso } from '../lib/calc'
 import { dueParts, useVoidPayment } from '../data/money'
 import { fmt, fmtD, loanCode } from '../lib/format'
 import type { LoanStatus, Payment } from '../lib/types'
@@ -20,10 +20,11 @@ import { SupervisorSheet } from './loans/SupervisorSheet'
 import { LateFeeBreakdown } from './loans/LateFee'
 import { findings, Insight } from './loans/Insight'
 import { CollectLateFee } from './loans/CollectLateFee'
+import { EarlyPayoff } from './loans/EarlyPayoff'
 
 const STEPS: LoanStatus[] = ['drafted', 'requested', 'approved']
 type Tab = 'main' | 'schedule' | 'contract' | 'insight'
-type Dialog = 'submit' | 'delete' | 'return' | 'reset' | 'approve' | 'reject' | 'supervisor' | 'collector' | 'void' | 'restore' | 'latefee' | null
+type Dialog = 'submit' | 'delete' | 'return' | 'reset' | 'approve' | 'reject' | 'supervisor' | 'collector' | 'void' | 'restore' | 'latefee' | 'early' | null
 
 export function LoanDetail() {
   const loanId = Number(useParams().id)
@@ -56,7 +57,8 @@ export function LoanDetail() {
   const collected = status.collected
   const refinanced = loan.status === 'refinanced'
   // a refinanced loan only earns what was collected up to the payoff; its interest not yet due was dropped
-  const gain = fee + (refinanced ? status.collected + status.lateFeePaid : status.total) - loan.amount
+  const paidEarly = status.interestWaived > 0
+  const gain = fee + (refinanced || paidEarly ? status.collected + status.lateFeePaid + status.prepayFeePaid : status.total) - loan.amount
   const bank = (banks.data ?? []).find((b) => b.id === loan.bank_account_id)
   const payText = loan.pay_method === 'bank' ? 'Bank' + (bank ? ` · ${bank.bank} ${bank.account_no}` : '')
     : loan.pay_method === 'other' ? 'Other' + (loan.pay_remarks ? ` · ${loan.pay_remarks}` : '') : 'Cash'
@@ -81,6 +83,7 @@ export function LoanDetail() {
   const canReset = !voided && loan.status === 'approved' && can('loans.approve') && payments.length === 0 && !loan.refinance_of
   // refinance: an approved loan still collecting, with no other refinancing loan in progress
   const refinancedBy = [...views, ...voidedViews].find((x) => x.loan.refinance_of === loan.id && !x.loan.voided_at && x.loan.status !== 'rejected')
+  const canEarly = !voided && v.active && !refinancedBy && can('payments.record')
   const canRefinance = !voided && v.active && !refinancedBy && can('loans.create')
   const next = approved && !voided ? status.rows.find((r) => r.state !== 'paid') : undefined
   const phone = (borrower?.phone ?? '').replace(/[^\d+]/g, '')
@@ -150,7 +153,7 @@ export function LoanDetail() {
             Being refinanced by <Link to={`/loans/${refinancedBy.loan.id}`}>{loanCode(refinancedBy.loan.id)}</Link> ({t(refinancedBy.loan.status)}). It is paid off when that loan is approved.
           </p>
         )}
-        {(mine || canReturn || canReset || canVoid || canRefinance) && (
+        {(mine || canReturn || canReset || canVoid || canRefinance || canEarly) && (
           <div className="ctas">
             {mine && (
               <>
@@ -161,6 +164,7 @@ export function LoanDetail() {
             )}
             {canReturn && <button type="button" className="btn" onClick={() => setDialog('return')}>Draft</button>}
             {canReset && <button type="button" className="btn" onClick={() => setDialog('reset')}>Reset approval</button>}
+            {canEarly && <button type="button" className="btn" onClick={() => setDialog('early')}>Early payoff</button>}
             {canRefinance && <button type="button" className="btn" onClick={() => nav(`/loans/new?refinance=${loan.id}`)}>Refinance</button>}
             {canVoid && <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('void') }}>Void</button>}
           </div>
@@ -212,7 +216,7 @@ export function LoanDetail() {
             <section className="card">
               <div className="eyebrow">Repaid</div>
               <b style={{ fontSize: 18, color: 'var(--paid)' }}>Fully repaid</b>
-              <p className="small muted" style={{ margin: '4px 0 0' }}>Every installment has been collected{end ? ` (${fmtD(end)})` : ''}.</p>
+              <p className="small muted" style={{ margin: '4px 0 0' }}>{paidEarly ? 'Paid off early' : 'Every installment has been collected'}{end ? ` (${fmtD(end)})` : ''}.</p>
             </section>
           ) : null}
           {status.lateFeeOutstanding > 0 && (
@@ -275,10 +279,10 @@ export function LoanDetail() {
             return (
               <div className="item" style={{ cursor: 'default', opacity: gone ? 0.65 : 1 }} key={p.id}>
                 <span className="grow">
-                  <b style={gone ? { textDecoration: 'line-through' } : undefined}>{fmtD(p.paid_on)}{p.late_fee > 0 || p.late_fee_waived > 0 ? ' · Late fee' : ''}</b>
+                  <b style={gone ? { textDecoration: 'line-through' } : undefined}>{fmtD(p.paid_on)}{p.late_fee > 0 || p.late_fee_waived > 0 ? ' · Late fee' : ''}{isEarlyPayoff(p) ? ' · Early payoff' : ''}</b>
                   {gone
                     ? <span className="small muted" style={{ display: 'block' }}>Voided {fmtD(p.voided_at?.slice(0, 10))}{who(p.voided_by) ? ` by ${who(p.voided_by)}` : ''}: {p.void_reason}</span>
-                    : (p.late_fee_waived > 0 || p.note) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee_waived > 0 ? `${fmt(p.late_fee_waived, cur)} forgiven` : '', p.note].filter(Boolean).join(' · ')}</span>}
+                    : (p.late_fee_waived > 0 || p.note || (p.prepay_fee ?? 0) > 0) && <span className="small muted" style={{ display: 'block' }}>{[p.late_fee_waived > 0 ? `${fmt(p.late_fee_waived, cur)} forgiven` : '', (p.prepay_fee ?? 0) > 0 ? `incl. ${fmt(p.prepay_fee ?? 0, cur)} prepayment fee` : '', (p.prepay_fee_waived ?? 0) > 0 ? `${fmt(p.prepay_fee_waived ?? 0, cur)} fee waived: ${p.waive_reason}` : '', isEarlyPayoff(p) ? '' : p.note].filter(Boolean).join(' · ')}</span>}
                 </span>
                 {!gone && p.photo_path && <FileView path={p.photo_path} label="Photo" />}
                 <b className={'num' + (gone ? '' : ' in')} style={gone ? { textDecoration: 'line-through' } : undefined}>{!gone && p.amount > 0 ? '+' : ''}{fmt(p.amount, cur)}</b>
@@ -408,9 +412,10 @@ export function LoanDetail() {
               <tr><td>{t('fee')} ({loan.fee_pct}%)</td><td className="r in">{fmt(fee, cur)}</td><td /></tr>
               <tr><td>{t('collected')}</td><td className="r in">{fmt(collected, cur)}</td><td /></tr>
               {status.lateFeePaid > 0 && <tr><td>Late fees</td><td className="r in">{fmt(status.lateFeePaid, cur)}</td><td /></tr>}
-              <tr className="sum"><td>{t('balance')}</td><td colSpan={2} className={'r ' + (fee + collected + status.lateFeePaid - loan.amount < 0 ? 'out' : 'in')}>{fmt(fee + collected + status.lateFeePaid - loan.amount, cur)}</td></tr>
+              {status.prepayFeePaid > 0 && <tr><td>Prepayment fee</td><td className="r in">{fmt(status.prepayFeePaid, cur)}</td><td /></tr>}
+              <tr className="sum"><td>{t('balance')}</td><td colSpan={2} className={'r ' + (fee + collected + status.lateFeePaid + status.prepayFeePaid - loan.amount < 0 ? 'out' : 'in')}>{fmt(fee + collected + status.lateFeePaid + status.prepayFeePaid - loan.amount, cur)}</td></tr>
               <tr className="gap"><td colSpan={3} /></tr>
-              <tr><td>{t('tbc')}</td><td className="r in">{fmt(refinanced ? 0 : status.remaining, cur)}</td><td /></tr>
+              <tr><td>{t('tbc')}</td><td className="r in">{fmt(refinanced || paidEarly ? 0 : status.remaining, cur)}</td><td /></tr>
               <tr className="sum"><td>{t('ugl')}</td><td colSpan={2} className={'r ' + (gain < 0 ? 'out' : 'in')}>{gain >= 0 ? '+' : ''}{fmt(gain, cur)}</td></tr>
             </tbody>
           </table>
@@ -442,6 +447,7 @@ export function LoanDetail() {
           {!payTarget.restore && <TextArea id="vpr" label="Reason (required)" value={reason} onChange={setReason} />}
         </Sheet>
       )}
+      {dialog === 'early' && <EarlyPayoff view={v} onClose={() => setDialog(null)} />}
       {dialog === 'latefee' && <CollectLateFee view={v} onClose={() => setDialog(null)} />}
       {dialog === 'void' && (
         <Sheet title="Void this loan?" onClose={() => setDialog(null)} action={{

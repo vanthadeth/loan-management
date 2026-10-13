@@ -69,7 +69,7 @@ export function HeroBars({ periods, unit, onUnit, sel, onSel, cur, hide }: {
             <tr><td>Collect</td><td className="r in">+{m(sp.col)}</td></tr>
             <tr className="sub"><td>Principal collected</td><td className="r">{m(sp.principal)}</td></tr>
             <tr className="sub"><td>Interest earned</td><td className="r">{m(sp.interest)}</td></tr>
-            <tr className="sub"><td>Late fees</td><td className="r">{m(sp.lateFees)}</td></tr>
+            <tr className="sub"><td>Late and prepayment fees</td><td className="r">{m(sp.lateFees)}</td></tr>
             <tr className="sum"><td>Balance</td><td className="r">{m(sp.balance)}</td></tr>
           </tbody>
         </table>

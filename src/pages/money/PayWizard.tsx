@@ -6,7 +6,7 @@ import { Dropdown, DateField } from '../../ui/Controls'
 import { Sheet } from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
 import { useBanks } from '../../data/core'
-import type { LoanView } from '../../data/book'
+import { likeOf, type LoanView } from '../../data/book'
 import { amountText, amountToText, borrowerName, dueParts, openLoans, parseAmount, symbol, useMoneyData, useRecordPayment } from '../../data/money'
 import { allocatePayment, diffDays, todayIso } from '../../lib/calc'
 import { useAuth } from '../../app/auth'
@@ -60,7 +60,7 @@ export function PayWizard() {
   const view = open.find((v) => v.loan.id === loanId)
   const at = view ? step : 0
   const cur = view?.loan.currency ?? 'KHR'
-  const history = useMemo(() => (view?.payments ?? []).map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), [view])
+  const history = useMemo(() => (view?.payments ?? []).map(likeOf), [view])
   const amountValue = amount ?? (view ? amountToText(owedNow(view), cur) : '')
   const bankValue = bank ?? (view?.loan.bank_account_id ? String(view.loan.bank_account_id) : '')
   const bankOptions = [{ value: '', label: CASH }, ...(banks.data ?? []).map((b) => ({ value: String(b.id), label: bankLabel(b) }))]

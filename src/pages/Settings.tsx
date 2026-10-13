@@ -26,9 +26,10 @@ function SettingsSheet({ s, onClose }: { s: AppSettings; onClose: () => void }) 
   const [back, setBack] = useState(String(s.backdate_days))
   const [grace, setGrace] = useState(String(s.late_grace_days))
   const [cap, setCap] = useState(s.late_cap_pct != null ? String(s.late_cap_pct) : '')
+  const [prepay, setPrepay] = useState(String(s.prepay_fee_pct))
   const [eyes, setEyes] = useState(s.four_eyes ? 'on' : 'off')
   const submit = async () => {
-    const patch = { service_fee_pct: num(fee), late_fee_pct: num(late), backdate_days: Math.round(num(back)), four_eyes: eyes === 'on', late_grace_days: Math.round(num(grace)), late_cap_pct: cap.trim() ? num(cap) : null }
+    const patch = { service_fee_pct: num(fee), late_fee_pct: num(late), backdate_days: Math.round(num(back)), four_eyes: eyes === 'on', late_grace_days: Math.round(num(grace)), late_cap_pct: cap.trim() ? num(cap) : null, prepay_fee_pct: num(prepay) }
     if (!(patch.service_fee_pct >= 0 && patch.service_fee_pct < 100) || !(patch.late_fee_pct >= 0 && patch.late_fee_pct <= 100) || !(patch.backdate_days >= 0 && patch.backdate_days <= 365)) {
       toast('Check the numbers')
       return
@@ -42,6 +43,7 @@ function SettingsSheet({ s, onClose }: { s: AppSettings; onClose: () => void }) 
         <Field id="sk" label="Late fee (% of the unpaid principal, per late payment period)" value={late} onChange={setLate} inputMode="decimal" />
         <Field id="sg" label="Late fee grace days (default for new loans)" value={grace} onChange={setGrace} inputMode="numeric" />
         <Field id="sc" label="Late fee cap, % of the loan (default for new loans, empty = no cap)" value={cap} onChange={setCap} inputMode="decimal" />
+        <Field id="sp" label="Prepayment fee, % of the principal paid early (default for new loans)" value={prepay} onChange={setPrepay} inputMode="decimal" />
         <Field id="sb" label="Payments can be dated up to this many days back (more needs the backdate permission)" value={back} onChange={setBack} inputMode="numeric" />
         <Seg id="s4" label="Whoever requested a loan cannot approve it" options={[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]} value={eyes} onChange={setEyes} />
         <p className="small muted" style={{ margin: 0 }}>The fees apply to new loans and to late fees from now on.</p>
