@@ -38,6 +38,7 @@ export interface LoanAttachment { id: number; loan_id: number; collateral_id: nu
 export interface Payment {
   id: number; loan_id: number; bank_account_id: number | null; amount: number; late_fee: number; late_fee_waived: number
   paid_on: string; photo_path: string | null; note: string; created_by: string | null; created_at: string
+  voided_at: string | null; voided_by: string | null; void_reason: string | null
 }
 export interface FundTransaction { id: number; kind: 'add' | 'withdraw'; currency: Currency; amount: number; txn_date: string; note: string; created_at: string }
 export interface AppSettings { id: 1; service_fee_pct: number; late_fee_pct: number; khr_per_usd: number }

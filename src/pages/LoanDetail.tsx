@@ -10,10 +10,10 @@ import { useI18n } from '../app/i18n'
 import { dn, useBanks, useTeam } from '../data/core'
 import { bname } from '../data/borrowers'
 import { completedOn, errMsg, payoffOf, useLoanActions, useLoanFiles, useLoans } from '../data/loans'
-import { loanTotals, todayIso } from '../lib/calc'
-import { dueParts } from '../data/money'
+import { isPayoff, loanTotals, todayIso } from '../lib/calc'
+import { dueParts, useVoidPayment } from '../data/money'
 import { fmt, fmtD, loanCode } from '../lib/format'
-import type { LoanStatus } from '../lib/types'
+import type { LoanStatus, Payment } from '../lib/types'
 import { FileView } from './loans/FileView'
 import { Bar, Ring } from './loans/parts'
 import { SupervisorSheet } from './loans/SupervisorSheet'
@@ -36,6 +36,8 @@ export function LoanDetail() {
   const actions = useLoanActions()
   const [dialog, setDialog] = useState<Dialog>(null)
   const [reason, setReason] = useState('')
+  const [payTarget, setPayTarget] = useState<{ p: Payment; restore: boolean } | null>(null)
+  const voidPay = useVoidPayment()
   usePageTitle(Number.isFinite(loanId) ? loanCode(loanId) : 'Loan')
 
   const v = views.find((x) => x.loan.id === loanId) ?? voidedViews.find((x) => x.loan.id === loanId)
@@ -67,6 +69,7 @@ export function LoanDetail() {
   const canApprove = !voided && loan.status === 'requested' && can('loans.approve') && !stale
   const canReturn = !voided && (loan.status === 'requested' || loan.status === 'rejected') && (can('loans.create') || can('loans.approve'))
   const canVoid = !voided && can('loans.void')
+  const canVoidPay = approved && !voided && can('payments.void')
   const canReset = !voided && loan.status === 'approved' && can('loans.approve') && payments.length === 0 && !loan.refinance_of
   // refinance: an approved loan still collecting, with no other refinancing loan in progress
   const refinancedBy = [...views, ...voidedViews].find((x) => x.loan.refinance_of === loan.id && !x.loan.voided_at && x.loan.status !== 'rejected')
@@ -374,9 +377,20 @@ export function LoanDetail() {
               </span>
               {p.photo_path && <FileView path={p.photo_path} label="Photo" />}
               <b className="num in">{p.amount > 0 ? '+' : ''}{fmt(p.amount, cur)}</b>
+              {canVoidPay && !isPayoff(p) && <button type="button" className="btn sm" onClick={() => { setReason(''); setPayTarget({ p, restore: false }) }}>Void</button>}
             </div>
           ))}
-          {!payments.length && <p className="muted">No payments yet.</p>}
+          {!payments.length && !v.voided.length && <p className="muted">No payments yet.</p>}
+          {v.voided.map((p) => (
+            <div className="item" style={{ cursor: 'default', opacity: 0.65 }} key={p.id}>
+              <span className="grow">
+                <b style={{ textDecoration: 'line-through' }}>{fmtD(p.paid_on)}{p.late_fee > 0 || p.late_fee_waived > 0 ? ' · Late fee' : ''}</b>
+                <span className="small muted" style={{ display: 'block' }}>Voided {fmtD(p.voided_at?.slice(0, 10))}{who(p.voided_by) ? ` by ${who(p.voided_by)}` : ''}: {p.void_reason}</span>
+              </span>
+              <b className="num" style={{ textDecoration: 'line-through' }}>{fmt(p.amount, cur)}</b>
+              {canVoidPay && approved && <button type="button" className="btn sm" onClick={() => setPayTarget({ p, restore: true })}>Restore</button>}
+            </div>
+          ))}
         </div>
       </details>
 
@@ -390,6 +404,19 @@ export function LoanDetail() {
         </>
       )}
 
+      {payTarget && (
+        <Sheet title={payTarget.restore ? 'Restore this payment?' : 'Void this payment?'} onClose={() => setPayTarget(null)} action={{
+          label: payTarget.restore ? 'Restore payment' : 'Void payment', cls: payTarget.restore ? undefined : 'danger', disabled: !payTarget.restore && !reason.trim(),
+          onClick: async () => {
+            try { await voidPay.mutateAsync({ id: payTarget.p.id, reason: payTarget.restore ? null : reason.trim() }); toast(payTarget.restore ? 'Payment restored' : 'Payment voided'); setPayTarget(null) } catch (e) { toast(errMsg(e)) }
+          },
+        }}>
+          <p style={{ margin: '0 0 10px' }}>
+            {payTarget.restore ? 'It counts again: the balance and the schedule go back to include it.' : <>The {fmt(payTarget.p.amount, cur)} payment of {fmtD(payTarget.p.paid_on)} stops counting: the balance, the schedule and the cashflow are recalculated without it. It stays on record.</>}
+          </p>
+          {!payTarget.restore && <TextArea id="vpr" label="Reason (required)" value={reason} onChange={setReason} />}
+        </Sheet>
+      )}
       {dialog === 'latefee' && <CollectLateFee view={v} onClose={() => setDialog(null)} />}
       {dialog === 'void' && (
         <Sheet title="Void this loan?" onClose={() => setDialog(null)} action={{

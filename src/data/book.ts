@@ -61,7 +61,10 @@ const termsOf = (l: Loan): LoanTerms => ({
 export interface LoanView {
   loan: Loan
   borrower: Borrower | undefined
+  /** payments that count */
   payments: Payment[]
+  /** payments an admin voided: kept for the record, left out of every number */
+  voided: Payment[]
   terms: LoanTerms
   status: ReturnType<typeof scheduleStatus>
   /** approved and fully repaid, or paid off by a refinancing loan */
@@ -79,13 +82,15 @@ export function useLoanViews(): { views: LoanView[]; voidedViews: LoanView[]; is
     const pays = new Map<number, Payment[]>()
     ;[...book.payments, ...book.voidedPayments].forEach((p) => pays.set(p.loan_id, [...(pays.get(p.loan_id) ?? []), p]))
     const build = (loan: Loan): LoanView => {
-      const payments = pays.get(loan.id) ?? []
+      const all = pays.get(loan.id) ?? []
+      const payments = all.filter((p) => !p.voided_at)
+      const voided = all.filter((p) => p.voided_at)
       const terms = termsOf(loan)
       // a refinanced loan stopped on the day it was paid off: nothing falls due or accrues late fees after that
       const asOf = loan.status === 'refinanced' ? payments.reduce((d, p) => (p.paid_on > d ? p.paid_on : d), loan.release_date) : today
       const status = scheduleStatus(terms, payments.map((p) => ({ amount: p.amount, lateFee: p.late_fee, lateFeeWaived: p.late_fee_waived, paidOn: p.paid_on })), asOf)
       const approved = loan.status === 'approved'
-      return { loan, borrower: bor.get(loan.borrower_id), payments, terms, status, done: (approved && status.done) || loan.status === 'refinanced', active: approved && !status.done }
+      return { loan, borrower: bor.get(loan.borrower_id), payments, voided, terms, status, done: (approved && status.done) || loan.status === 'refinanced', active: approved && !status.done }
     }
     return { views: book.loans.map(build), voidedViews: book.voidedLoans.map(build) }
   }, [book])

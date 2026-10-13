@@ -318,6 +318,21 @@ export interface NewPayment {
   photo: File | null
 }
 
+/** Voids a received payment (needs a reason) or restores it; it is kept on record but counts nowhere. */
+export function useVoidPayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: number; reason: string | null }) => {
+      const { data, error } = await supabase.from('payments')
+        .update(reason === null ? { voided_at: null, void_reason: null } : { voided_at: new Date().toISOString(), void_reason: reason })
+        .eq('id', id).select('id')
+      if (error) throw new Error(error.message)
+      if (!data?.length) throw new Error('You are not allowed to void this payment.')
+    },
+    onSuccess: () => Promise.all(['book', 'messages'].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
+  })
+}
+
 export function useRecordPayment() {
   const qc = useQueryClient()
   return useMutation({
