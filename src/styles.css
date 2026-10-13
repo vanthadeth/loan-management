@@ -1250,11 +1250,6 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 .ctas{display:flex;gap:8px;flex-wrap:wrap}
 .ctas>.btn{flex:1 1 110px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-align:center}
 
-/* loan details: the top section stays pinned and shrinks to its title row */
-:root{--hd-top:0px}
-.hd{position:sticky;top:var(--hd-top);z-index:6;transition:top .2s var(--ease,ease)}
-#view>.tabs.ltabs{top:calc(var(--hd-top) + var(--hd-h,0px) - 1px)}
-@media (max-width:899.98px){.app{--hd-top:-12px}.app.bars-hidden{--hd-top:calc((var(--top-h,70px) + 12px)*-1)}}
-.hd.compact{box-shadow:0 8px 18px -12px rgba(20,28,50,.35)!important;padding-block:12px}
-.hd-more{display:flow-root}
-.hd-more[hidden]{display:none}
+/* loan details: the tabs stay fixed while the page scrolls, flush under the top bar (or at the very top when the bars hide) */
+#view>.tabs.ltabs{top:0;z-index:6}
+@media (max-width:899.98px){#view>.tabs.ltabs{top:-12px}.app.bars-hidden #view>.tabs.ltabs{top:calc((var(--top-h,70px) + 12px)*-1)}}

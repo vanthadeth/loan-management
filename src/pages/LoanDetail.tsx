@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react'
+import { Fragment, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { Sheet } from '../ui/Sheet'
@@ -41,26 +41,6 @@ export function LoanDetail() {
   const [payTarget, setPayTarget] = useState<{ p: Payment; restore: boolean } | null>(null)
   const voidPay = useVoidPayment()
   const [params, setParams] = useSearchParams()
-  // the top section pins to the top while scrolling and shrinks to its title row once the rest has scrolled away
-  const moreRef = useRef<HTMLDivElement>(null)
-  const hdRef = useRef<HTMLElement>(null)
-  const [hdH, setHdH] = useState(0)
-  const [compact, setCompact] = useState(false)
-  const [moreH, setMoreH] = useState(0)
-  useLayoutEffect(() => {
-    const h = moreRef.current?.offsetHeight ?? 0
-    if (!compact && h !== moreH) setMoreH(h)
-    const hh = hdRef.current?.offsetHeight ?? 0
-    if (hh !== hdH) setHdH(hh)
-  })
-  useEffect(() => {
-    const main = document.getElementById('main')
-    if (!main) return
-    const on = () => setCompact(moreH > 0 && main.scrollTop > moreH)
-    on()
-    main.addEventListener('scroll', on, { passive: true })
-    return () => main.removeEventListener('scroll', on)
-  }, [moreH])
   usePageTitle(Number.isFinite(loanId) ? loanCode(loanId) : 'Loan')
 
   const v = views.find((x) => x.loan.id === loanId) ?? voidedViews.find((x) => x.loan.id === loanId)
@@ -132,12 +112,11 @@ export function LoanDetail() {
 
   return (
     <>
-      <section ref={hdRef} className={'card hd' + (compact ? ' compact' : '')}>
+      <section className="card">
         <div className="row between" style={{ flexWrap: 'wrap' }}>
           <div><div className="eyebrow">{loanCode(loan.id)}</div><h1>{can('borrowers.view') ? <Link to={`/borrowers/${loan.borrower_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{name}</Link> : name}</h1></div>
           <b className="num" style={{ fontSize: 20, fontFamily: 'var(--display)' }}>{fmt(loan.amount, cur)}</b>
         </div>
-        <div className="hd-more" ref={moreRef} hidden={compact}>
         {loan.status === 'refinanced'
           ? <div style={{ margin: '14px 0' }}><span className="chip approved">Refinanced</span>{refinancedBy && <p style={{ margin: '8px 0 0' }}>Paid off by <Link to={`/loans/${refinancedBy.loan.id}`}>{loanCode(refinancedBy.loan.id)}</Link>.</p>}</div>
           : loan.status === 'rejected'
@@ -185,9 +164,7 @@ export function LoanDetail() {
             {canVoid && <button type="button" className="btn danger" onClick={() => { setReason(''); setDialog('void') }}>Void</button>}
           </div>
         )}
-        </div>
       </section>
-      {compact && <div style={{ height: moreH }} aria-hidden="true" />}
 
       {voided && (
         <section className="card" style={{ borderColor: 'var(--late)' }}>
@@ -210,7 +187,7 @@ export function LoanDetail() {
 
 
 
-      <div className="tabs ltabs" role="tablist" aria-label="Loan sections" style={{ '--hd-h': hdH + 'px' } as React.CSSProperties}>
+      <div className="tabs ltabs" role="tablist" aria-label="Loan sections">
         {tabs.map(([k, label]) => (
           <button type="button" role="tab" key={k} className="tab" aria-pressed={tab === k} aria-selected={tab === k} onClick={() => setTab(k)}>{label}</button>
         ))}
