@@ -120,7 +120,7 @@ number, photo, note, and `reverses_id` when it is a reversal.
 ## 10. Delinquency and reporting
 
 - **R-RISK-1** Days past due counts from the oldest unpaid due date. Buckets: current, 1-7, 8-30, 31-60, 61-90, 90+.
-- **R-RISK-2** Portfolio at risk: PAR1 and PAR30 are the outstanding principal of loans more than 1 / 30 days past due,
+- **R-RISK-2** Portfolio at risk: PAR1 and PAR30 are the outstanding principal of loans 1+ days and more than 30 days past due,
   divided by total outstanding principal. Shown on the dashboard and in reports.
 - **R-RISK-3** Optional provisioning rate per bucket (setting) for an expected-loss figure.
 - **R-RISK-4** Client protection: show the **effective interest rate (APR)** next to the flat rate on the new-loan screen and
@@ -154,7 +154,9 @@ waivers (R-PAY-5); a reason on every waiver, void and write-off; permissions sta
   has a delete policy.
 - The reconciliation check (R-SNAP-4) exists since step 8a (`public.reconcile_books`, migration `20261035000000`, shown as
   "Books agree" in a loan's Insight, admin only); the payment history shows the balance before and after each payment from
-  the snapshots (R-SNAP-2). Still missing: PAR and aging buckets, APR, write-off.
+  the snapshots (R-SNAP-2). Step 8b added the Portfolio at risk report (`src/lib/risk.ts`: buckets, PAR1 = 1+ days late, PAR30 = more than 30
+  days late, shown in Reports) and the effective annual rate (`effectiveRate` in `src/lib/calc.ts`, on the new-loan screen,
+  the loan information and the contract placeholder `{{apr}}`). Still missing: write-off.
 
 ## 13. Roadmap
 

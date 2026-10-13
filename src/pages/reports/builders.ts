@@ -1,5 +1,6 @@
 import { dueParts, net, openLoans, sum, borrowerName, type LedgerEntry, type MoneyData } from '../../data/money'
 import type { Currency } from '../../lib/calc'
+import { daysPastDue, portfolioAtRisk } from '../../lib/risk'
 import { fmt, fmtD, loanCode } from '../../lib/format'
 
 export type Cell = string | { amount: number; signed?: boolean } | { date: string }
@@ -16,6 +17,7 @@ export const REPORTS = [
   { name: 'Loan portfolio', desc: 'All loans with balances, progress and status', icon: 'loan', filter: 'release date' },
   { name: 'Collections', desc: 'Payments received, by date and borrower', icon: 'download', filter: null },
   { name: 'Overdue loans', desc: 'Borrowers behind on payments, with late fees', icon: 'alert', filter: 'due date' },
+  { name: 'Portfolio at risk', desc: 'Outstanding principal by days past due, PAR1 and PAR30', icon: 'alert', filter: null },
   { name: 'Interest and fees', desc: 'Income earned on each loan', icon: 'pie', filter: null },
   { name: 'Cashflow statement', desc: 'Money in, money out and fund changes', icon: 'coin', filter: null },
   { name: 'Borrower statement', desc: 'Everything one borrower borrowed and paid', icon: 'userp', filter: 'release date' },
@@ -71,6 +73,23 @@ export function buildReport(name: ReportName, { data, cur, lang, inRange }: Ctx)
         right: [4, 5, 6],
         rows: out.map(({ v, r, owed }) => [loanCode(v.loan.id), borrowerName(v.borrower, lang), '#' + r.i, { date: r.due }, String(r.lateDays), amt(owed), amt(r.lateFee)]),
         foot: ['Total', '', '', '', '', amt(out.reduce((s, o) => s + o.owed, 0)), amt(out.reduce((s, o) => s + o.r.lateFee, 0))],
+      }
+    }
+    case 'Portfolio at risk': {
+      // as of today, over every loan still being repaid (not limited to the date range)
+      const risk = openLoans(data, cur).map((v) => ({ dpd: daysPastDue(v.status.rows), principal: v.status.remainingPrincipal }))
+      const par = portfolioAtRisk(risk)
+      const pct = (n: number) => (n * 100).toFixed(1) + '%'
+      const share = (n: number) => pct(par.total > 0 ? n / par.total : 0)
+      return {
+        cols: ['Days past due', 'Loans', 'Principal outstanding', '% of portfolio'],
+        right: [1, 2, 3],
+        rows: [
+          ...par.buckets.map((b) => [b.label, String(b.loans), amt(b.principal), share(b.principal)] as Cell[]),
+          ['PAR1 (1+ days late)', String(risk.filter((l) => l.dpd >= 1).length), amt(par.par1Amount), pct(par.par1)],
+          ['PAR30 (31+ days late)', String(risk.filter((l) => l.dpd >= 31).length), amt(par.par30Amount), pct(par.par30)],
+        ],
+        foot: ['Total outstanding', String(risk.length), amt(par.total), par.total > 0 ? '100.0%' : '0.0%'],
       }
     }
     case 'Interest and fees': {

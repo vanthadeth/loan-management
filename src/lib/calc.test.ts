@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allocatePayment, buildSchedule, earlyPayoffQuote, loanTotals, payoffAmount, scheduleStatus, settleLateFee, splitPayments, type LoanTerms } from './calc'
+import { allocatePayment, buildSchedule, earlyPayoffQuote, effectiveRate, loanTotals, payoffAmount, scheduleStatus, settleLateFee, splitPayments, type LoanTerms } from './calc'
 
 const base: LoanTerms = {
   amount: 3_000_000, currency: 'KHR', feePct: 3, ratePct: 2, rateBasis: 'month',
@@ -232,5 +232,21 @@ describe('early payoff', () => {
       { id: 2, amount: 2_550_000, late_fee: 0, prepay_fee: 50_000, paid_on: '2026-08-15', note: 'Early payoff' },
     ])
     expect(split.get(2)).toEqual({ principal: 2_500_000, interest: 0 })
+  })
+})
+
+describe('effective rate', () => {
+  it('solves the daily rate and annualises it', () => {
+    // 1,000,000 received, 1,100,000 paid after 100 days: (1+d)^100 = 1.1
+    const t: LoanTerms = { ...base, amount: 1_000_000, feePct: 0, ratePct: 10, rateBasis: 'contract', occurrences: 1, frequency: 'custom', intervalDays: 100, mode: 'equal' }
+    expect(effectiveRate(t)).toBeCloseTo(0.348, 2)
+  })
+  it('is higher than the flat rate once the service fee is taken upfront', () => {
+    const noFee = effectiveRate({ ...base, feePct: 0 })
+    const withFee = effectiveRate(base)
+    expect(withFee).toBeGreaterThan(noFee)
+    // 2% a month flat with the principal repaid along the way costs far more than 24% a year
+    expect(noFee).toBeGreaterThan(0.24)
+    expect(effectiveRate({ ...base, feePct: 0, ratePct: 0 })).toBe(0)
   })
 })

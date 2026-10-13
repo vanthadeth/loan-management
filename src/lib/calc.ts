@@ -297,6 +297,7 @@ export function previewLoan(t: LoanTerms) {
     total,
     endDate,
     installment: first.total,
+    apr: effectiveRate(t),
     interestPct: t.amount ? Math.round((interest / t.amount) * 100) : 0,
   }
 }
@@ -375,4 +376,29 @@ export function earlyPayoffQuote(t: LoanTerms, payments: PaymentLike[], asOf: st
     : st.lateFeeOutstanding > 0 ? 'Collect or forgive the late fee first.'
     : principal <= 0 ? 'Nothing is left to pay.' : ''
   return { principal, interestDropped: roundMoney(st.remainingInterest, t.currency), feePct, fee, total: principal + fee, eligible: reason === '', reason }
+}
+
+/**
+ * Effective annual rate (APR, client protection R-RISK-4): the rate that makes what the borrower receives (the amount
+ * minus the service fee, paid out at release) equal to the installments they pay, on their real dates. It is the daily
+ * rate that solves the equation, times 365, so it is comparable between loans however often they are paid. The flat
+ * rate on the contract is lower because it ignores that the principal is repaid along the way and that the fee is
+ * taken upfront.
+ */
+export function effectiveRate(t: LoanTerms) {
+  const { rows, fee } = loanTotals(t)
+  const net = t.amount - fee
+  if (!(net > 0)) return 0
+  const flows = rows.map((r) => ({ days: Math.max(diffDays(t.releaseDate, r.due), 1), pay: r.total }))
+  // present value of what is paid, at daily rate d, minus what was received; falls as d grows
+  const gap = (d: number) => flows.reduce((s, f) => s + f.pay / Math.pow(1 + d, f.days), 0) - net
+  if (gap(0) <= 0) return 0
+  let lo = 0
+  let hi = 1
+  for (let i = 0; i < 80; i++) {
+    const mid = (lo + hi) / 2
+    if (gap(mid) > 0) lo = mid
+    else hi = mid
+  }
+  return ((lo + hi) / 2) * 365
 }

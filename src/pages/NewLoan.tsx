@@ -171,6 +171,7 @@ export function NewLoan() {
     lateGraceDays: Math.round(num(graceText)), lateCapPct: capText.trim() ? num(capText) : null,
   }
   const p = previewLoan(terms)
+  const aprText = `${(p.apr * 100).toFixed(1)}% a year`
   const lateLabel = `${terms.lateFeePct}% per late ${freq === 'Custom' ? `${intervalDays}-day period` : freq === 'Daily' ? 'day' : freq === 'Weekly' ? 'week' : 'month'}`
     + (terms.lateGraceDays ? `, after ${terms.lateGraceDays} grace day${terms.lateGraceDays > 1 ? 's' : ''}` : '') + (terms.lateCapPct ? `, capped at ${terms.lateCapPct}% of the loan` : '')
   const equal = mode === 'equal'
@@ -263,6 +264,7 @@ export function NewLoan() {
       <Lr k={feeLabel} v={'−' + fmt(p.fee, currency)} />
       <Lr k="Borrower receives" v={fmt(p.net, currency)} cls="strong" />
       <Lr k={`Total interest (~${p.interestPct}%)`} v={fmt(p.interest, currency)} />
+      <Lr k="Effective annual rate (APR)" v={aprText} />
       <Lr k="Late fee" v={lateLabel} />
       {equal ? (
         <>
@@ -476,6 +478,7 @@ export function NewLoan() {
                   <Tile k="Interest" v={terms.ratePct + '%'} sub={BASIS.find((b) => b.value === basis)?.label} />
                   <Tile k="Occurrences" v={String(n)} sub={freq === 'Custom' ? `Every ${intervalDays} days` : freq} />
                   <Tile k="Service fee" v={terms.feePct + '%'} />
+                  <Tile k="Effective annual rate (APR)" v={aprText} />
                   <Tile k="Late fee" v={lateLabel} />
                   <Tile k="Supervisor" v={supervisorName} />
                   <Tile k="Collector" v={collectorName} />

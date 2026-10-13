@@ -10,7 +10,7 @@ import { useI18n } from '../app/i18n'
 import { dn, useBanks, useTeam } from '../data/core'
 import { bname } from '../data/borrowers'
 import { completedOn, errMsg, payoffOf, useLoanActions, useLoanFiles, useLoans } from '../data/loans'
-import { isEarlyPayoff, isPayoff, loanTotals, todayIso } from '../lib/calc'
+import { effectiveRate, isEarlyPayoff, isPayoff, loanTotals, todayIso } from '../lib/calc'
 import { dueParts, useVoidPayment } from '../data/money'
 import { fmt, fmtD, loanCode } from '../lib/format'
 import type { LoanStatus, Payment } from '../lib/types'
@@ -365,7 +365,7 @@ export function LoanDetail() {
           </div>
           <div><span className="eyebrow">Released</span>{fmtD(loan.release_date)} · service fee {loan.fee_pct}% ({fmt(fee, cur)}), borrower receives {fmt(net, cur)}</div>
           <div><span className="eyebrow">Repayment</span>{loan.frequency === 'custom' ? `Every ${loan.interval_days} days` : loan.frequency} × {loan.occurrences} · {loan.mode === 'equal' ? 'interest + principal ÷ n' : 'interest only, principal at end'}</div>
-          <div><span className="eyebrow">Interest</span>{loan.rate_pct}% per {loan.rate_basis} (flat)</div>
+          <div><span className="eyebrow">Interest</span>{loan.rate_pct}% per {loan.rate_basis} (flat) · effective {(effectiveRate(terms) * 100).toFixed(1)}% a year</div>
           <div style={{ gridColumn: '1/-1', display: 'flex', flexDirection: 'row', gap: 16 }}>
             {([
               ['Supervisor', who(loan.supervisor_id), !scoped && can('loans.approve') && !voided, 'supervisor'],

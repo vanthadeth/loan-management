@@ -4,6 +4,7 @@ import { useAuth } from '../app/auth'
 import { Icon } from '../ui/Icon'
 import { CURRENCIES, dueParts, net, openLoans, sum, useCurrency, useMoneyData } from '../data/money'
 import { fmt } from '../lib/format'
+import { daysPastDue, portfolioAtRisk } from '../lib/risk'
 import { RangeControls } from './reports/RangeControls'
 import { useReportRange } from './reports/range'
 import { REPORTS } from './reports/builders'
@@ -24,6 +25,7 @@ function ReportsHome() {
     const E = data.entries.filter((e) => e.currency === cur && e.date >= from && e.date <= to)
     const pays = E.filter((e) => e.kind === 'payment')
     const open = openLoans(data, cur)
+    const par = portfolioAtRisk(open.map((v) => ({ dpd: daysPastDue(v.status.rows), principal: v.status.remainingPrincipal })))
     return {
       pays: pays.length,
       collected: sum(pays),
@@ -37,6 +39,8 @@ function ReportsHome() {
         ['Fund withdrawn', fmt(sum(E.filter((e) => e.kind === 'withdraw')), cur)],
         ['Net cash change', (net(E) < 0 ? '−' : '+') + fmt(Math.abs(net(E)), cur)],
         ['Overdue now', fmt(open.reduce((s, v) => s + v.status.rows.filter((r) => r.state === 'overdue').reduce((a, r) => a + dueParts(r).remaining, 0), 0), cur)],
+        ['Portfolio at risk, 1+ days', (par.par1 * 100).toFixed(1) + '%'],
+        ['Portfolio at risk, 31+ days', (par.par30 * 100).toFixed(1) + '%'],
         ['Active loans', String(open.length)],
       ],
     }

@@ -1,5 +1,5 @@
 import { fmt, fmtD, loanCode } from './format'
-import { diffDays, loanTotals, todayIso, type LoanTerms } from './calc'
+import { diffDays, effectiveRate, loanTotals, todayIso, type LoanTerms } from './calc'
 import { khAmountWords, khDate, khDateLatin, khDigits, khMoney, khMoneyWords, khWeekdayDate } from './khmer'
 
 export type ContractLang = 'km' | 'en'
@@ -38,6 +38,7 @@ export const PLACEHOLDERS: [string, string][] = [
   ['contract_duration', 'Length of the contract with its unit: weeks if paid weekly, months if paid monthly, otherwise days'],
   ['contract_duration_days', 'Length of the contract in days (number only)'],
   ['late_fee_percent', 'Late fee, % of the unpaid principal per late payment period'],
+  ['apr', 'Effective annual interest rate (APR), counting the service fee and repaying the principal along the way'],
   ['late_grace_days', 'Grace days after a due date before a payment counts as late (number only)'],
   ['late_fee_cap', 'Most late fee the contract can charge, as % of the loan amount ("no cap" when there is none)'],
   ['pay_method', 'How the borrower pays'],
@@ -78,7 +79,7 @@ export const STARTER_KM = `កិច្ចសន្យាខ្ចីប្រ�
 អ្នកឱ្យខ្ចីបានឱ្យអ្នកខ្ចីខ្ចីប្រាក់ចំនួន {{amount}} ({{amount_words}}) នៅ{{release_date}}។ ថ្លៃសេវា {{service_fee_percent}} ({{service_fee}}) ត្រូវបានកាត់ទុកមុននៅពេលផ្តល់ប្រាក់ ដូច្នេះអ្នកខ្ចីទទួលបានប្រាក់ចំនួន {{net_amount}} ({{net_amount_words}})។
 
 ៣. ការប្រាក់ និងការសងប្រាក់
-ការប្រាក់គឺ {{interest_rate}} (ការប្រាក់សរុប {{total_interest}})។ អ្នកខ្ចីត្រូវសងសរុប {{total_to_pay}} ({{total_to_pay_words}}) ចំនួន {{occurrences}} ដង {{frequency}} ដោយដងនីមួយៗចំនួន {{installment}} ({{installment_words}})។ រយៈពេលនៃកិច្ចសន្យាគឺ {{contract_duration}} ({{contract_duration_days}} ថ្ងៃ)។ ទម្រង់នៃការសង: {{repayment_mode}}។ ការសងចុងក្រោយត្រូវធ្វើនៅ{{end_date}}។ តារាងសងប្រាក់លម្អិតមានក្នុងឧបសម្ព័ន្ធនៃកិច្ចសន្យានេះ។
+ការប្រាក់គឺ {{interest_rate}} (ការប្រាក់សរុប {{total_interest}})។ អ្នកខ្ចីត្រូវសងសរុប {{total_to_pay}} ({{total_to_pay_words}}) ចំនួន {{occurrences}} ដង {{frequency}} ដោយដងនីមួយៗចំនួន {{installment}} ({{installment_words}})។ រយៈពេលនៃកិច្ចសន្យាគឺ {{contract_duration}} ({{contract_duration_days}} ថ្ងៃ)។ ទម្រង់នៃការសង: {{repayment_mode}}។ ការសងចុងក្រោយត្រូវធ្វើនៅ{{end_date}}។ តារាងសងប្រាក់លម្អិតមានក្នុងឧបសម្ព័ន្ធនៃកិច្ចសន្យានេះ។ អត្រាការប្រាក់ប្រចាំឆ្នាំប្រសិទ្ធភាព (រួមទាំងថ្លៃសេវា) គឺ {{apr}}។
 
 ៤. ការសងយឺត
 រាល់ការសងយឺតមួយគ្រា (តាមរយៈពេលនៃការសងនីមួយៗ) អ្នកខ្ចីត្រូវបង់ប្រាក់ពិន័យ {{late_fee_percent}} នៃប្រាក់ដើមដែលមិនទាន់បង់។ ការសងក្នុងរយៈពេល {{late_grace_days}} ថ្ងៃក្រោយថ្ងៃកំណត់ មិនត្រូវបានគិតថាយឺតទេ។ ប្រាក់ពិន័យសរុបមិនលើសពី {{late_fee_cap}}។
@@ -135,7 +136,7 @@ Address: {{borrower_address}}
 The Lender lends the Borrower {{amount}} on {{release_date}}. A service fee of {{service_fee_percent}} ({{service_fee}}) is deducted when the loan is released, so the Borrower receives {{net_amount}}.
 
 3. Interest and repayment
-Interest is {{interest_rate}} (total interest {{total_interest}}). The Borrower repays {{total_to_pay}} in {{occurrences}} payments, {{frequency}}, starting with {{installment}}. The contract lasts {{contract_duration}} ({{contract_duration_days}} days). Repayment: {{repayment_mode}}. The last payment is due on {{end_date}}. The full payment schedule is in the annex.
+Interest is {{interest_rate}} (total interest {{total_interest}}). The Borrower repays {{total_to_pay}} in {{occurrences}} payments, {{frequency}}, starting with {{installment}}. The contract lasts {{contract_duration}} ({{contract_duration_days}} days). Repayment: {{repayment_mode}}. The last payment is due on {{end_date}}. The full payment schedule is in the annex. The effective annual interest rate, counting the service fee, is {{apr}}.
 
 4. Late payment
 For every payment period a payment is late the Borrower pays a late fee of {{late_fee_percent}} of the unpaid principal under this agreement. A payment made within {{late_grace_days}} days after its due date is not late. The total late fee will not exceed {{late_fee_cap}}.
@@ -354,7 +355,7 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
     repayment_mode: km
       ? t.mode === 'equal' ? 'សងការប្រាក់ និងប្រាក់ដើមក្នុងគ្រប់ដង' : 'សងតែការប្រាក់ រីឯប្រាក់ដើមសងនៅដងចុងក្រោយ'
       : t.mode === 'equal' ? 'Interest and principal in every payment' : 'Interest only, principal at the end',
-    release_date: date(t.releaseDate), released_date: date(t.releaseDate), first_payment_date: date(tot.rows[0].due), end_date: date(tot.endDate), late_fee_percent: `${num(t.lateFeePct)}%`, late_grace_days: num(t.lateGraceDays ?? 0),
+    release_date: date(t.releaseDate), released_date: date(t.releaseDate), first_payment_date: date(tot.rows[0].due), end_date: date(tot.endDate), late_fee_percent: `${num(t.lateFeePct)}%`, late_grace_days: num(t.lateGraceDays ?? 0), apr: `${num(Number((effectiveRate(t) * 100).toFixed(1)))}%`,
     late_fee_cap: t.lateCapPct ? (km ? `${num(t.lateCapPct)}% នៃទឹកប្រាក់កម្ចី` : `${num(t.lateCapPct)}% of the loan amount`) : (km ? 'គ្មានកំណត់' : 'no cap'),
     pay_method: method, bank_name: bank?.bank ?? '', bank_account_no: bank ? num(bank.account_no) : '', bank_account_name: bank?.account_name ?? '',
     contract_duration: duration, contract_duration_days: num(days), collateral: c.collaterals.length ? c.collaterals.join('; ') : W.none, supervisor: c.supervisor,
