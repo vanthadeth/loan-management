@@ -277,12 +277,18 @@ export function LoanDetail() {
           <span><i style={{ background: 'var(--late)' }} />{t('overdue')}</span>
         </div>
         <div className="tblwrap" style={{ marginTop: 14 }}>
-          <table className="num"><tbody>
+          <table className="num prog"><tbody>
             <tr><td>{t('loaned')}</td><td className="r"><b>{fmt(loan.amount, cur)}</b></td></tr>
             <tr><td>{t('collected')}</td><td className="r in"><b>{fmt(collected, cur)}</b></td></tr>
             {refinanced
               ? <tr><td>Interest dropped at refinancing</td><td className="r"><b>{fmt(status.remaining, cur)}</b></td></tr>
-              : <tr><td>{t('remaining')}</td><td className="r"><b>{fmt(status.remaining, cur)}</b></td></tr>}
+              : (
+                <>
+                  <tr><td>{t('remaining')}</td><td className="r"><b>{fmt(status.remaining, cur)}</b></td></tr>
+                  <tr className="sub"><td>Principal</td><td className="r">{fmt(status.remainingPrincipal, cur)}</td></tr>
+                  <tr className="sub"><td>Interest</td><td className="r">{fmt(status.remainingInterest, cur)}</td></tr>
+                </>
+              )}
             {approved && status.lateFeeOutstanding > 0 && <tr><td>Late fee due</td><td className="r out"><b>{fmt(status.lateFeeOutstanding, cur)}</b></td></tr>}
           </tbody></table>
         </div>

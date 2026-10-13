@@ -136,6 +136,22 @@ export function lateOccurrences(t: Pick<LoanTerms, 'frequency' | 'intervalDays'>
 /** One late period: from `from`, installment `installment` was the oldest overdue; `pct` % of `owed` is `fee`. */
 export interface LateFeeLine { from: string; installment: number; owed: number; pct: number; fee: number }
 
+/** How much of an amount applied to the installments (oldest first, each one's interest before its principal) went to principal and to interest. */
+function splitApplied(rows: Installment[], applied: number) {
+  let left = applied
+  let principal = 0
+  let interest = 0
+  for (const r of rows) {
+    if (left <= 0) break
+    const take = Math.min(left, r.total)
+    const toInterest = Math.min(take, r.interest)
+    interest += toInterest
+    principal += take - toInterest
+    left -= take
+  }
+  return { principal, interest }
+}
+
 /** Start of late period `k` (0-based) that began on `start`: same day of the month, or every `intervalDays` days. */
 const periodStart = (t: Pick<LoanTerms, 'frequency' | 'intervalDays'>, start: string, k: number) =>
   t.frequency === 'monthly' ? addMonths(start, k) : addDays(start, k * Math.max(1, t.intervalDays))
@@ -176,16 +192,10 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
   // late stretches: from an installment's due date until it is paid; overlapping ones join up
   // unpaid principal on a date: payments go to each installment's interest first, then its principal, oldest first
   const principalTotal = rows.reduce((s, r) => s + r.principal, 0)
+  const interestTotal = rows.reduce((s, r) => s + r.interest, 0)
   const owedOn = (date: string) => {
-    let left = cumulative.filter((c) => c.on <= date).reduce((m, c) => Math.max(m, c.total), 0)
-    let repaid = 0
-    for (const r of rows) {
-      if (left <= 0) break
-      const take = Math.min(left, r.total)
-      repaid += Math.max(take - r.interest, 0)
-      left -= take
-    }
-    return principalTotal - repaid
+    const upTo = cumulative.filter((c) => c.on <= date).reduce((m, c) => Math.max(m, c.total), 0)
+    return principalTotal - splitApplied(rows, upTo).principal
   }
   const stretches: [string, string][] = []
   for (const r of status) {
@@ -219,6 +229,9 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
     total,
     collected,
     remaining: Math.max(total - applied, 0),
+    /** what is left, split the same way payments are applied (interest first, then principal): the two add up to `remaining` */
+    remainingPrincipal: Math.max(principalTotal - splitApplied(rows, applied).principal, 0),
+    remainingInterest: Math.max(interestTotal - splitApplied(rows, applied).interest, 0),
     paidCount: status.filter((r) => r.state === 'paid').length,
     lateFeeAccrued,
     lateFeePaid,

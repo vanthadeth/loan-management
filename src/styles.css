@@ -1229,3 +1229,7 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 .lfee td.r{text-align:right;white-space:nowrap;padding-left:12px}
 .lfee tr.sum td{border-bottom:1px solid var(--line);font-weight:600}
 .lfee tr:last-child td{border-bottom:0}
+
+/* progress card: principal and interest under Remaining */
+.prog tr.sub td{font-size:13px;color:var(--muted);padding-block:6px}
+.prog tr.sub td:first-child{padding-left:18px}

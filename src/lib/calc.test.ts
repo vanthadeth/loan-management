@@ -158,3 +158,22 @@ describe('late fee lines', () => {
     ])
   })
 })
+
+describe('remaining split', () => {
+  it('splits what is left into principal and interest', () => {
+    const none = scheduleStatus(base, [], '2026-07-02')
+    expect(none).toMatchObject({ remaining: 3_360_000, remainingPrincipal: 3_000_000, remainingInterest: 360_000 })
+    const one = scheduleStatus(base, [{ amount: 560_000, lateFee: 0, paidOn: '2026-08-01' }], '2026-08-02')
+    expect(one).toMatchObject({ remaining: 2_800_000, remainingPrincipal: 2_500_000, remainingInterest: 300_000 })
+    // 700,000: #1 in full (560,000), then 140,000 of #2 = 60,000 interest first, then 80,000 principal
+    const part = scheduleStatus(base, [{ amount: 700_000, lateFee: 0, paidOn: '2026-08-01' }], '2026-08-02')
+    expect(part).toMatchObject({ remaining: 2_660_000, remainingPrincipal: 2_420_000, remainingInterest: 240_000 })
+  })
+  it('adds up to the remaining balance, rounding included', () => {
+    const t: LoanTerms = { ...base, amount: 1_000_000, ratePct: 17, rateBasis: 'contract', occurrences: 60, frequency: 'daily', intervalDays: 1 }
+    for (const paid of [0, 19_500, 250_000, 1_000_000, 1_170_000]) {
+      const s = scheduleStatus(t, paid ? [{ amount: paid, lateFee: 0, paidOn: t.releaseDate }] : [], t.releaseDate)
+      expect(s.remainingPrincipal + s.remainingInterest).toBe(s.remaining)
+    }
+  })
+})
