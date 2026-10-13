@@ -1,6 +1,6 @@
 -- Clears all loan data: loans, payments, installments, allocations, snapshots, collaterals, attachments, loan messages
 -- and read marks, and fund transactions. KEEPS users, roles, permissions, settings, bank accounts, contract templates,
--- borrowers and their documents. Also removes the uploaded payment photos and loan attachments from storage.
+-- borrowers and their documents. Uploaded files in storage are NOT touched (they stay as orphans, harmless).
 -- Run it in the Supabase SQL editor (it is destructive and cannot be undone). Not a migration: do not apply twice by habit.
 
 -- 1. look first
@@ -18,15 +18,6 @@ union all select 'borrowers (kept)', count(*) from public.borrowers;
 
 -- 2. clear, in one transaction (any error leaves everything as it was)
 begin;
-
--- files first: their paths come from the rows that are about to go
-delete from storage.objects
- where bucket_id = 'files'
-   and name in (
-     select photo_path from public.payments where photo_path is not null
-     union
-     select file_path from public.loan_attachments where file_path is not null
-   );
 
 -- listing every table that points at another one makes the truncate work without CASCADE (so nothing else is touched)
 truncate table
