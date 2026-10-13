@@ -133,7 +133,8 @@ waivers (R-PAY-5); a reason on every waiver, void and write-off; permissions sta
 
 ## 12. Where the app is not there yet
 
-- The schedule is recomputed in the browser (`src/lib/calc.ts`), not stored, and payments are not linked to installments.
+- The schedule is now stored at approval (`loan_installments`, migration `20261028000000`, roadmap step 1), but the app still
+  reads the recomputed one from `src/lib/calc.ts`, and payments are not linked to installments yet (step 2).
 - Paid and overdue are derived on every load, so they follow the code and terms of the day. No snapshots exist.
 - Refinance posts a payoff payment (`apply_refinance`, migration `20261025000000`) and flips the old loan to `refinanced`, but
   individual installments are not locked.

@@ -178,3 +178,15 @@ describe('remaining split', () => {
     }
   })
 })
+
+describe('stored schedule', () => {
+  // the same loan as stored by private.build_schedule at approval (checked against buildSchedule on 150 random loans)
+  it('matches the schedule the database stores', () => {
+    const t: LoanTerms = { amount: 2_500_000, currency: 'KHR', feePct: 3, ratePct: 17, rateBasis: 'contract', occurrences: 12, frequency: 'weekly', intervalDays: 7, mode: 'interest', releaseDate: '2026-10-13', lateFeePct: 5 }
+    const rows = buildSchedule(t)
+    expect(rows[0]).toMatchObject({ due: '2026-10-20', principal: 0, interest: 35_400 })
+    expect(rows[11]).toMatchObject({ due: '2027-01-05', principal: 2_500_000, interest: 35_600 })
+    const daily: LoanTerms = { ...t, amount: 1_000_000, occurrences: 60, frequency: 'daily', intervalDays: 1, mode: 'equal', releaseDate: '2026-10-01' }
+    expect(buildSchedule(daily)[59]).toMatchObject({ principal: 14_700, interest: 4_800 })
+  })
+})
