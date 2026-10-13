@@ -215,7 +215,7 @@ export function LoanDetail() {
             <b className="num" style={{ fontSize: 18 }}>#{next.i} · {fmt(dueParts(next).remaining + status.lateFeeOutstanding, cur)}</b>
             <span className={'chip ' + (next.state === 'overdue' ? 'overdue' : '')}>{next.state === 'overdue' ? `${next.lateDays}d late` : fmtD(next.due)}</span>
           </div>
-          {status.lateFeeOutstanding > 0 && <p className="small muted" style={{ margin: 0 }}>Includes late fees of {fmt(status.lateFeeOutstanding, cur)} ({lateRate} of what is still owed, per late {lateUnit}).</p>}
+          {status.lateFeeOutstanding > 0 && <p className="small muted" style={{ margin: 0 }}>Includes late fees of {fmt(status.lateFeeOutstanding, cur)} ({lateRate} of the unpaid principal, per late {lateUnit}).</p>}
           <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
             {can('payments.record') && <button type="button" className="btn primary" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>Record payment</button>}
             {phone && <a className="btn" href={'tel:' + phone}><Icon name="phone" size={16} />Call</a>}
@@ -228,7 +228,7 @@ export function LoanDetail() {
             <div>
               <div className="eyebrow">Late fee due</div>
               <b className={'num ' + (status.lateFeeOutstanding > 0 ? 'out' : '')} style={{ fontSize: 22 }}>{fmt(status.lateFeeOutstanding, cur)}</b>
-              <p className="small muted" style={{ margin: '2px 0 0' }}>{lateRate} of everything still owed, for every {lateUnit} a payment is late.</p>
+              <p className="small muted" style={{ margin: '2px 0 0' }}>{lateRate} of the unpaid principal, for every {lateUnit} a payment is late.</p>
             </div>
             {approved && status.lateFeeOutstanding > 0 && can('payments.record') && (
               <button type="button" className="btn" onClick={() => nav(`/cashflow/pay?loan=${loan.id}&late=1`)}>Collect late fee</button>
@@ -348,7 +348,7 @@ export function LoanDetail() {
             )
           })}
         </div>
-        <p className="small muted" style={{ margin: '8px 0 0' }}>Late fee: {lateRate} of everything still owed on the contract, for every {lateUnit} a payment is late, as agreed in this contract.</p>
+        <p className="small muted" style={{ margin: '8px 0 0' }}>Late fee: {lateRate} of the unpaid principal, for every {lateUnit} a payment is late, as agreed in this contract.</p>
       </details>
 
       <details className="card sec">

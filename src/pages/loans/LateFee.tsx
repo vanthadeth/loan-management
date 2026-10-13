@@ -5,7 +5,7 @@ import type { Currency, scheduleStatus } from '../../lib/calc'
 type Status = ReturnType<typeof scheduleStatus>
 
 /**
- * How the late fee was worked out: one line per late period (the balance still owed when it started × the
+ * How the late fee was worked out: one line per late period (the unpaid principal when it started × the
  * contract's %), then what was already collected or forgiven, and what is still due.
  */
 export function LateFeeBreakdown({ status, cur, open = false, title = 'How the late fee is worked out' }: {
@@ -22,7 +22,7 @@ export function LateFeeBreakdown({ status, cur, open = false, title = 'How the l
               <tr key={l.from}>
                 <td>
                   <span style={{ display: 'block' }}>Late from {fmtD(l.from)}</span>
-                  <span className="small muted">#{l.installment} overdue · {l.pct}% × {fmt(l.owed, cur)} still owed</span>
+                  <span className="small muted">#{l.installment} overdue · {l.pct}% × {fmt(l.owed, cur)} unpaid principal</span>
                 </td>
                 <td className="r">{fmt(l.fee, cur)}</td>
               </tr>

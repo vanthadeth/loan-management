@@ -367,7 +367,7 @@ export function NewLoan() {
               <div className="field">
                 <label htmlFor="llf">Late fee (%)</label>
                 <div className="wz-amt"><input id="llf" inputMode="decimal" value={lateText} onChange={(e) => setLate(e.target.value)} autoComplete="off" /><span id="llfs">%</span></div>
-                <p className="small muted">Percent of everything still owed on the contract, charged for every payment period a payment is late. Defaults from Settings; change it for this contract.</p>
+                <p className="small muted">Percent of the unpaid principal, charged for every payment period a payment is late. Defaults from Settings; change it for this contract.</p>
               </div>
             </div>
             <div className="wz-bento" id="linst">

@@ -53,12 +53,12 @@ describe('repeat dates', () => {
 })
 
 describe('payments', () => {
-  // base: 6 × 560,000 = 3,360,000 owed in all; late fee 5% of what is still owed, per late month
-  it('marks paid and overdue installments and charges a % of what is still owed per late month', () => {
+  // base: 6 × (500,000 principal + 60,000 interest); late fee is 5% of the unpaid principal, per late month
+  it('marks paid and overdue installments and charges a % of the unpaid principal per late month', () => {
     const s = scheduleStatus(base, [{ amount: 560_000, lateFee: 0, paidOn: '2026-08-01' }], '2026-09-06')
     expect(s.rows[0].state).toBe('paid')
-    expect(s.rows[1]).toMatchObject({ state: 'overdue', lateDays: 5, lateOccurrences: 1, lateFee: 140_000 }) // 5% of 2,800,000
-    expect(s.lateFeeOutstanding).toBe(140_000)
+    expect(s.rows[1]).toMatchObject({ state: 'overdue', lateDays: 5, lateOccurrences: 1, lateFee: 125_000 }) // 5% of 2,500,000
+    expect(s.lateFeeOutstanding).toBe(125_000)
     expect(s.paidCount).toBe(1)
   })
   it('splits a partial payment across installments', () => {
@@ -68,31 +68,31 @@ describe('payments', () => {
   })
   it('settles late fee before installments', () => {
     const a = allocatePayment(base, [], 800_000, '2026-08-11')
-    expect(a.lateFee).toBe(168_000) // 5% of 3,360,000 for the first late month
+    expect(a.lateFee).toBe(150_000) // 5% of the 3,000,000 principal for the first late month
     expect(a.lateFeeWaived).toBe(0)
-    expect(a.toInstallments).toBe(632_000)
+    expect(a.toInstallments).toBe(650_000)
     expect(a.after.rows[0].state).toBe('paid')
   })
   it('forgives the late fee the collector did not take', () => {
     const a = allocatePayment(base, [], 600_000, '2026-08-11', 50_000)
-    expect(a).toMatchObject({ lateFeeDue: 168_000, lateFee: 50_000, lateFeeWaived: 118_000, toInstallments: 550_000 })
+    expect(a).toMatchObject({ lateFeeDue: 150_000, lateFee: 50_000, lateFeeWaived: 100_000, toInstallments: 550_000 })
     expect(a.after.lateFeeOutstanding).toBe(0)
     const none = allocatePayment(base, [], 600_000, '2026-08-11', 0)
-    expect(none).toMatchObject({ lateFee: 0, lateFeeWaived: 168_000, toInstallments: 600_000 })
+    expect(none).toMatchObject({ lateFee: 0, lateFeeWaived: 150_000, toInstallments: 600_000 })
     expect(none.after.rows[0].state).toBe('paid')
   })
   it('stops charging once nothing is overdue', () => {
-    const pays = [{ amount: 728_000, lateFee: 168_000, paidOn: '2026-08-11' }]
+    const pays = [{ amount: 710_000, lateFee: 150_000, paidOn: '2026-08-11' }]
     const s = scheduleStatus(base, pays, '2026-08-25')
-    expect(s.rows[0]).toMatchObject({ lateDays: 10, lateFee: 168_000, lateOccurrences: 1 })
+    expect(s.rows[0]).toMatchObject({ lateDays: 10, lateFee: 150_000, lateOccurrences: 1 })
     expect(s.lateFeeOutstanding).toBe(0)
   })
-  it('charges every late period on the balance owed at its start', () => {
+  it('charges every late period on the unpaid principal at its start', () => {
     const s = scheduleStatus(base, [], '2026-10-02') // late from 08-01: periods start 08-01, 09-01, 10-01
-    expect(s.rows[0]).toMatchObject({ lateOccurrences: 3, lateFee: 504_000 })
+    expect(s.rows[0]).toMatchObject({ lateOccurrences: 3, lateFee: 450_000 })
     const paid = scheduleStatus(base, [{ amount: 1_000_000, lateFee: 0, paidOn: '2026-08-20' }], '2026-09-10')
-    // 08-01: 5% of 3,360,000; 08-20 pays #1 and part of #2; 09-01: #2 overdue, 5% of 2,360,000
-    expect(paid.lateFeeAccrued).toBe(168_000 + 118_000)
+    // 08-01: 5% of 3,000,000; 08-20 pays #1 and 380,000 of #2's principal (after its 60,000 interest); 09-01: 5% of 2,120,000
+    expect(paid.lateFeeAccrued).toBe(150_000 + 106_000)
     const w = scheduleStatus({ ...base, frequency: 'weekly', intervalDays: 7, releaseDate: '2026-07-01' }, [], '2026-07-23')
     expect(w.rows[0]).toMatchObject({ lateDays: 15, lateOccurrences: 3 })
   })
@@ -123,11 +123,11 @@ describe('refinancing', () => {
   it('pays off what is due plus the principal not yet due', () => {
     // on its due date #2 is not late yet: #2 in full + 4 × 500,000 principal; the 4 × 60,000 interest not due is dropped
     expect(payoffAmount(base, [first], '2026-09-01')).toEqual({ lateFee: 0, total: 2_560_000 })
-    // 9 days later #2 is late: one late month at 5% of the 2,800,000 still owed on 09-01
-    expect(payoffAmount(base, [first], '2026-09-10')).toEqual({ lateFee: 140_000, total: 2_700_000 })
+    // 9 days later #2 is late: one late month at 5% of the 2,500,000 unpaid principal on 09-01
+    expect(payoffAmount(base, [first], '2026-09-10')).toEqual({ lateFee: 125_000, total: 2_685_000 })
   })
   it('leaves nothing owed on the old loan but the dropped interest', () => {
-    const payoff = { amount: 2_700_000, lateFee: 140_000, paidOn: '2026-09-10' }
+    const payoff = { amount: 2_685_000, lateFee: 125_000, paidOn: '2026-09-10' }
     const s = scheduleStatus(base, [first, payoff], '2026-09-10')
     expect(s.lateFeeOutstanding).toBe(0)
     expect(s.rows.filter((r) => r.state === 'overdue')).toHaveLength(0)
@@ -136,7 +136,7 @@ describe('refinancing', () => {
   it('counts only the interest that was due as interest', () => {
     const pays = [
       { id: 1, amount: 560_000, late_fee: 0, paid_on: '2026-08-01', note: '' },
-      { id: 2, amount: 2_700_000, late_fee: 140_000, paid_on: '2026-09-10', note: 'Refinanced into L-020' },
+      { id: 2, amount: 2_685_000, late_fee: 125_000, paid_on: '2026-09-10', note: 'Refinanced into L-020' },
     ]
     const split = splitPayments(base, pays)
     expect(split.get(1)).toEqual({ principal: 500_000, interest: 60_000 })
@@ -150,11 +150,11 @@ describe('refinancing', () => {
 })
 
 describe('late fee lines', () => {
-  it('lists every late period with the balance it was charged on', () => {
+  it('lists every late period with the unpaid principal it was charged on', () => {
     const s = scheduleStatus(base, [{ amount: 1_000_000, lateFee: 0, paidOn: '2026-08-20' }], '2026-09-10')
     expect(s.lateLines).toEqual([
-      { from: '2026-08-01', installment: 1, owed: 3_360_000, pct: 5, fee: 168_000 },
-      { from: '2026-09-01', installment: 2, owed: 2_360_000, pct: 5, fee: 118_000 },
+      { from: '2026-08-01', installment: 1, owed: 3_000_000, pct: 5, fee: 150_000 },
+      { from: '2026-09-01', installment: 2, owed: 2_120_000, pct: 5, fee: 106_000 },
     ])
   })
 })

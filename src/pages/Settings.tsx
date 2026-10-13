@@ -35,7 +35,7 @@ function SettingsSheet({ s, onClose }: { s: AppSettings; onClose: () => void }) 
     <Sheet title="System settings" onClose={onClose} action={{ onClick: submit }}>
       <div className="form wz-1col">
         <Field id="sf" label="Service fee (%)" value={fee} onChange={setFee} inputMode="decimal" />
-        <Field id="sk" label="Late fee (% of everything still owed, per late payment period)" value={late} onChange={setLate} inputMode="decimal" />
+        <Field id="sk" label="Late fee (% of the unpaid principal, per late payment period)" value={late} onChange={setLate} inputMode="decimal" />
         <p className="small muted" style={{ margin: 0 }}>Applies to new loans and to late fees from now on.</p>
       </div>
     </Sheet>

@@ -18,7 +18,7 @@ export interface LoanTerms {
   intervalDays: number
   mode: PayMode
   releaseDate: string
-  /** Percent of everything still owed on the contract, charged for every payment period it is late. */
+  /** Percent of the unpaid principal, charged for every payment period the loan is late. */
   lateFeePct: number
   /** Balance carried over from a loan this one refinances: part of `amount`, but no service fee and not paid out. */
   carried?: number
@@ -146,7 +146,7 @@ const periodStart = (t: Pick<LoanTerms, 'frequency' | 'intervalDays'>, start: st
  *
  * Late fee: while any installment is overdue the loan is late. For every payment
  * period it is late (a started period counts) the borrower owes `lateFeePct` % of
- * everything still owed on the contract at the start of that period. Each period's
+ * the unpaid principal (not interest, not late fees) at the start of that period. Each period's
  * fee is shown on the oldest installment that was overdue then.
  */
 export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: string) {
@@ -174,7 +174,19 @@ export function scheduleStatus(t: LoanTerms, payments: PaymentLike[], today: str
   })
 
   // late stretches: from an installment's due date until it is paid; overlapping ones join up
-  const owedOn = (date: string) => total - cumulative.filter((c) => c.on <= date).reduce((m, c) => Math.max(m, c.total), 0)
+  // unpaid principal on a date: payments go to each installment's interest first, then its principal, oldest first
+  const principalTotal = rows.reduce((s, r) => s + r.principal, 0)
+  const owedOn = (date: string) => {
+    let left = cumulative.filter((c) => c.on <= date).reduce((m, c) => Math.max(m, c.total), 0)
+    let repaid = 0
+    for (const r of rows) {
+      if (left <= 0) break
+      const take = Math.min(left, r.total)
+      repaid += Math.max(take - r.interest, 0)
+      left -= take
+    }
+    return principalTotal - repaid
+  }
   const stretches: [string, string][] = []
   for (const r of status) {
     const end = r.paidOn ?? today
