@@ -15,6 +15,7 @@ import { errMsg, payoffOf, useCollectors, useLoanActions, useSupervisors } from 
 import { dayList, nextReleaseDates, previewLoan, todayIso, weekdayOf, type Currency, type LoanTerms, type PayMode, type RateBasis } from '../lib/calc'
 import { fmt, fmtD, initials, loanCode } from '../lib/format'
 import type { BankAccount, Loan } from '../lib/types'
+import { daysPastDue } from '../lib/risk'
 import { TierChip } from './borrowers/parts'
 import { BorrowerSheet } from './borrowers/BorrowerSheet'
 
@@ -139,6 +140,25 @@ export function NewLoan() {
   if (!can('loans.create')) return <p className="muted">You are not allowed to request loans.</p>
 
   const borrower = book?.borrowers.find((b) => b.id === borrowerId)
+  // what each borrower already owes us: loans in progress and the worst days past due
+  const standing = new Map<number, { open: number; late: number }>()
+  for (const v of views) {
+    if (!v.active) continue
+    const cur = standing.get(v.loan.borrower_id) ?? { open: 0, late: 0 }
+    cur.open += 1
+    cur.late = Math.max(cur.late, daysPastDue(v.status.rows))
+    standing.set(v.loan.borrower_id, cur)
+  }
+  const stand = (id: number) => standing.get(id) ?? { open: 0, late: 0 }
+  const warnings: string[] = []
+  if (borrower) {
+    const others = views.filter((v) => v.active && v.loan.borrower_id === borrower.id && v.loan.id !== refiOf)
+    if (borrower.tier === 'bad') warnings.push('Marked as a bad borrower')
+    if (borrower.tier === 'banned') warnings.push('Marked as banned')
+    if (others.length) warnings.push(`Already has ${others.length} loan${others.length > 1 ? 's' : ''} in progress`)
+    const late = Math.max(0, ...views.filter((v) => v.active && v.loan.borrower_id === borrower.id).map((v) => daysPastDue(v.status.rows)))
+    if (late > 0) warnings.push(`Late on a payment (${late} day${late > 1 ? 's' : ''} past due)`)
+  }
   // money is released on the week days set in Settings: the date defaults to the next of them, others are allowed with a warning
   const releaseDays = settings?.release_weekdays ?? [3, 5]
   const releaseOptions = nextReleaseDates(releaseDays, todayIso(), 3)
@@ -294,7 +314,11 @@ export function NewLoan() {
                 <button type="button" key={b.id} className={'item' + (b.id === borrowerId ? ' sel' : '')} onClick={() => { setBorrowerId(b.id); setQuery(bname(b)); setStep(1) }}>
                   <span className="avatar">{initials(bname(b))}</span>
                   <span className="grow"><b>{bname(b, lang)}</b><span className="small muted" style={{ display: 'block' }}>{[b.phone, b.id_no].filter(Boolean).join(' · ')}</span></span>
-                  <TierChip tier={b.tier} />
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                    <TierChip tier={b.tier} />
+                    {stand(b.id).open > 0 && <span className="small muted">{stand(b.id).open} in progress</span>}
+                    {stand(b.id).late > 0 && <span className="small" style={{ color: 'var(--warn)' }}>Late {stand(b.id).late}d</span>}
+                  </span>
                 </button>
               ))}
               {!!matches.length && can('borrowers.edit') && (
@@ -315,6 +339,12 @@ export function NewLoan() {
         {step === 1 && (
           <div className="wz-step">
             <h2>How much?</h2>
+            {!!warnings.length && (
+              <div className="small" role="alert" style={{ margin: '0 0 14px', padding: '10px 12px', borderRadius: 12, border: '1px solid var(--warn)', color: 'var(--warn)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <Icon name="alert" size={16} />
+                <span><b>Check before you continue</b>{warnings.map((w) => <span key={w} style={{ display: 'block' }}>{w}</span>)}</span>
+              </div>
+            )}
             {refi && payoff && (
               <div className="card" style={{ margin: '0 0 14px' }}>
                 <div className="eyebrow">Refinancing {loanCode(refi.loan.id)}</div>
