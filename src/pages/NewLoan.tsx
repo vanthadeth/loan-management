@@ -12,7 +12,7 @@ import { bname } from '../data/borrowers'
 import { dn, useBanks, useSettings } from '../data/core'
 import { useContractTemplates } from '../data/contract'
 import { errMsg, payoffOf, useCollectors, useLoanActions, useSupervisors } from '../data/loans'
-import { addDays, previewLoan, todayIso, type Currency, type LoanTerms, type PayMode, type RateBasis } from '../lib/calc'
+import { dayList, nextReleaseDates, previewLoan, todayIso, WEEKDAYS, weekdayOf, type Currency, type LoanTerms, type PayMode, type RateBasis } from '../lib/calc'
 import { fmt, fmtD, initials, loanCode } from '../lib/format'
 import type { BankAccount, Loan } from '../lib/types'
 import { TierChip } from './borrowers/parts'
@@ -30,15 +30,6 @@ const MAX_OCCURRENCES = 1000
 const num = (s: string) => Number(s.replace(/[^\d.]/g, '')) || 0
 const group = (s: string) => { const d = s.replace(/\D/g, ''); return d ? Number(d).toLocaleString('en-US') : '' }
 const bankLabel = (b: BankAccount) => `${b.bank} · ${b.account_no} · ${b.account_name}`
-
-/** The next three release days: Wednesdays and Fridays, starting tomorrow. */
-function releaseDays() {
-  const out: string[] = []
-  for (let d = addDays(todayIso(), 1); out.length < 3; d = addDays(d, 1)) {
-    if ([3, 5].includes(new Date(d + 'T00:00:00').getDay())) out.push(d)
-  }
-  return out
-}
 
 function Section({ title, step, onEdit, children }: { title: string; step: number; onEdit: (s: number) => void; children: React.ReactNode }) {
   return (
@@ -82,7 +73,7 @@ export function NewLoan() {
   const [currency, setCurrency] = useState<Currency>('KHR')
   const [amount, setAmount] = useState('1,000,000')
   const [fee, setFee] = useState<string | null>(null)
-  const [release, setRelease] = useState(() => releaseDays()[0])
+  const [releaseState, setRelease] = useState<string | null>(null)
   const [rate, setRate] = useState('17')
   const [basis, setBasis] = useState<RateBasis>('contract')
   const [occ, setOcc] = useState('60')
@@ -148,6 +139,11 @@ export function NewLoan() {
   if (!can('loans.create')) return <p className="muted">You are not allowed to request loans.</p>
 
   const borrower = book?.borrowers.find((b) => b.id === borrowerId)
+  // money is released on the week days set in Settings: the date defaults to the next of them, others are allowed with a warning
+  const releaseDays = settings?.release_weekdays ?? [3, 5]
+  const releaseOptions = nextReleaseDates(releaseDays, todayIso(), 3)
+  const release = releaseState ?? releaseOptions[0] ?? ''
+  const offDay = !!release && !releaseDays.includes(weekdayOf(release))
   const feeText = fee ?? (settings ? String(Number(settings.service_fee_pct)) : '')
   const graceText = grace ?? String(settings?.late_grace_days ?? 0)
   const prepayText = prepay ?? String(settings?.prepay_fee_pct ?? 0)
@@ -341,8 +337,14 @@ export function NewLoan() {
                 <p className="small muted" id="lfeei">Service fee {fmt(p.fee, currency)} · borrower receives {fmt(p.net, currency)}</p>
               </div>
               <DateField id="lrd" label="Release date" value={release} onChange={setRelease} />
+              {offDay && (
+                <p className="small" role="alert" style={{ margin: '-4px 0 0', color: 'var(--warn)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                  <Icon name="alert" size={16} />
+                  <span>{fmtD(release)} is a {WEEKDAYS[weekdayOf(release)]}. Money is normally released on {dayList(releaseDays)}.</span>
+                </p>
+              )}
               <div className="wz-chips" role="group" aria-label="Release date choices">
-                {releaseDays().map((d) => <button type="button" key={d} className="wz-chip" aria-pressed={release === d} onClick={() => setRelease(d)}>{fmtD(d)}</button>)}
+                {releaseOptions.map((d) => <button type="button" key={d} className="wz-chip" aria-pressed={release === d} onClick={() => setRelease(d)}>{fmtD(d)}</button>)}
               </div>
             </div>
           </div>

@@ -42,7 +42,7 @@ export interface Payment {
   prepay_fee: number | null; prepay_fee_waived: number | null; interest_waived: number | null; waive_reason: string | null
 }
 export interface FundTransaction { id: number; kind: 'add' | 'withdraw'; currency: Currency; amount: number; txn_date: string; note: string; created_at: string }
-export interface AppSettings { id: 1; service_fee_pct: number; late_fee_pct: number; khr_per_usd: number; backdate_days: number; four_eyes: boolean; late_grace_days: number; late_cap_pct: number | null; prepay_fee_pct: number }
+export interface AppSettings { id: 1; service_fee_pct: number; late_fee_pct: number; khr_per_usd: number; backdate_days: number; four_eyes: boolean; late_grace_days: number; late_cap_pct: number | null; prepay_fee_pct: number; release_weekdays: number[] }
 export interface Message { id: number; kind: string; loan_id: number | null; actor: string | null; created_at: string }
 
 export interface ContractTemplate { id: number; name: string; url: string; lang: 'km' | 'en'; kind: 'contract' | 'schedule'; is_default: boolean; created_at: string }

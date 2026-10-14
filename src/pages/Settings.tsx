@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../app/auth'
 import { usePageTitle } from '../app/Layout'
+import { dayList, WEEKDAYS } from '../lib/calc'
 import { hapticsOn, setHaptics } from '../lib/feel'
 import { applyTheme, savedTheme, useI18n, type Theme } from '../app/i18n'
 import { useSettings } from '../data/core'
@@ -27,9 +28,11 @@ function SettingsSheet({ s, onClose }: { s: AppSettings; onClose: () => void }) 
   const [grace, setGrace] = useState(String(s.late_grace_days))
   const [cap, setCap] = useState(s.late_cap_pct != null ? String(s.late_cap_pct) : '')
   const [prepay, setPrepay] = useState(String(s.prepay_fee_pct))
+  const [days, setDays] = useState<number[]>(s.release_weekdays ?? [3, 5])
   const [eyes, setEyes] = useState(s.four_eyes ? 'on' : 'off')
   const submit = async () => {
-    const patch = { service_fee_pct: num(fee), late_fee_pct: num(late), backdate_days: Math.round(num(back)), four_eyes: eyes === 'on', late_grace_days: Math.round(num(grace)), late_cap_pct: cap.trim() ? num(cap) : null, prepay_fee_pct: num(prepay) }
+    const patch = { service_fee_pct: num(fee), late_fee_pct: num(late), backdate_days: Math.round(num(back)), four_eyes: eyes === 'on', late_grace_days: Math.round(num(grace)), late_cap_pct: cap.trim() ? num(cap) : null, prepay_fee_pct: num(prepay), release_weekdays: [...days].sort() }
+    if (days.length === 0) { toast('Choose at least one release day'); return }
     if (!(patch.service_fee_pct >= 0 && patch.service_fee_pct < 100) || !(patch.late_fee_pct >= 0 && patch.late_fee_pct <= 100) || !(patch.backdate_days >= 0 && patch.backdate_days <= 365)) {
       toast('Check the numbers')
       return
@@ -43,6 +46,16 @@ function SettingsSheet({ s, onClose }: { s: AppSettings; onClose: () => void }) 
         <Field id="sk" label="Late fee (% of the unpaid principal, per late payment period)" value={late} onChange={setLate} inputMode="decimal" />
         <Field id="sg" label="Late fee grace days (default for new loans)" value={grace} onChange={setGrace} inputMode="numeric" />
         <Field id="sc" label="Late fee cap, % of the loan (default for new loans, empty = no cap)" value={cap} onChange={setCap} inputMode="decimal" />
+        <div className="field">
+          <label id="srd-l">Money is released on</label>
+          <div className="wz-chips" role="group" aria-labelledby="srd-l">
+            {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+              <button type="button" key={d} className="wz-chip" aria-pressed={days.includes(d)}
+                onClick={() => setDays((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d]))}>{WEEKDAYS[d]}</button>
+            ))}
+          </div>
+          <p className="small muted" style={{ margin: '6px 0 0' }}>The release date of a new loan starts on the next of these days. A different date can still be chosen, with a warning.</p>
+        </div>
         <Field id="sp" label="Prepayment fee, % of the principal paid early (default for new loans)" value={prepay} onChange={setPrepay} inputMode="decimal" />
         <Field id="sb" label="Payments can be dated up to this many days back (more needs the backdate permission)" value={back} onChange={setBack} inputMode="numeric" />
         <Seg id="s4" label="Whoever requested a loan cannot approve it" options={[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]} value={eyes} onChange={setEyes} />
@@ -141,6 +154,11 @@ export function Settings() {
             <span className="bt-h">Service fee</span>
             <b className="bt-big num">{s ? `${s.service_fee_pct}%` : '—'}</b>
             <span className="small bt-sub">Deducted at release</span>
+          </section>
+          <section className="bt">
+            <span className="bt-h">Release days</span>
+            <b className="bt-big num" style={{ fontSize: 20 }}>{s ? dayList(s.release_weekdays ?? [3, 5]) : '—'}</b>
+            <span className="small bt-sub">Default release date of a loan</span>
           </section>
           <section className="bt">
             <span className="bt-h">Late fee</span>

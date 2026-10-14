@@ -74,6 +74,18 @@ export const addMonths = (iso: string, n: number) => {
   const last = new Date(Date.UTC(new Date(first).getUTCFullYear(), new Date(first).getUTCMonth() + 1, 0)).getUTCDate()
   return toIso(first + (Math.min(d, last) - 1) * DAY)
 }
+export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+/** 0 = Sunday ... 6 = Saturday. */
+export const weekdayOf = (iso: string) => new Date(parse(iso)).getUTCDay()
+/** The next `count` dates on or after `from` that fall on one of `days` (0 = Sunday ... 6 = Saturday). */
+export function nextReleaseDates(days: number[], from: string, count = 3) {
+  const out: string[] = []
+  if (!days.length) return out
+  for (let d = from; out.length < count; d = addDays(d, 1)) if (days.includes(weekdayOf(d))) out.push(d)
+  return out
+}
+/** Weekday names in Monday-first order, for showing a list of days. */
+export const dayList = (days: number[]) => [1, 2, 3, 4, 5, 6, 0].filter((d) => days.includes(d)).map((d) => WEEKDAYS[d]).join(', ')
 export const diffDays = (from: string, to: string) => Math.round((parse(to) - parse(from)) / DAY)
 export const todayIso = () => {
   const d = new Date()

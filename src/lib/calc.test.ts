@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allocatePayment, buildSchedule, earlyPayoffQuote, effectiveRate, loanTotals, payoffAmount, scheduleStatus, settleLateFee, splitPayments, type LoanTerms } from './calc'
+import { allocatePayment, buildSchedule, dayList, earlyPayoffQuote, effectiveRate, nextReleaseDates, weekdayOf, loanTotals, payoffAmount, scheduleStatus, settleLateFee, splitPayments, type LoanTerms } from './calc'
 
 const base: LoanTerms = {
   amount: 3_000_000, currency: 'KHR', feePct: 3, ratePct: 2, rateBasis: 'month',
@@ -248,5 +248,17 @@ describe('effective rate', () => {
     // 2% a month flat with the principal repaid along the way costs far more than 24% a year
     expect(noFee).toBeGreaterThan(0.24)
     expect(effectiveRate({ ...base, feePct: 0, ratePct: 0 })).toBe(0)
+  })
+})
+
+describe('release days', () => {
+  it('finds the next dates on the chosen week days, starting today', () => {
+    expect(weekdayOf('2026-10-14')).toBe(3) // a Wednesday
+    expect(nextReleaseDates([3, 5], '2026-10-14', 3)).toEqual(['2026-10-14', '2026-10-16', '2026-10-21'])
+    expect(nextReleaseDates([1], '2026-10-14', 2)).toEqual(['2026-10-19', '2026-10-26'])
+    expect(nextReleaseDates([], '2026-10-14')).toEqual([])
+  })
+  it('lists the days Monday first', () => {
+    expect(dayList([0, 5, 1])).toBe('Mon, Fri, Sun')
   })
 })
