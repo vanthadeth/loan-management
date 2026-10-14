@@ -86,7 +86,7 @@ export function LoanDetail() {
   const canApprove = !voided && loan.status === 'requested' && can('loans.approve') && !stale
   const canReturn = !voided && (loan.status === 'requested' || loan.status === 'rejected') && (can('loans.create') || can('loans.approve'))
   const isAdmin = !!role?.locked
-  const tabs: [Tab, string][] = [['main', 'Overview'], ['schedule', 'Schedule'], ['contract', 'Details'], ...(isAdmin ? [['insight', 'Insight'] as [Tab, string]] : [])]
+  const tabs: [Tab, string, string][] = [['main', 'Overview', 'pie'], ['schedule', 'Schedule', 'cal'], ['contract', 'Details', 'doc'], ...(isAdmin ? [['insight', 'Insight', 'eye'] as [Tab, string, string]] : [])]
   const wanted = params.get('tab')
   const tab: Tab = tabs.some(([k]) => k === wanted) ? (wanted as Tab) : 'main'
   const setTab = (k: Tab) => setParams((q) => { const n = new URLSearchParams(q); if (k === 'main') n.delete('tab'); else n.set('tab', k); return n }, { replace: true })
@@ -231,8 +231,9 @@ export function LoanDetail() {
 
 
       <div className="tabs ltabs" role="tablist" aria-label="Loan sections">
-        {tabs.map(([k, label]) => (
-          <button type="button" role="tab" key={k} className="tab" aria-pressed={tab === k} aria-selected={tab === k} onClick={() => setTab(k)}>{label}</button>
+        {tabs.map(([k, label, icon]) => (
+          <button type="button" role="tab" key={k} className="tab" aria-pressed={tab === k} aria-selected={tab === k} onClick={() => setTab(k)}
+            ref={(el) => { if (el && tab === k) el.scrollIntoView({ inline: 'nearest', block: 'nearest' }) }}><Icon name={icon} size={16} />{label}</button>
         ))}
       </div>
       {tab === 'main' && <>
