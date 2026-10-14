@@ -12,7 +12,7 @@ import { bname } from '../data/borrowers'
 import { dn, useBanks, useSettings } from '../data/core'
 import { useContractTemplates } from '../data/contract'
 import { errMsg, payoffOf, useCollectors, useLoanActions, useSupervisors } from '../data/loans'
-import { dayList, nextReleaseDates, previewLoan, todayIso, WEEKDAYS, weekdayOf, type Currency, type LoanTerms, type PayMode, type RateBasis } from '../lib/calc'
+import { dayList, nextReleaseDates, previewLoan, todayIso, weekdayOf, type Currency, type LoanTerms, type PayMode, type RateBasis } from '../lib/calc'
 import { fmt, fmtD, initials, loanCode } from '../lib/format'
 import type { BankAccount, Loan } from '../lib/types'
 import { TierChip } from './borrowers/parts'
@@ -340,7 +340,7 @@ export function NewLoan() {
               {offDay && (
                 <p className="small" role="alert" style={{ margin: '-4px 0 0', color: 'var(--warn)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                   <Icon name="alert" size={16} />
-                  <span>{fmtD(release)} is a {WEEKDAYS[weekdayOf(release)]}. Money is normally released on {dayList(releaseDays)}.</span>
+                  <span>Money is usually released on {dayList(releaseDays)}.</span>
                 </p>
               )}
               <div className="wz-chips" role="group" aria-label="Release date choices">
