@@ -200,6 +200,3 @@ export function DateIconPicker({ value, onChange }: { value: string; onChange: (
   )
 }
 
-export function Fab({ label, onClick }: { label: string; onClick: () => void }) {
-  return <button className="fab" aria-label={label} title={label} onClick={onClick}><Icon name="plus" size={26} /></button>
-}

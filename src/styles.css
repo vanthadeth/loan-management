@@ -375,9 +375,6 @@ main{order:1;flex:1;min-height:0;overflow:auto;padding:8px 16px 16px}
 }
 .srch{background:var(--accent);color:var(--accent-ink);box-shadow:none}
 
-.fab{position:fixed;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));width:56px;height:56px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 18px rgba(74,137,220,.45);z-index:15}
-.fab:active{transform:scale(.96)}
-@media (min-width:900px){.fab{right:32px;bottom:32px}}
 #view{padding-bottom:84px}
 
 main{--gx:16px}
@@ -470,7 +467,6 @@ h2{font-size:18px;font-weight:700}
 .qa button{border-radius:8px;box-shadow:var(--lift);transition:transform .12s var(--ease)}
 .qa button:active{transform:scale(.97)}
 .qa i{width:40px;height:40px}
-.fab{box-shadow:0 14px 28px -10px rgba(74,137,220,.7),0 0 0 1px rgba(255,255,255,.12) inset;transition:transform .12s var(--ease)}
 
 /* buttons, chips, tabs */
 .btn{min-height:40px;border-radius:5px;font-weight:600;letter-spacing:-.006em;transition:transform .12s var(--ease),background .15s,box-shadow .15s}
@@ -672,7 +668,6 @@ td,th{border-bottom:1px solid var(--hair)}
 details[open]>*:not(summary){animation:fadeDown .26s var(--ease)}
 .nav button[aria-current="page"]::after{transform-origin:center;animation:barIn .32s var(--ease)}
 .nav button[aria-current="page"] svg{animation:iconPop .36s var(--ease)}
-.fab{animation:popIn .34s var(--ease) .12s both}
 .item:active{background:var(--surface2)}
 .rip-host{overflow:hidden}
 .rip{position:absolute;border-radius:50%;pointer-events:none;background:currentColor;opacity:0;transform:scale(0);animation:rippleOut .55s ease-out forwards}
@@ -1140,8 +1135,6 @@ main{--gb:16px}
   main{position:absolute;inset:0;padding-top:calc(var(--top-h,70px) + 12px);padding-bottom:calc(var(--nav-h,64px) + 16px);scroll-padding-top:var(--top-h,70px)}
   .app.bars-hidden .top{transform:translateY(-100%)}
   .app.bars-hidden .nav{transform:translateY(100%)}
-  .fab{transition:bottom .26s var(--ease),transform .12s var(--ease)}
-  .app.bars-hidden .fab{bottom:calc(20px + env(safe-area-inset-bottom,0px))}
 }
 @media (prefers-reduced-motion:reduce){.top,.nav,.fab{transition:none!important}}
 
@@ -1188,7 +1181,6 @@ input,select,textarea{font-size:16px}
 
 /* touch feedback: press states, ripple hosts, soft list taps */
 .btn,.tab,.hbtn,.icon-btn,.mcta{position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent}
-.fab{overflow:hidden}
 .btn:active,.tab:active,.hbtn:active,.icon-btn:active,.mcta:active{transform:scale(.96)}
 .lcard .item:active,.item:active{background:var(--surface2)}
 .seg button:active,.nav button:active{transform:scale(.94)}
@@ -1286,3 +1278,7 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 .ltabs{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;gap:6px}
 .ltabs::-webkit-scrollbar{display:none}
 .ltabs .tab{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding-inline:14px}
+
+/* add action in the top bar */
+.hdr-add{background:var(--accent);color:var(--accent-ink);box-shadow:none!important}
+.hdr-add:active{transform:scale(.94)}

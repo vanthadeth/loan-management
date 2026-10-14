@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Fab } from '../ui/Controls'
+import { HeaderAction } from '../ui/HeaderAction'
 import { usePageTitle } from '../app/Layout'
 import { useAuth } from '../app/auth'
 import { useI18n } from '../app/i18n'
@@ -30,7 +30,7 @@ export function LoanQueue() {
         {rows.map((v) => <LoanRow key={v.loan.id} v={v} />)}
         {!rows.length && <p className="muted">{loading ? 'Loading…' : 'Nothing here right now.'}</p>}
       </div>
-      {can('loans.create') && <Fab label={t('newLoan')} onClick={() => nav('/loans/new')} />}
+      {can('loans.create') && <HeaderAction label={t('newLoan')} onClick={() => nav('/loans/new')} />}
     </>
   )
 }

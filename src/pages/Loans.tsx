@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
-import { Fab } from '../ui/Controls'
+import { HeaderAction } from '../ui/HeaderAction'
 import { useAuth } from '../app/auth'
 import { useI18n } from '../app/i18n'
 import { bname } from '../data/borrowers'
@@ -52,7 +52,7 @@ export function Loans() {
       {can('loans.void') && voidedViews.length > 0 && (
         <button type="button" className="btn blockbtn" onClick={() => nav('/loans/voided')}><Icon name="ban" size={17} />Voided loans ({voidedViews.length})</button>
       )}
-      {can('loans.create') && <Fab label={t('newLoan')} onClick={() => nav('/loans/new')} />}
+      {can('loans.create') && <HeaderAction label={t('newLoan')} onClick={() => nav('/loans/new')} />}
     </>
   )
 }

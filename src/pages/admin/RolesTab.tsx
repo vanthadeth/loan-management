@@ -4,7 +4,7 @@ import { useRoles, useTeam } from '../../data/core'
 import { permsOf, useRoleActions, useRun } from '../../data/admin'
 import { ALL_PERMS, PDEP, PGROUPS } from '../../lib/perms'
 import { Icon } from '../../ui/Icon'
-import { Fab } from '../../ui/Controls'
+import { HeaderAction } from '../../ui/HeaderAction'
 import type { Role } from '../../lib/types'
 import { RoleSheet } from './RoleSheet'
 
@@ -82,7 +82,7 @@ export function RolesTab() {
           </tbody>
         </table>
       </div>
-      <Fab label="Add role" onClick={() => setSheet({})} />
+      <HeaderAction label="Add role" onClick={() => setSheet({})} />
       {sheet && <RoleSheet role={sheet.role} roles={roles} perms={perms} users={sheet.role ? count(sheet.role) : 0} onClose={() => setSheet(null)} />}
     </>
   )

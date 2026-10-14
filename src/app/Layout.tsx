@@ -137,6 +137,7 @@ export function Layout() {
             <>
               <img className="logo-img" src="/icon.svg" width={40} height={40} alt="" />
               <div className="hello"><b className="ell">{t('appname')}</b><span className="small muted ell">{subtitle}</span></div>
+              <span ref={setActionSlot} style={{ display: 'contents' }} />
               <button className="icon-btn bell" data-menu onClick={() => setMenu(menu === 'msg' ? null : 'msg')} aria-haspopup="dialog" aria-expanded={menu === 'msg'} aria-label="Messages">
                 <Icon name="msg" />{unread.length > 0 && <i className="ncount">{unread.length}</i>}
               </button>

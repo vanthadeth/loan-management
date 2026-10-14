@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Fab } from '../ui/Controls'
+import { HeaderAction } from '../ui/HeaderAction'
+import { usePageTitle } from '../app/Layout'
 import { useAuth } from '../app/auth'
 import { useI18n } from '../app/i18n'
 import { useBook } from '../data/book'
@@ -15,6 +16,7 @@ const FILTERS = ['all', 'gold', 'silver', 'normal', 'bad', 'banned']
 
 export function Borrowers() {
   const { t, lang } = useI18n()
+  usePageTitle(t('borrowers'))
   const { can } = useAuth()
   const nav = useNavigate()
   const { data, isLoading, error } = useBook()
@@ -49,7 +51,7 @@ export function Borrowers() {
         ))}
         {!rows.length && <p className="muted">{isLoading ? 'Loading…' : 'No match.'}</p>}
       </div>
-      {can('borrowers.edit') && <Fab label={t('newBorrower')} onClick={() => setAdding(true)} />}
+      {can('borrowers.edit') && <HeaderAction label={t('newBorrower')} onClick={() => setAdding(true)} />}
       {adding && <BorrowerSheet onClose={() => setAdding(false)} />}
     </>
   )

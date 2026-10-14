@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../app/auth'
 import { useI18n } from '../app/i18n'
 import { Icon } from '../ui/Icon'
-import { DateIconPicker, Fab } from '../ui/Controls'
+import { DateIconPicker } from '../ui/Controls'
+import { HeaderAction } from '../ui/HeaderAction'
 import { diffDays } from '../lib/calc'
 import { fmt, fmtD } from '../lib/format'
 import { borrowerName, CURRENCIES, net, useMoneyData, type EntryType, type LedgerEntry } from '../data/money'
@@ -103,7 +104,7 @@ export function Cashflow() {
       ) : (
         <p className="muted">{isLoading ? 'Loading…' : date ? 'No entries on this date.' : 'No payments.'}</p>
       )}
-      {can('payments.record') && <Fab label={t('record')} onClick={() => nav('/cashflow/pay')} />}
+      {can('payments.record') && <HeaderAction label={t('record')} onClick={() => nav('/cashflow/pay')} />}
     </>
   )
 }

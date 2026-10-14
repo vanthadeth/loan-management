@@ -4,7 +4,7 @@ import { useAuth } from '../../app/auth'
 import { dn, useRoles, useTeam } from '../../data/core'
 import { lastSeenLabel, STATUS_LABEL } from '../../data/admin'
 import { Avatar } from '../../ui/Avatar'
-import { Fab } from '../../ui/Controls'
+import { HeaderAction } from '../../ui/HeaderAction'
 import { RoleChip } from './parts'
 import { UserSheet } from './UserSheet'
 
@@ -33,7 +33,7 @@ export function UsersTab() {
         {team.isLoading && <p className="muted">Loading…</p>}
         {team.isError && <p className="muted">Could not load the team.</p>}
       </div>
-      <Fab label="Add user" onClick={() => setAdding(true)} />
+      <HeaderAction label="Add user" onClick={() => setAdding(true)} />
       {adding && <UserSheet onClose={() => setAdding(false)} />}
     </>
   )
