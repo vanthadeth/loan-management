@@ -23,6 +23,10 @@ export function usePageTitle(title: string | null) {
   }, [title, set])
 }
 
+const ActionSlotCtx = createContext<HTMLElement | null>(null)
+/** The empty space at the right of a sub page's title bar; a page portals its action button into it. */
+export const useActionSlot = () => useContext(ActionSlotCtx)
+
 const ROUTES: Record<string, string> = { dashboard: '/', payments: '/cashflow', loans: '/loans', reports: '/reports', hub: '/more' }
 const NAV_LABEL: Record<string, string> = { dashboard: 'home', payments: 'payTab', hub: 'more' }
 
@@ -48,6 +52,7 @@ export function Layout() {
   const loc = useLocation()
   const qc = useQueryClient()
   const [title, setTitle] = useState<string | null>(null)
+  const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null)
   const [menu, setMenu] = useState<null | 'msg' | 'profile'>(null)
   const [theme, setTheme] = useState<Theme>(savedTheme())
   const appRef = useRef<HTMLDivElement>(null)
@@ -119,13 +124,14 @@ export function Layout() {
 
   return (
     <TitleCtx.Provider value={setTitle}>
+      <ActionSlotCtx.Provider value={actionSlot}>
       <div className={'app' + (barsHidden ? ' bars-hidden' : '')} ref={appRef}>
         <header className={'top' + (sub ? ' centered' : '')} id="top">
           {sub ? (
             <>
               <button className="icon-btn" onClick={() => (window.history.length > 1 ? nav(-1) : nav('/more'))} aria-label={t('back')}><Icon name="back" /></button>
               <h1 className="tt ell">{title}</h1>
-              <span style={{ width: 40 }} />
+              <span ref={setActionSlot} style={{ width: 40, display: 'flex', justifyContent: 'flex-end' }} />
             </>
           ) : (
             <>
@@ -192,6 +198,7 @@ export function Layout() {
         </nav>
         <main id="main"><div className="wrap" id="view"><Outlet /></div></main>
       </div>
+      </ActionSlotCtx.Provider>
     </TitleCtx.Provider>
   )
 }

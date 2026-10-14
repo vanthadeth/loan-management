@@ -5,7 +5,7 @@ import { Icon } from '../ui/Icon'
 import { Sheet } from '../ui/Sheet'
 import { TextArea } from '../ui/Controls'
 import { useToast } from '../ui/Toast'
-import { usePageTitle } from '../app/Layout'
+import { usePageTitle, useActionSlot } from '../app/Layout'
 import { useAuth } from '../app/auth'
 import { useI18n } from '../app/i18n'
 import { dn, useBanks, useTeam } from '../data/core'
@@ -49,6 +49,7 @@ export function LoanDetail() {
   const isAdminRole = !!role?.locked
   const books = useReconcile(loanId, isAdminRole)
   const [params, setParams] = useSearchParams()
+  const actionSlot = useActionSlot()
   usePageTitle(Number.isFinite(loanId) ? loanCode(loanId) : 'Loan')
 
   const v = views.find((x) => x.loan.id === loanId) ?? voidedViews.find((x) => x.loan.id === loanId)
@@ -154,11 +155,8 @@ export function LoanDetail() {
   return (
     <>
       <section className="card">
-        <div className="row between" style={{ alignItems: 'center', minHeight: 36 }}>
-          <div className="eyebrow">{loanCode(loan.id)}</div>
-          <ActionMenu actions={menuActions} label="Loan actions" />
-        </div>
-        <div className="row between" style={{ alignItems: 'baseline', gap: 12, marginTop: -4 }}>
+        {actionSlot && createPortal(<ActionMenu actions={menuActions} label="Loan actions" />, actionSlot)}
+        <div className="row between" style={{ alignItems: 'baseline', gap: 12 }}>
           <h1>{can('borrowers.view') ? <Link to={`/borrowers/${loan.borrower_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{name}</Link> : name}</h1>
           <b className="num" style={{ fontSize: 20, fontFamily: 'var(--display)', whiteSpace: 'nowrap' }}>{fmt(loan.amount, cur)}</b>
         </div>
