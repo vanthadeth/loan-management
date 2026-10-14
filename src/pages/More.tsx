@@ -4,37 +4,43 @@ import { useI18n } from '../app/i18n'
 import { dn, useBanks } from '../data/core'
 import { useBook } from '../data/book'
 import { useMessages } from '../data/messages'
+import { Avatar } from '../ui/Avatar'
 import { Icon } from '../ui/Icon'
+
+type Row = [to: string, icon: string, name: string, desc: string, count?: number]
 
 export function More() {
   const { t } = useI18n()
-  const { me, can } = useAuth()
+  const { me, role, can } = useAuth()
   const nav = useNavigate()
   const unread = (useMessages().data ?? []).filter((m) => !m.read).length
   const borrowers = useBook().data?.borrowers.length
   const banks = useBanks().data?.length
 
-  const tiles: [string, string, string, string, number | string][] = [
-    ['/profile', 'userp', t('profile'), dn(me), ''],
-    ['/messages', 'msg', t('messages'), 'Team updates and reminders', unread || ''],
-    ...(can('users.manage') ? [['/users', 'users', 'Users and roles', 'Team and permissions', ''] as [string, string, string, string, string]] : []),
-    ['/settings', 'gear', 'Settings', 'Language, theme, fees', ''],
-  ]
-  const rows: [string, string, string, string, number | undefined][] = [
-    ['/borrowers', 'userp', t('borrowers'), 'Profiles, documents and trust levels', borrowers],
-    ...(can('banks.manage') ? [['/banks', 'wallet', 'Bank accounts', 'Where borrowers pay you', banks] as [string, string, string, string, number | undefined]] : []),
+  // everything else, least important last
+  const rows: Row[] = [
+    ...(can('users.manage') ? [['/users', 'users', 'Users and roles', 'Team and permissions'] as Row] : []),
+    ['/settings', 'gear', 'Settings', 'Language, theme, fees'],
+    ...(can('banks.manage') ? [['/banks', 'wallet', 'Bank accounts', 'Where borrowers pay you', banks] as Row] : []),
   ]
 
   return (
     <>
       <div className="bento hubb">
-        {tiles.map(([to, icon, name, desc, value]) => (
-          <button className="bt hb" key={to} onClick={() => nav(to)}>
-            <span className="hb-top"><span className="hb-ic"><Icon name={icon} size={20} /></span><Icon name="chev" size={16} /></span>
-            <span className="hb-t"><b>{name}</b><span className="small muted">{desc}</span></span>
-            {value !== '' && <span className="hb-v"><b className="num">{value}</b><span className="small muted">unread</span></span>}
-          </button>
-        ))}
+        <button className="bt hb big" onClick={() => nav('/profile')}>
+          <span className="hb-top"><Avatar p={me} /><Icon name="chev" size={16} /></span>
+          <span className="hb-t"><b>{dn(me)}</b><span className="small muted">{t('profile')}{role?.name ? ` · ${role.name}` : ''}</span></span>
+        </button>
+        <button className="bt hb" onClick={() => nav('/borrowers')}>
+          <span className="hb-top"><span className="hb-ic"><Icon name="userp" size={20} /></span><Icon name="chev" size={16} /></span>
+          <span className="hb-t"><b>{t('borrowers')}</b><span className="small muted">Profiles and trust levels</span></span>
+          {borrowers !== undefined && <span className="hb-v"><b className="num">{borrowers}</b><span className="small muted">total</span></span>}
+        </button>
+        <button className="bt hb" onClick={() => nav('/messages')}>
+          <span className="hb-top"><span className="hb-ic"><Icon name="msg" size={20} /></span><Icon name="chev" size={16} /></span>
+          <span className="hb-t"><b>{t('messages')}</b><span className="small muted">Team updates</span></span>
+          <span className="hb-v"><b className="num">{unread}</b><span className="small muted">unread</span></span>
+        </button>
       </div>
       <div className="bh" style={{ paddingTop: 8 }}>Other functions</div>
       <div className="lcard">
@@ -42,7 +48,7 @@ export function More() {
           <button className="item" key={to} onClick={() => nav(to)}>
             <span className="tic in"><Icon name={icon} size={17} /></span>
             <span className="grow"><b className="ell" style={{ display: 'block' }}>{name}</b><span className="small muted">{desc}</span></span>
-            <span className="small muted num">{count}</span>
+            {count !== undefined && <span className="small muted num">{count}</span>}
             <Icon name="chev" size={16} />
           </button>
         ))}
