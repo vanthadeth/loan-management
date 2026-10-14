@@ -86,7 +86,7 @@ export function LoanDetail() {
   const canApprove = !voided && loan.status === 'requested' && can('loans.approve') && !stale
   const canReturn = !voided && (loan.status === 'requested' || loan.status === 'rejected') && (can('loans.create') || can('loans.approve'))
   const isAdmin = !!role?.locked
-  const tabs: [Tab, string][] = [['main', 'Main'], ['schedule', 'Schedule'], ['contract', 'Contract'], ...(isAdmin ? [['insight', 'Insight'] as [Tab, string]] : [])]
+  const tabs: [Tab, string][] = [['main', 'Overview'], ['schedule', 'Schedule'], ['contract', 'Details'], ...(isAdmin ? [['insight', 'Insight'] as [Tab, string]] : [])]
   const wanted = params.get('tab')
   const tab: Tab = tabs.some(([k]) => k === wanted) ? (wanted as Tab) : 'main'
   const setTab = (k: Tab) => setParams((q) => { const n = new URLSearchParams(q); if (k === 'main') n.delete('tab'); else n.set('tab', k); return n }, { replace: true })
