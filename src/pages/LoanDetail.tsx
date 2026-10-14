@@ -401,7 +401,7 @@ export function LoanDetail() {
             </div>
           </div>
           <div><span className="eyebrow">Released</span>{fmtD(loan.release_date)} · service fee {loan.fee_pct}% ({fmt(fee, cur)}), borrower receives {fmt(net, cur)}</div>
-          <div><span className="eyebrow">Repayment</span>{loan.frequency === 'custom' ? `Every ${loan.interval_days} days` : loan.frequency} × {loan.occurrences} · {loan.mode === 'equal' ? 'interest + principal ÷ n' : 'interest only, principal at end'}</div>
+          <div><span className="eyebrow">Repayment</span>{loan.frequency === 'custom' ? `${loan.occurrences} payments every ${loan.interval_days} days` : `${loan.occurrences} ${loan.frequency} payments`} of {loan.mode === 'equal' ? 'interest and principal' : 'interest, principal paid at the end'}</div>
           <div><span className="eyebrow">Interest</span>{loan.rate_pct}% per {loan.rate_basis} (flat) · effective {(effectiveRate(terms) * 100).toFixed(1)}% a year</div>
           <div style={{ gridColumn: '1/-1', display: 'flex', flexDirection: 'row', gap: 16 }}>
             {([
