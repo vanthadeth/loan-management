@@ -27,8 +27,10 @@ const ActionSlotCtx = createContext<HTMLElement | null>(null)
 /** The empty space at the right of a sub page's title bar; a page portals its action button into it. */
 export const useActionSlot = () => useContext(ActionSlotCtx)
 
-const ROUTES: Record<string, string> = { dashboard: '/', payments: '/cashflow', loans: '/loans', reports: '/reports', hub: '/more' }
+const ROUTES: Record<string, string> = { dashboard: '/', today: '/today', payments: '/cashflow', loans: '/loans', reports: '/reports', borrowers: '/borrowers', hub: '/more' }
 const NAV_LABEL: Record<string, string> = { dashboard: 'home', payments: 'payTab', hub: 'more' }
+/** Bottom tabs: office roles get Home and Reports, field roles (scoped) get Today and Borrowers. */
+const NAV_ORDER = { office: ['dashboard', 'loans', 'payments', 'reports', 'hub'], field: ['today', 'loans', 'payments', 'borrowers', 'hub'] }
 
 /** Loans waiting for approval, shown as a red dot on the Loans tab. */
 function usePendingApproval() {
@@ -47,7 +49,7 @@ function usePendingApproval() {
 
 export function Layout() {
   const { t, lang, setLang } = useI18n()
-  const { me, role, can, signOut } = useAuth()
+  const { me, role, can, scoped, signOut } = useAuth()
   const nav = useNavigate()
   const loc = useLocation()
   const qc = useQueryClient()
@@ -112,13 +114,21 @@ export function Layout() {
   }, [menu])
 
   const path = loc.pathname
-  const current = path === '/' ? 'dashboard'
+  const items = NAV_ORDER[scoped ? 'field' : 'office']
+    .filter((k) => k !== 'reports' || can('reports.view'))
+    .map((k) => NAV_ICONS.find(([key]) => key === k))
+    .filter((x): x is [string, string, string] => !!x)
+  const section = path === '/' ? 'dashboard'
+    : path.startsWith('/today') ? 'today'
     : path.startsWith('/cashflow') ? 'payments'
     : path.startsWith('/loans') ? 'loans'
+    : path.startsWith('/borrowers') ? 'borrowers'
     : path.startsWith('/reports') ? 'reports' : 'hub'
-  const sub = title !== null
-  const items = NAV_ICONS.filter(([k]) => k !== 'reports' || can('reports.view'))
-  const subtitle = current === 'dashboard' ? `${t('hello')}, ${dn(me)}` : t(NAV_LABEL[current] ?? current)
+  // pages without a tab of their own (Borrowers for office roles, Home for field roles) sit under More
+  const current = items.some(([k]) => k === section) ? section : 'hub'
+  // a tab's own page shows the tab header; any deeper page gets the back button and title
+  const sub = title !== null && !(current === section && path === ROUTES[section])
+  const subtitle = section === 'dashboard' ? `${t('hello')}, ${dn(me)}` : t(NAV_LABEL[current] ?? current)
   const name = (id: string | null) => dn((team.data ?? []).find((p) => p.id === id))
   const go = (to: string) => { setMenu(null); nav(to) }
 
