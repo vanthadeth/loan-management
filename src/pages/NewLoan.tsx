@@ -297,6 +297,9 @@ export function NewLoan() {
                   <TierChip tier={b.tier} />
                 </button>
               ))}
+              {!!matches.length && can('borrowers.edit') && (
+                <button type="button" className="btn" style={{ width: '100%', marginTop: 10 }} onClick={() => setRegistering(true)}><Icon name="plus" size={17} />New borrower</button>
+              )}
               {!matches.length && (book ? (
                 <div className="lcard" style={{ padding: 20, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                   <span className="hb-ic"><Icon name="userp" size={22} /></span>
