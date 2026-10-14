@@ -153,12 +153,13 @@ export function LoanDetail() {
   return (
     <>
       <section className="card">
-        <div className="row between" style={{ flexWrap: 'wrap' }}>
-          <div><div className="eyebrow">{loanCode(loan.id)}</div><h1>{can('borrowers.view') ? <Link to={`/borrowers/${loan.borrower_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{name}</Link> : name}</h1></div>
-          <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'nowrap' }}>
-            <b className="num" style={{ fontSize: 20, fontFamily: 'var(--display)' }}>{fmt(loan.amount, cur)}</b>
-            <ActionMenu actions={menuActions} label="Loan actions" />
-          </div>
+        <div className="row between" style={{ alignItems: 'center', minHeight: 36 }}>
+          <div className="eyebrow">{loanCode(loan.id)}</div>
+          <ActionMenu actions={menuActions} label="Loan actions" />
+        </div>
+        <div className="row between" style={{ alignItems: 'baseline', gap: 12, marginTop: -4 }}>
+          <h1>{can('borrowers.view') ? <Link to={`/borrowers/${loan.borrower_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{name}</Link> : name}</h1>
+          <b className="num" style={{ fontSize: 20, fontFamily: 'var(--display)', whiteSpace: 'nowrap' }}>{fmt(loan.amount, cur)}</b>
         </div>
         {loan.status === 'refinanced'
           ? <div style={{ margin: '14px 0' }}><span className="chip approved">Refinanced</span>{refinancedBy && <p style={{ margin: '8px 0 0' }}>Paid off by <Link to={`/loans/${refinancedBy.loan.id}`}>{loanCode(refinancedBy.loan.id)}</Link>.</p>}</div>
