@@ -1273,3 +1273,5 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 .minor{gap:18px;flex-wrap:wrap;justify-content:flex-end}
 .linkbtn.quiet{color:var(--muted)!important;font-weight:500}
 .linkbtn.danger-text{color:var(--late)!important;font-weight:500}
+
+.prog.collapsed tr.sub{display:none}

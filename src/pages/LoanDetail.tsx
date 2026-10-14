@@ -42,6 +42,7 @@ export function LoanDetail() {
   const actions = useLoanActions()
   const [dialog, setDialog] = useState<Dialog>(null)
   const [reason, setReason] = useState('')
+  const [progOpen, setProgOpen] = useState(true)
   const [payTarget, setPayTarget] = useState<{ p: Payment; restore: boolean } | null>(null)
   const voidPay = useVoidPayment()
   const snaps = useLoanSnapshots(loanId)
@@ -284,8 +285,14 @@ export function LoanDetail() {
           <span><i style={{ background: 'var(--remain)' }} />Remaining</span>
           <span><i style={{ background: 'var(--late)' }} />{t('overdue')}</span>
         </div>
-        <div className="tblwrap" style={{ marginTop: 14 }}>
-          <table className="num prog"><tbody>
+        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+          <button type="button" className="linkbtn" aria-expanded={progOpen} onClick={() => setProgOpen((o) => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            {progOpen ? 'Hide details' : 'Show details'}
+            <span aria-hidden="true" style={{ display: 'inline-flex', transform: progOpen ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .15s' }}><Icon name="chev" size={14} /></span>
+          </button>
+        </div>
+        <div className="tblwrap" style={{ marginTop: 4 }}>
+          <table className={'num prog' + (progOpen ? '' : ' collapsed')}><tbody>
             <tr className="head"><td>On contract</td><td className="r"><b>{fmt(status.total, cur)}</b></td></tr>
             <tr className="sub"><td>Principal</td><td className="r">{fmt(loan.amount, cur)}</td></tr>
             <tr className="sub"><td>Interest</td><td className="r">{fmt(status.total - loan.amount, cur)}</td></tr>
