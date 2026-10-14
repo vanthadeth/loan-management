@@ -321,10 +321,7 @@ export function LoanDetail() {
         {(approved || refinanced) && !voided && <LateFeeBreakdown status={status} cur={cur} />}
       </section>
       <section className="card">
-        <div className="row between">
-          <h2>{t('payments')}</h2>
-          {approved && !voided && can('payments.record') && <button type="button" className="btn primary sm" onClick={() => nav(`/cashflow/pay?loan=${loan.id}`)}>+ {t('record')}</button>}
-        </div>
+        <h2>{t('payments')}</h2>
         <div className="list" style={{ marginTop: 6 }}>
           {[...payments, ...v.voided].sort((x, y) => (x.paid_on === y.paid_on ? y.id - x.id : x.paid_on < y.paid_on ? 1 : -1)).map((p) => {
             const gone = !!p.voided_at
