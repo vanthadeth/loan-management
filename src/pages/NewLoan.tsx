@@ -149,7 +149,7 @@ export function NewLoan() {
     // the loan being refinanced is not "another" loan
     const others = open - (refi?.loan.borrower_id === borrower.id ? 1 : 0)
     if (borrower.tier === 'bad') warnings.push('Marked as a bad borrower')
-    if (borrower.tier === 'banned') warnings.push('Marked as banned')
+    if (borrower.status === 'banned') warnings.push('Marked as banned')
     if (others > 0) warnings.push(`Already has ${others} loan${others > 1 ? 's' : ''} in progress`)
     if (late > 0) warnings.push(`Late on a payment (${late} day${late > 1 ? 's' : ''} past due)`)
   }
