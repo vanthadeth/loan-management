@@ -1299,3 +1299,7 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 .hb.big .hb-t .small{font-size:12.5px}
 .hb-top{color:var(--muted)}
 .hb-top .avatar{width:44px;height:44px}
+
+/* a photo never grows past its round container (a grid item's minimum size is the image's own size) */
+.avatar{overflow:hidden}
+.avatar>img{display:block;width:100%;height:100%;min-width:0;min-height:0;object-fit:cover;border-radius:50%}
