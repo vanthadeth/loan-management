@@ -24,6 +24,7 @@ import { UserDetail } from './pages/UserDetail'
 import { LoginInfo } from './pages/LoginInfo'
 import { Settings } from './pages/Settings'
 import { Banks } from './pages/Banks'
+import { Today } from './pages/Today'
 
 export function App() {
   const { loading, session, me } = useAuth()
@@ -35,6 +36,7 @@ export function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
+        <Route path="today" element={<Today />} />
         <Route path="cashflow" element={<Cashflow />} />
         <Route path="cashflow/pay" element={<RecordPayment />} />
         <Route path="loans" element={<Loans />} />

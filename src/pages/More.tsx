@@ -2,7 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../app/auth'
 import { useI18n } from '../app/i18n'
 import { dn, useBanks } from '../data/core'
-import { useBook } from '../data/book'
+import { useBook, useLoanViews } from '../data/book'
+import { buildToday } from '../data/today'
 import { useMessages } from '../data/messages'
 import { Avatar } from '../ui/Avatar'
 import { Icon } from '../ui/Icon'
@@ -16,8 +17,17 @@ export function More() {
   const unread = (useMessages().data ?? []).filter((m) => !m.read).length
   const borrowers = useBook().data?.borrowers.length
   const banks = useBanks().data?.length
+  const { views } = useLoanViews()
+  const day = buildToday(views)
+  const todo = day.late.length + day.dueToday.length + (can('loans.approve') ? day.pending.length : 0) + day.release.filter((x) => x.v.loan.release_date === day.today).length
 
   // everything else, least important last
+  const main: Row[] = [
+    ['/', 'dashboard', t('home'), 'Money overview'],
+    ['/cashflow', 'payments', t('payTab'), 'Payments in and out'],
+    ['/loans', 'loans', t('loans'), 'Active, pending and past loans'],
+    ...(can('reports.view') ? [['/reports', 'reports', t('reports'), 'Portfolio, aging and exports'] as Row] : []),
+  ]
   const rows: Row[] = [
     ...(can('users.manage') ? [['/users', 'users', 'Users and roles', 'Team and permissions'] as Row] : []),
     ['/settings', 'gear', 'Settings', 'Language, theme, fees'],
@@ -31,6 +41,11 @@ export function More() {
           <span className="hb-top"><Avatar p={me} /><Icon name="chev" size={16} /></span>
           <span className="hb-t"><b>{dn(me)}</b><span className="small muted">{t('profile')}{role?.name ? ` · ${role.name}` : ''}</span></span>
         </button>
+        <button className="bt hb wide" onClick={() => nav('/today')}>
+          <span className="hb-top"><span className="hb-ic"><Icon name="checkc" size={20} /></span><Icon name="chev" size={16} /></span>
+          <span className="hb-t"><b>Today</b><span className="small muted">What to collect, approve and release</span></span>
+          <span className="hb-v"><b className="num">{todo}</b><span className="small muted">to do</span></span>
+        </button>
         <button className="bt hb" onClick={() => nav('/borrowers')}>
           <span className="hb-top"><span className="hb-ic"><Icon name="userp" size={20} /></span><Icon name="chev" size={16} /></span>
           <span className="hb-t"><b>{t('borrowers')}</b><span className="small muted">Profiles and trust levels</span></span>
@@ -42,17 +57,21 @@ export function More() {
           <span className="hb-v"><b className="num">{unread}</b><span className="small muted">unread</span></span>
         </button>
       </div>
-      <div className="bh" style={{ paddingTop: 8 }}>Other functions</div>
-      <div className="lcard">
-        {rows.map(([to, icon, name, desc, count]) => (
-          <button className="item" key={to} onClick={() => nav(to)}>
-            <span className="tic in"><Icon name={icon} size={17} /></span>
-            <span className="grow"><b className="ell" style={{ display: 'block' }}>{name}</b><span className="small muted">{desc}</span></span>
-            {count !== undefined && <span className="small muted num">{count}</span>}
-            <Icon name="chev" size={16} />
-          </button>
-        ))}
-      </div>
+      {[['Main menu', main], ['Other functions', rows]].map(([title, list]) => (
+        <section key={title as string}>
+          <div className="bh" style={{ paddingTop: 8 }}>{title as string}</div>
+          <div className="lcard">
+            {(list as Row[]).map(([to, icon, name, desc, count]) => (
+              <button className="item" key={to} onClick={() => nav(to)}>
+                <span className="tic in"><Icon name={icon} size={17} /></span>
+                <span className="grow"><b className="ell" style={{ display: 'block' }}>{name}</b><span className="small muted">{desc}</span></span>
+                {count !== undefined && <span className="small muted num">{count}</span>}
+                <Icon name="chev" size={16} />
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
     </>
   )
 }
