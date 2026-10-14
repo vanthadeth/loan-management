@@ -18,12 +18,12 @@ export function ActionMenu({ actions, label = 'Actions' }: { actions: MenuAction
   )
   return (
     <>
-      <button ref={btn} type="button" className="icon-btn" style={{ width: 36, height: 36 }} aria-haspopup="menu" aria-expanded={open} aria-label={label} title={label} onClick={() => setOpen((o) => !o)}>
+      <button ref={btn} type="button" className="icon-btn" style={{ width: 40, height: 40 }} aria-haspopup="menu" aria-expanded={open} aria-label={label} title={label} onClick={() => setOpen((o) => !o)}>
         <Icon name="more" size={20} />
       </button>
       {open && (
         <Floating anchor={btn} onClose={() => setOpen(false)} align="right">
-          <div role="menu" aria-label={label} className="dd-list" style={{ padding: 4, marginTop: 0 }}>
+          <div role="menu" aria-label={label} className="dd-list amenu" style={{ padding: 6, marginTop: 0 }}>
             {normal.map(item)}
             {normal.length > 0 && danger.length > 0 && <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '4px 0', width: '100%' }} />}
             {danger.map(item)}

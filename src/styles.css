@@ -1275,3 +1275,8 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 .linkbtn.danger-text{color:var(--late)!important;font-weight:500}
 
 .prog.collapsed tr.sub{display:none}
+
+/* action menu: touch-sized rows (52px, above the 44px minimum) */
+.amenu .mi{min-height:52px;padding:0 14px;font-size:16px;gap:14px}
+.amenu .mi .grow{gap:14px}
+.amenu .mi svg{width:22px;height:22px}
