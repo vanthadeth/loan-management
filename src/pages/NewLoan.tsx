@@ -15,7 +15,7 @@ import { errMsg, payoffOf, useCollectors, useLoanActions, useSupervisors } from 
 import { dayList, nextReleaseDates, previewLoan, todayIso, weekdayOf, type Currency, type LoanTerms, type PayMode, type RateBasis } from '../lib/calc'
 import { fmt, fmtD, initials, loanCode } from '../lib/format'
 import type { BankAccount, Loan } from '../lib/types'
-import { daysPastDue } from '../lib/risk'
+import { borrowerStanding } from '../data/today'
 import { TierChip } from './borrowers/parts'
 import { BorrowerSheet } from './borrowers/BorrowerSheet'
 
@@ -27,6 +27,7 @@ const STEPS = ['Borrower', 'Amount', 'Terms', 'Payment', 'Review']
 const FREQ: Record<Exclude<Freq, 'Custom'>, [number, string]> = { Daily: [1, 'day'], Weekly: [7, 'week'], Monthly: [30, 'month'] }
 const BASIS = [{ value: 'month', label: 'per month' }, { value: 'occurrence', label: 'per occurrence' }, { value: 'contract', label: 'per contract period' }]
 const MAX_OCCURRENCES = 1000
+const NO_LOANS = { open: 0, late: 0 }
 
 const num = (s: string) => Number(s.replace(/[^\d.]/g, '')) || 0
 const group = (s: string) => { const d = s.replace(/\D/g, ''); return d ? Number(d).toLocaleString('en-US') : '' }
@@ -140,23 +141,16 @@ export function NewLoan() {
   if (!can('loans.create')) return <p className="muted">You are not allowed to request loans.</p>
 
   const borrower = book?.borrowers.find((b) => b.id === borrowerId)
-  // what each borrower already owes us: loans in progress and the worst days past due
-  const standing = new Map<number, { open: number; late: number }>()
-  for (const v of views) {
-    if (!v.active) continue
-    const cur = standing.get(v.loan.borrower_id) ?? { open: 0, late: 0 }
-    cur.open += 1
-    cur.late = Math.max(cur.late, daysPastDue(v.status.rows))
-    standing.set(v.loan.borrower_id, cur)
-  }
-  const stand = (id: number) => standing.get(id) ?? { open: 0, late: 0 }
+  const standing = borrowerStanding(views)
+  const stand = (id: number) => standing.get(id) ?? NO_LOANS
   const warnings: string[] = []
   if (borrower) {
-    const others = views.filter((v) => v.active && v.loan.borrower_id === borrower.id && v.loan.id !== refiOf)
+    const { open, late } = stand(borrower.id)
+    // the loan being refinanced is not "another" loan
+    const others = open - (refi?.loan.borrower_id === borrower.id ? 1 : 0)
     if (borrower.tier === 'bad') warnings.push('Marked as a bad borrower')
     if (borrower.tier === 'banned') warnings.push('Marked as banned')
-    if (others.length) warnings.push(`Already has ${others.length} loan${others.length > 1 ? 's' : ''} in progress`)
-    const late = Math.max(0, ...views.filter((v) => v.active && v.loan.borrower_id === borrower.id).map((v) => daysPastDue(v.status.rows)))
+    if (others > 0) warnings.push(`Already has ${others} loan${others > 1 ? 's' : ''} in progress`)
     if (late > 0) warnings.push(`Late on a payment (${late} day${late > 1 ? 's' : ''} past due)`)
   }
   // money is released on the week days set in Settings: the date defaults to the next of them, others are allowed with a warning

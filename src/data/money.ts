@@ -5,7 +5,7 @@ import { uploadFile } from './core'
 import { useLoanViews, type LoanView } from './book'
 import { addDays, isEarlyPayoff, isPayoff, roundMoney, splitPayments, todayIso, toIso, type Currency } from '../lib/calc'
 import { fmt } from '../lib/format'
-import type { Borrower } from '../lib/types'
+import type { Borrower, Loan } from '../lib/types'
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -125,7 +125,7 @@ export function useMoneyData(): MoneyData {
           detail: `Loan released · ${code}` + (carried > 0 && loan.refinance_of ? ` · ${fmt(carried, loan.currency)} carried over from L-${String(loan.refinance_of).padStart(3, '0')}, no cash` : ''),
         })
         // the service fee is charged on the new cash only, not on a balance carried over from a refinanced loan
-        const fee = roundMoney(((loan.amount - carried) * loan.fee_pct) / 100, loan.currency)
+        const fee = serviceFee(loan)
         entries.push({
           ...blank, id: `f${loan.id}`, date: loan.release_date, ord: ts + '0', kind: 'fee', type: 'in', direction: 'in',
           currency: loan.currency, amount: fee, borrower, loanId: loan.id, detail: `Service fee · ${code}`,
@@ -168,6 +168,10 @@ export function useMoneyData(): MoneyData {
 
 export const net = (entries: LedgerEntry[]) => entries.reduce((s, e) => s + (e.direction === 'in' ? e.amount : -e.amount), 0)
 export const sum = (entries: LedgerEntry[], f: (e: LedgerEntry) => number = (e) => e.amount) => entries.reduce((s, e) => s + f(e), 0)
+
+/** Service fee on a loan: charged on the new cash only, not on a balance carried over from a refinanced loan. */
+export const serviceFee = (loan: Pick<Loan, 'amount' | 'carried_amount' | 'fee_pct' | 'currency'>) =>
+  roundMoney(((loan.amount - Number(loan.carried_amount ?? 0)) * loan.fee_pct) / 100, loan.currency)
 
 /** Loans that are released and still collecting. */
 export const openLoans = (d: MoneyData, cur?: Currency) =>

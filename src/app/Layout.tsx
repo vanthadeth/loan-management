@@ -27,6 +27,7 @@ const ActionSlotCtx = createContext<HTMLElement | null>(null)
 /** The empty space at the right of a sub page's title bar; a page portals its action button into it. */
 export const useActionSlot = () => useContext(ActionSlotCtx)
 
+const NAV_BY_KEY = new Map(NAV_ICONS.map((n) => [n[0], n]))
 const ROUTES: Record<string, string> = { dashboard: '/', today: '/today', payments: '/cashflow', loans: '/loans', reports: '/reports', borrowers: '/borrowers', hub: '/more' }
 const NAV_LABEL: Record<string, string> = { dashboard: 'home', payments: 'payTab', hub: 'more' }
 /** Bottom tabs: office roles get Home and Reports, field roles (scoped) get Today and Borrowers. */
@@ -116,7 +117,7 @@ export function Layout() {
   const path = loc.pathname
   const items = NAV_ORDER[scoped ? 'field' : 'office']
     .filter((k) => k !== 'reports' || can('reports.view'))
-    .map((k) => NAV_ICONS.find(([key]) => key === k))
+    .map((k) => NAV_BY_KEY.get(k))
     .filter((x): x is [string, string, string] => !!x)
   const section = path === '/' ? 'dashboard'
     : path.startsWith('/today') ? 'today'

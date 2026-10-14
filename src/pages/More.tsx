@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../app/auth'
 import { useI18n } from '../app/i18n'
@@ -10,6 +11,25 @@ import { Icon } from '../ui/Icon'
 
 type Row = [to: string, icon: string, name: string, desc: string, count?: number]
 
+function Section({ title, rows }: { title: string; rows: Row[] }) {
+  const nav = useNavigate()
+  return (
+    <section>
+      <div className="bh" style={{ paddingTop: 8 }}>{title}</div>
+      <div className="lcard">
+        {rows.map(([to, icon, name, desc, count]) => (
+          <button className="item" key={to} onClick={() => nav(to)}>
+            <span className="tic in"><Icon name={icon} size={17} /></span>
+            <span className="grow"><b className="ell" style={{ display: 'block' }}>{name}</b><span className="small muted">{desc}</span></span>
+            {count !== undefined && <span className="small muted num">{count}</span>}
+            <Icon name="chev" size={16} />
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export function More() {
   const { t } = useI18n()
   const { me, role, can } = useAuth()
@@ -18,8 +38,8 @@ export function More() {
   const borrowers = useBook().data?.borrowers.length
   const banks = useBanks().data?.length
   const { views } = useLoanViews()
-  const day = buildToday(views)
-  const todo = day.late.length + day.dueToday.length + (can('loans.approve') ? day.pending.length : 0) + day.release.filter((x) => x.v.loan.release_date === day.today).length
+  const canApprove = can('loans.approve')
+  const { todo } = useMemo(() => buildToday(views, canApprove), [views, canApprove])
 
   // everything else, least important last
   const main: Row[] = [
@@ -43,7 +63,7 @@ export function More() {
         </button>
         <button className="bt hb wide" onClick={() => nav('/today')}>
           <span className="hb-top"><span className="hb-ic"><Icon name="checkc" size={20} /></span><Icon name="chev" size={16} /></span>
-          <span className="hb-t"><b>Today</b><span className="small muted">What to collect, approve and release</span></span>
+          <span className="hb-t"><b>{t('today')}</b><span className="small muted">What to collect, approve and release</span></span>
           <span className="hb-v"><b className="num">{todo}</b><span className="small muted">to do</span></span>
         </button>
         <button className="bt hb" onClick={() => nav('/borrowers')}>
@@ -57,21 +77,8 @@ export function More() {
           <span className="hb-v"><b className="num">{unread}</b><span className="small muted">unread</span></span>
         </button>
       </div>
-      {[['Main menu', main], ['Other functions', rows]].map(([title, list]) => (
-        <section key={title as string}>
-          <div className="bh" style={{ paddingTop: 8 }}>{title as string}</div>
-          <div className="lcard">
-            {(list as Row[]).map(([to, icon, name, desc, count]) => (
-              <button className="item" key={to} onClick={() => nav(to)}>
-                <span className="tic in"><Icon name={icon} size={17} /></span>
-                <span className="grow"><b className="ell" style={{ display: 'block' }}>{name}</b><span className="small muted">{desc}</span></span>
-                {count !== undefined && <span className="small muted num">{count}</span>}
-                <Icon name="chev" size={16} />
-              </button>
-            ))}
-          </div>
-        </section>
-      ))}
+      <Section title="Main menu" rows={main} />
+      <Section title="Other functions" rows={rows} />
     </>
   )
 }

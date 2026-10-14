@@ -4,7 +4,8 @@ import { useAuth } from '../app/auth'
 import { useI18n } from '../app/i18n'
 import { bname } from '../data/borrowers'
 import { useLoans } from '../data/loans'
-import type { Currency } from '../lib/calc'
+import { useMemo } from 'react'
+import { CURRENCIES } from '../data/money'
 import { fmt, loanCode } from '../lib/format'
 import { buildToday, type Item } from '../data/today'
 import { Icon } from '../ui/Icon'
@@ -40,10 +41,10 @@ export function Today() {
   const { can } = useAuth()
   const nav = useNavigate()
   const { views, loading, error } = useLoans()
-  usePageTitle('Today')
-  const { late, dueToday, dueSoon, pending, release } = buildToday(views)
-  const sum = (xs: Item[], c: Currency) => xs.filter((x) => x.v.loan.currency === c).reduce((s, x) => s + (x.amount ?? 0), 0)
-  const toCollect = (['KHR', 'USD'] as Currency[]).map((c) => [c, sum(dueToday, c) + sum(late, c)] as const).filter(([, n]) => n > 0)
+  usePageTitle(t('today'))
+  const { late, dueToday, dueSoon, pending, release } = useMemo(() => buildToday(views), [views])
+  const sum = (xs: Item[], c: Item['v']['loan']['currency']) => xs.filter((x) => x.v.loan.currency === c).reduce((s, x) => s + (x.amount ?? 0), 0)
+  const toCollect = CURRENCIES.map((c) => [c, sum(dueToday, c) + sum(late, c)] as const).filter(([, n]) => n > 0)
   const nothing = !late.length && !dueToday.length && !dueSoon.length && !(can('loans.approve') && pending.length) && !release.length
 
   return (
@@ -63,7 +64,7 @@ export function Today() {
       {error && <p className="muted">{error}</p>}
       {loading && <p className="muted">Loading…</p>}
       {!loading && nothing && <p className="muted">Nothing to do today.</p>}
-      {<Group title="Late payments" icon="alert" items={late} empty="No late payments." nav={nav} />}
+      <Group title="Late payments" icon="alert" items={late} empty="No late payments." nav={nav} />
       <Group title="Due today" icon="clock" items={dueToday} empty="Nothing due today." nav={nav} />
       {dueSoon.length > 0 && <Group title="Due in the next 3 days" icon="cal" items={dueSoon} empty="" nav={nav} />}
       {can('loans.approve') && <Group title="Waiting for approval" icon="checkc" items={pending} empty="No loans waiting." nav={nav} />}

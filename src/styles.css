@@ -522,9 +522,8 @@ td,th{border-bottom:1px solid var(--hair)}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 
 .sheetbar{bottom:calc(-18px - env(safe-area-inset-bottom,0px));margin-bottom:calc(-18px - env(safe-area-inset-bottom,0px));padding:14px 0 calc(16px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--hair)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .hero{box-shadow:none}:root:not([data-theme="light"]) .fab{box-shadow:0 10px 22px -10px rgba(0,0,0,.6)}}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .hero{box-shadow:none}}
 :root[data-theme="dark"] .hero{box-shadow:none}
-:root[data-theme="dark"] .fab{box-shadow:0 10px 22px -10px rgba(0,0,0,.6)}
 
 /* bento (profile) */
 .bento{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;grid-auto-flow:dense}
@@ -595,8 +594,8 @@ td,th{border-bottom:1px solid var(--hair)}
 .chip.requested{background:var(--warn-soft);color:var(--warn)}
 .chip.gold{background:var(--warn-soft);color:var(--gold)}
 .btn.danger,.b-out{color:var(--late)}
-:root[data-theme="dark"] .hero,:root[data-theme="dark"] .fab{box-shadow:none}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .hero,:root:not([data-theme="light"]) .fab{box-shadow:none}}
+:root[data-theme="dark"] .hero{box-shadow:none}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .hero{box-shadow:none}}
 .hbars{color:#F5F7FA}
 
 :root[data-theme="dark"] .bt.t-sky,:root[data-theme="dark"] .bt.t-lilac,:root[data-theme="dark"] .bt.t-green,:root[data-theme="dark"] .bt.t-orange{background:var(--surface)}
@@ -1114,7 +1113,7 @@ main{--gb:16px}
 .print-only{display:none}
 @media print{
   html.print-report,html.print-report body,html.print-report #root,html.print-report .app,html.print-report main{display:block!important;height:auto!important;overflow:visible!important;position:static!important;padding:0!important;background:#fff!important;color:#000!important}
-  html.print-report .top,html.print-report .nav,html.print-report .no-print,html.print-report .sheet-bg,html.print-report .toast,html.print-report .fab{display:none!important}
+  html.print-report .top,html.print-report .nav,html.print-report .no-print,html.print-report .sheet-bg,html.print-report .toast{display:none!important}
   html.print-report .print-only{display:block}
   html.print-report .print-only h2{margin:0 0 2px;color:#000}
   html.print-report .print-only p{margin:0 0 12px;color:#444}
@@ -1136,7 +1135,7 @@ main{--gb:16px}
   .app.bars-hidden .top{transform:translateY(-100%)}
   .app.bars-hidden .nav{transform:translateY(100%)}
 }
-@media (prefers-reduced-motion:reduce){.top,.nav,.fab{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.top,.nav{transition:none!important}}
 
 #root{height:100%}
 
