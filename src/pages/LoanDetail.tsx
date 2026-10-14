@@ -123,7 +123,7 @@ export function LoanDetail() {
     ] : []),
     ...(canReturn ? [{ key: 'draft', label: 'Draft', icon: 'back', onClick: () => setDialog('return') }] : []),
     ...(canEarly ? [{ key: 'early', label: 'Early payoff', icon: 'coin', onClick: () => setDialog('early') }] : []),
-    ...(canRefinance ? [{ key: 'refi', label: 'Refinance', icon: 'refresh', onClick: () => nav(`/loans/new?refinance=${loan.id}`) }] : []),
+    ...(canRefinance ? [{ key: 'refi', label: 'Refinance', icon: 'loan', onClick: () => nav(`/loans/new?refinance=${loan.id}`) }] : []),
     ...(canReset ? [{ key: 'reset', label: 'Reset approval', icon: 'refresh', onClick: () => setDialog('reset') }] : []),
     ...(mine ? [{ key: 'delete', label: 'Delete draft', icon: 'trash', danger: true, onClick: () => setDialog('delete') }] : []),
     ...(canWriteOff ? [{ key: 'writeoff', label: 'Write off', icon: 'alert', danger: true, onClick: () => { setReason(''); setDialog('writeoff') } }] : []),
