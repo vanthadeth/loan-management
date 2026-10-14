@@ -11,9 +11,24 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&family=Noto+Sans+Khmer:wght@400;600;700&display=swap" />
     <meta name="apple-mobile-web-app-title" content="Komjei" />
     <title>Komjei</title>
+    <style>
+      /* Splash (ledger): inline so it paints before any script loads. Same markup as src/ui/Splash.tsx. */
+      .splash{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#F7F5EF;color:#1D2742;font-family:'Google Sans','Noto Sans Khmer',system-ui,sans-serif;z-index:1000}
+      .sp-sheet{width:min(62vw,260px);background:#fff;border-radius:10px;padding:16px 14px;box-shadow:0 10px 26px -14px rgba(29,39,66,.45);display:flex;flex-direction:column;gap:11px;border-left:5px solid #4F6FE8}
+      .sp-ln{height:6px;border-radius:3px;background:#C9D1E8;transform-origin:left;transform:scaleX(0);animation:sp-write 3.6s ease-in-out infinite}
+      .sp-ln:nth-child(1){width:70%}.sp-ln:nth-child(2){animation-delay:.25s;width:80%}.sp-ln:nth-child(3){animation-delay:.5s;width:92%}
+      .sp-ln:nth-child(4){animation-delay:.75s;width:60%}.sp-ln:nth-child(5){animation-delay:1s;width:85%}
+      .sp-ln.sum{background:#4F6FE8;animation-delay:1.4s;width:44%;height:8px;align-self:flex-end;margin-top:6px}
+      .sp-word{font-weight:700;font-size:26px;letter-spacing:-.02em;margin-top:6px}
+      .sp-foot{position:absolute;left:0;right:0;bottom:calc(8% + env(safe-area-inset-bottom,0px));text-align:center;font-size:13px;color:#68758F}
+      @keyframes sp-write{0%{transform:scaleX(0)}30%,80%{transform:scaleX(1)}100%{transform:scaleX(1);opacity:0}}
+      @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .splash{background:#0E1426;color:#E9EDF9}:root:not([data-theme="light"]) .sp-sheet{background:#171F38;box-shadow:none}:root:not([data-theme="light"]) .sp-ln{background:#2F3B66}:root:not([data-theme="light"]) .sp-ln.sum{background:#7D98FF}:root:not([data-theme="light"]) .sp-foot{color:#97A3C0}}
+      :root[data-theme="dark"] .splash{background:#0E1426;color:#E9EDF9}:root[data-theme="dark"] .sp-sheet{background:#171F38;box-shadow:none}:root[data-theme="dark"] .sp-ln{background:#2F3B66}:root[data-theme="dark"] .sp-ln.sum{background:#7D98FF}:root[data-theme="dark"] .sp-foot{color:#97A3C0}
+      @media (prefers-reduced-motion:reduce){.sp-ln{animation:none;transform:scaleX(1)}}
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="splash" role="status" aria-label="Loading"><div class="sp-sheet"><i class="sp-ln"></i><i class="sp-ln"></i><i class="sp-ln"></i><i class="sp-ln"></i><i class="sp-ln"></i><i class="sp-ln sum"></i></div><div class="sp-word">Komjei</div><div class="sp-foot">Opening your ledger</div></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

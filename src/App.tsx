@@ -25,10 +25,11 @@ import { LoginInfo } from './pages/LoginInfo'
 import { Settings } from './pages/Settings'
 import { Banks } from './pages/Banks'
 import { Today } from './pages/Today'
+import { Splash } from './ui/Splash'
 
 export function App() {
   const { loading, session, me } = useAuth()
-  if (loading) return <div className="auth"><p className="muted">Loading…</p></div>
+  if (loading) return <Splash />
   if (!session) return <SignIn />
   if (!me || me.status !== 'active') return <Blocked />
   if (me.must_change_password) return <NewPassword />
