@@ -1281,3 +1281,21 @@ body.popup-open #main{overflow:hidden!important;touch-action:none}
 /* add action in the top bar */
 .hdr-add{background:var(--accent);color:var(--accent-ink);box-shadow:none!important}
 .hdr-add:active{transform:scale(.94)}
+
+/* minimalist bento: quiet icon and title, the figure is what you read first */
+.bt .bt-h{gap:6px;font-size:12px;font-weight:500;letter-spacing:0;color:var(--muted)}
+.bt.t-sky .bt-h,.bt.t-lilac .bt-h,.bt.t-green .bt-h,.bt.t-orange .bt-h{color:var(--muted)}
+.bt .bt-h svg{box-sizing:border-box;width:15px;height:15px;padding:0;border-radius:0;background:none;box-shadow:none;color:var(--muted);opacity:.85}
+.bt .bt-big{font-size:36px;font-weight:700;letter-spacing:-.03em;color:var(--ink);margin-top:4px}
+.bt .bt-sub{font-size:12px;color:var(--muted)}
+.hb .hb-ic{width:auto;height:auto;border-radius:0;background:none;color:var(--muted);display:inline-flex}
+.hb.big .hb-ic{width:auto;height:auto}
+.hb .hb-ic svg{width:18px;height:18px}
+.hb-t{gap:2px}
+.hb-t b{font-size:14px;font-weight:500;color:var(--muted);letter-spacing:0}
+.hb .hb-t .small{font-size:12px;opacity:.85}
+.hb-v b{font-size:34px;font-weight:700;letter-spacing:-.03em;color:var(--ink)}
+.hb.big .hb-t b{font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-.02em}
+.hb.big .hb-t .small{font-size:12.5px}
+.hb-top{color:var(--muted)}
+.hb-top .avatar{width:44px;height:44px}
