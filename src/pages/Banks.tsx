@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../app/auth'
 import { usePageTitle } from '../app/Layout'
-import { useBanks } from '../data/core'
+import { fileUrl, uploadFile, useBanks } from '../data/core'
 import { BANK_NAMES, useBankActions, useRun } from '../data/admin'
 import { Dropdown, Field } from '../ui/Controls'
 import { Icon } from '../ui/Icon'
@@ -19,10 +19,23 @@ function BankSheet({ bank, onClose, onDelete }: { bank?: BankAccount; onClose: (
   const [name, setName] = useState(bank && BANK_NAMES.includes(bank.bank) ? bank.bank : bank ? 'Other' : BANK_NAMES[0])
   const [holder, setHolder] = useState(bank?.account_name ?? '')
   const [no, setNo] = useState(bank?.account_no ?? '')
+  // the QR code picture: the saved one, a newly picked one, or none
+  const [qrFile, setQrFile] = useState<File | null>(null)
+  const [qrGone, setQrGone] = useState(false)
+  const [savedQr, setSavedQr] = useState<string | null>(null)
+  useEffect(() => { let on = true; fileUrl(bank?.qr_path).then((u) => on && setSavedQr(u)); return () => { on = false } }, [bank?.qr_path])
+  const picked = useMemo(() => (qrFile ? URL.createObjectURL(qrFile) : null), [qrFile])
+  useEffect(() => () => { if (picked) URL.revokeObjectURL(picked) }, [picked])
+  const shown = picked ?? (qrGone ? null : savedQr)
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => { setQrFile(e.target.files?.[0] ?? null); setQrGone(false); e.target.value = '' }
   const save = async () => {
     if (!holder.trim()) { toast('Enter the account name'); return }
     if (!no.trim()) { toast('Enter the account number'); return }
-    if (await run(() => actions.save(bank?.id ?? null, { bank: name, account_name: holder.trim(), account_no: no.trim() }), 'Bank account saved')) onClose()
+    const saved = await run(async () => {
+      const qr_path = qrFile ? await uploadFile('bank-qr', qrFile) : qrGone ? null : bank?.qr_path ?? null
+      await actions.save(bank?.id ?? null, { bank: name, account_name: holder.trim(), account_no: no.trim(), qr_path })
+    }, 'Bank account saved')
+    if (saved) onClose()
   }
   return (
     <Sheet title={bank ? 'Edit bank account' : 'Add bank account'} onClose={onClose} action={{ onClick: save }}>
@@ -30,6 +43,20 @@ function BankSheet({ bank, onClose, onDelete }: { bank?: BankAccount; onClose: (
         <Dropdown id="kb" label="Bank" options={BANK_NAMES} value={name} onChange={setName} />
         <Field id="kn" label="Account name" value={holder} onChange={setHolder} />
         <Field id="kc" label="Account number" value={no} onChange={setNo} />
+        <div className="field">
+          <label>QR code picture</label>
+          <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+            <span className="qrbox">{shown ? <img src={shown} alt="Bank QR code" /> : <Icon name="camera" size={26} />}</span>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <label className="btn sm" style={{ cursor: 'pointer' }}>
+                <Icon name="upload" size={16} />{shown ? 'Change picture' : 'Choose picture'}
+                <input type="file" accept="image/*" hidden onChange={pick} />
+              </label>
+              {shown && <button type="button" className="btn sm ghost" onClick={() => { setQrFile(null); setQrGone(true) }}>Remove</button>}
+            </div>
+          </div>
+          <p className="small muted" style={{ margin: '6px 0 0' }}>Shown in contracts that use the placeholder <b>{'{{bank_qr}}'}</b>.</p>
+        </div>
         {bank && <button type="button" className="btn danger blockbtn" onClick={onDelete}>Delete account</button>}
       </div>
     </Sheet>
@@ -59,6 +86,7 @@ export function Banks() {
               <b className="ell" style={{ display: 'block' }}>{b.bank}</b>
               <span className="small muted">{b.account_name} · {b.account_no}</span>
             </span>
+            {b.qr_path && <span className="small muted" title="Has a QR code"><Icon name="doc" size={16} /></span>}
             <button className="icon-btn" aria-label={`Edit ${b.bank}`} onClick={() => setDlg({ kind: 'form', bank: b })}><Icon name="edit" size={18} /></button>
           </div>
         ))}

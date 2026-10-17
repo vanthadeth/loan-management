@@ -19,7 +19,7 @@ export interface Borrower {
   tier: Tier; status: 'active' | 'banned'; note: string; photo_path: string | null; created_at: string
 }
 export interface BorrowerDocument { id: number; borrower_id: number; title: string; note: string; file_path: string | null; created_at: string }
-export interface BankAccount { id: number; bank: string; account_name: string; account_no: string }
+export interface BankAccount { id: number; bank: string; account_name: string; account_no: string; /** QR code picture in the files bucket */ qr_path: string | null }
 
 export interface Loan {
   id: number; borrower_id: number; supervisor_id: string | null; collector_id: string | null;

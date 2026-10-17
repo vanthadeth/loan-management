@@ -45,6 +45,7 @@ export const PLACEHOLDERS: [string, string][] = [
   ['bank_name', 'Bank the borrower pays into (empty if not by bank)'],
   ['bank_account_no', 'Bank account number'],
   ['bank_account_name', 'Bank account name'],
+  ['bank_qr', 'QR code picture of the bank account (empty if there is none), shown 40 mm wide'],
   ['collateral', 'Collateral items'],
   ['supervisor', 'Loan supervisor (the name they go by)'],
   ['collector', 'Loan collector (the name they go by)'],
@@ -164,7 +165,7 @@ export interface ContractInput {
   terms: LoanTerms
   frequency: string
   payMethod: string
-  bank: { bank: string; account_no: string; account_name: string } | null
+  bank: { bank: string; account_no: string; account_name: string; /** the QR picture as a data: URL */ qr?: string | null } | null
   payRemarks: string
   borrower: { name: string; name_km: string; gender: 'F' | 'M' | null; id_no: string; dob: string | null; phone: string; address: string }
   collaterals: string[]
@@ -365,6 +366,7 @@ export function contractValues(c: ContractInput, lang: ContractLang = 'km'): Val
   }
   const out: Values = {}
   for (const k of Object.keys(v)) out[k] = { text: v[k] }
+  out.bank_qr = { text: bank?.qr ? `<img src="${bank.qr}" alt="QR code" style="width:40mm;height:40mm;object-fit:contain">` : '', html: true }
   out.schedule = { text: schedule, html: true }
   out.schedule_table = { text: schedule, html: true }
   return out

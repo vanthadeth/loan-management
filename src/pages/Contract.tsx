@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Dropdown } from '../ui/Controls'
 import { Icon } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
 import { usePageTitle } from '../app/Layout'
 import { useAuth } from '../app/auth'
-import { dn, useBanks, useTeam } from '../data/core'
+import { dn, fileDataUrl, useBanks, useTeam } from '../data/core'
 import { pickTemplate, useContractTemplates, useTemplateHtml } from '../data/contract'
 import { errMsg, useLoanFiles, useLoans } from '../data/loans'
 import { allScheduleRows, allValues, cleanDocument, fillScheduleRows, fillScheduleTable, fillTemplate, type ContractInput, type ContractLang } from '../lib/contract'
@@ -85,9 +86,13 @@ export function Contract() {
   usePageTitle('Contract')
 
   const v = views.find((x) => x.loan.id === loanId)
+  // the bank account's QR code, embedded in the contract as {{bank_qr}}
+  const qrPath = banks.data?.find((b) => b.id === v?.loan.bank_account_id)?.qr_path
+  const qr = useQuery({ queryKey: ['bank-qr', qrPath], enabled: !!qrPath, staleTime: 300_000, queryFn: () => fileDataUrl(qrPath) })
   const input = useMemo<ContractInput | null>(() => {
     if (!v || !v.borrower || !files.data) return null
-    const bank = banks.data?.find((b) => b.id === v.loan.bank_account_id)
+    const found = banks.data?.find((b) => b.id === v.loan.bank_account_id)
+    const bank = found ? { ...found, qr: qr.data ?? null } : null
     return {
       loanId, terms: v.terms, frequency: v.loan.frequency, payMethod: v.loan.pay_method,
       bank: bank ?? null, payRemarks: v.loan.pay_remarks,
@@ -103,7 +108,7 @@ export function Contract() {
         return { km: sv?.full_name ?? '', latin: sv?.name_latin ?? '' }
       })(),
     }
-  }, [v, files.data, banks.data, team.data, loanId])
+  }, [v, files.data, banks.data, qr.data, team.data, loanId])
 
   const fill = (html: string, lang: ContractLang, annexPage: boolean) => {
     const rows = fillScheduleRows(html, allScheduleRows(input!, lang))

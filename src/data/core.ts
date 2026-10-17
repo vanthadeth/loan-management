@@ -51,6 +51,18 @@ export async function fileUrl(path: string | null | undefined) {
   const { data } = await supabase.storage.from('files').createSignedUrl(path, 3600)
   return data?.signedUrl ?? null
 }
+/** A private image as a data: URL, so it can be embedded in a contract that is printed or saved on its own. */
+export async function fileDataUrl(path: string | null | undefined) {
+  if (!path) return null
+  const { data } = await supabase.storage.from('files').download(path)
+  if (!data) return null
+  return await new Promise<string | null>((ok) => {
+    const r = new FileReader()
+    r.onload = () => ok(typeof r.result === 'string' ? r.result : null)
+    r.onerror = () => ok(null)
+    r.readAsDataURL(data)
+  })
+}
 export async function uploadFile(folder: string, file: File) {
   const ext = file.name.split('.').pop() || 'bin'
   const path = `${folder}/${crypto.randomUUID()}.${ext}`
